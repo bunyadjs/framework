@@ -40,6 +40,10 @@
     "./commands": {
       "types": "./src/app-commands.ts",
       "default": "./src/app-commands.ts"
+    },
+    "./bin": {
+      "types": "./src/bunyad.ts",
+      "default": "./src/bunyad.ts"
     }
   },
   "dependencies": {
@@ -77,6 +81,10 @@
       "./commands": {
         "types": "./dist/app-commands.d.ts",
         "default": "./dist/app-commands.js"
+      },
+      "./bin": {
+        "types": "./dist/bunyad.d.ts",
+        "default": "./dist/bunyad.js"
       }
     },
     "bin": {

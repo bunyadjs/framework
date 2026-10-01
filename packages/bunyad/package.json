@@ -1,0 +1,42 @@
+{
+  "name": "bunyad",
+  "version": "0.1.0-alpha.0",
+  "description": "The Bunyad command line. Same as @bunyad/cli: bun add -g bunyad",
+  "license": "MIT",
+  "author": "Shah Khalid",
+  "type": "module",
+  "bin": {
+    "bunyad": "./index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunyadjs/framework.git",
+    "directory": "packages/bunyad"
+  },
+  "homepage": "https://github.com/bunyadjs/framework#readme",
+  "bugs": {
+    "url": "https://github.com/bunyadjs/framework/issues"
+  },
+  "keywords": [
+    "bunyad",
+    "bun",
+    "cli"
+  ],
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "dependencies": {
+    "@bunyad/cli": "workspace:^"
+  },
+  "scripts": {
+    "build": "echo nothing to build"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
