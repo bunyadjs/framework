@@ -1,39 +1,48 @@
 # @bunyad/database
 
-Shared query builder, schema, migrator, and dual-runtime drivers (Bun + Node).
+Query builder, schema builder, migrations and connections for [Bunyad](https://github.com/bunyadjs/framework). One API on Node and Bun.
 
-## Runtimes
+> **Alpha.** APIs may change between `0.x` releases.
 
-| Condition | Entry | Drivers |
-|---|---|---|
-| `"bun"` | `src/index.bun.ts` | `bun:sqlite`, Bun `SQL` |
-| `"node"` / default | `src/index.node.ts` | `pg` Pool, `mysql2`, `better-sqlite3`, `mssql` |
+```bash
+npm install @bunyad/database@alpha better-sqlite3   # or pg / mysql2
+```
 
-Optional peers: `pg`, `mysql2`, `better-sqlite3`, `bcrypt` (preferred) / `bcryptjs` (fallback). Missing peers fail fast with install hints.
+```ts
+import { connectSqlite, schemaFor } from "@bunyad/database";
 
-## Env / connection URL parity
+const connection = connectSqlite({ path: "app.sqlite" });
 
-Bun and Node share `configFromEnv` / `connectFromEnv`:
+await schemaFor(connection).create("users", (table) => {
+  table.id();
+  table.string("email").unique();
+  table.timestamps();
+});
+```
 
-- `DB_CONNECTION` — `sqlite` \| `pgsql` \| `mysql` \| `mariadb` \| `sqlsrv`
-- `DATABASE_URL` / `DB_URL` — full connection URL when set
+## Runtimes and drivers
+
+| Runtime | Drivers |
+|---|---|
+| Bun (`"bun"` export condition) | `bun:sqlite`, Bun `SQL` (PostgreSQL, MySQL) |
+| Node (default) | `better-sqlite3`, `pg`, `mysql2`, `mssql` |
+
+Install the driver you need as a peer dependency: `better-sqlite3`, `pg` or `mysql2`. `bcrypt` (preferred) or `bcryptjs` is used for hashed password columns. A missing driver fails fast with an install hint.
+
+## Connecting from the environment
+
+`connectFromEnv()` reads:
+
+- `DB_CONNECTION`: `sqlite`, `pgsql`, `mysql`, `mariadb` or `sqlsrv`
+- `DATABASE_URL` or `DB_URL`: a full connection URL (takes precedence)
 - `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
-- Tests: `BUNYAD_TEST_POSTGRES_URL` (live-PG gate); `BUNYAD_TEST_MYSQL_URL` (live-MySQL gate)
 
+Don't call `close()` or `pool.end()` while a transaction still holds a reserved client.
 
-## Platform hooks
+## Status
 
-Password (`hashed` cast) and migrator glob resolve Bun vs Node at runtime via `platforms/`.
-Do not call `close()` / `pool.end()` while a transaction still holds a reserved client.
+SQLite is the most tested driver. PostgreSQL and MySQL have live-database test gates (`BUNYAD_TEST_POSTGRES_URL`, `BUNYAD_TEST_MYSQL_URL`) that are skipped when unset. SQL Server support is experimental.
 
+## License
 
-## Nest / Next glue (Phase 5)
-
-- NestJS: in-monorepo `@bunyad/nestjs` — `BunyadOrmModule.forRoot` / `forRootAsync` (optional Nest peers).
-- Next.js: `docs/examples/orm-node-next` — `"server-only"` + one shared pool; Edge out of scope.
-
-## Dual-runtime CI
-
-- Bun: `bun test` (existing package suites).
-- Node: `bun run --cwd packages/database test:node` or `./scripts/ci-node-orm.sh`.
-- Live gates: `BUNYAD_TEST_POSTGRES_URL`, `BUNYAD_TEST_MYSQL_URL` (skips when unset/unreachable).
+MIT
