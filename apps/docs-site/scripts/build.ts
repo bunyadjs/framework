@@ -1,6 +1,6 @@
 /**
  * `bun run build` — render every docs page to static HTML under `dist/`,
- * alongside the search index and a redirect stub at the site root.
+ * alongside the search index. The site root serves the Introduction directly.
  */
 import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -14,11 +14,6 @@ await warm();
 
 cpSync(join(root, "public"), dist, { recursive: true });
 writeFileSync(join(dist, "assets/search-index.json"), searchJson());
-writeFileSync(
-  join(dist, "index.html"),
-  `<!DOCTYPE html><meta charset="utf-8"/><meta http-equiv="refresh" content="0; url=/docs/1.x"/><title>Bunyad Docs</title><p><a href="/docs/1.x">Bunyad Docs</a></p>`,
-);
-
 for (const page of flatPages()) {
   const body = await documentFor(page.slug);
   if (!body) throw new Error(`Missing page ${page.slug}`);
@@ -28,5 +23,10 @@ for (const page of flatPages()) {
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, body);
 }
+
+// `/` is the Introduction itself, not a redirect to it.
+const introduction = await documentFor("");
+if (!introduction) throw new Error("Missing Introduction page");
+writeFileSync(join(dist, "index.html"), introduction);
 
 console.log(`Wrote ${documents().length} pages to ${dist}`);

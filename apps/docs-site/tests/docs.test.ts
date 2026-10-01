@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { extractHeadings, parseFrontmatter, renderMarkdown, slugify } from "../app/Docs/markdown.ts";
 import { flatPages } from "../app/Docs/nav.ts";
 import { searchIndex, type BuiltPage } from "../app/Docs/site.ts";
+import DocsController from "../app/Http/Controllers/DocsController.ts";
+import { warm } from "../app/Docs/cache.ts";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -58,5 +60,18 @@ describe("published pages", () => {
     for (const page of flatPages()) {
       expect(existsSync(join(import.meta.dir, "../resources/docs/1.x", page.file))).toBe(true);
     }
+  });
+});
+
+describe("site root", () => {
+  test("/ serves the Introduction directly instead of redirecting", async () => {
+    await warm();
+    const controller = new DocsController();
+    const home = await controller.home();
+    const intro = await controller.index();
+    expect(home.status).toBe(200);
+    expect(home.headers.get("location")).toBeNull();
+    expect(home.headers.get("content-type")).toContain("text/html");
+    expect(await home.text()).toBe(await intro.text());
   });
 });

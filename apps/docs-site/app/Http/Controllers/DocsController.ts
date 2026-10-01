@@ -9,8 +9,8 @@ function html(body: string, status = 200): Response {
 }
 
 export default class DocsController {
-  home(): Response {
-    return Response.redirect("/docs/1.x", 302);
+  async home(): Promise<Response> {
+    return this.index();
   }
 
   async index(): Promise<Response> {
