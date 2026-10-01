@@ -24,7 +24,7 @@ Copy these into a Next.js app (e.g. `lib/db.ts`, `app/api/users/route.ts`).
 
 ## Env
 
-Same as Bun / Nest — see `@bunyad/database` README and ADR-007:
+Same as Bun / Nest — see the `@bunyad/database` README:
 
 - `DATABASE_URL` / `DB_URL` or `DB_HOST` / `DB_PORT` / `DB_DATABASE` / …
 - `DB_CONNECTION=pgsql` (or mysql / sqlite / …)

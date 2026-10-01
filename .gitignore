@@ -20,3 +20,7 @@ packages/session/src/.tmp-sessions/
 .packs/
 tsconfig.build.generated.json
 packages/cli/templates/
+
+# Personal plans, specs and notes (mirrors the repo layout; not published)
+/private/
+/.cursor/

@@ -47,6 +47,7 @@ bun run start →  loads only compiled code
 bunyad/
 ├── apps/              # Playground, benchmarks, docs site
 ├── packages/          # @bunyad/* packages
+├── docs/              # Runnable examples (Express, Next.js)
 ├── benchmarks/
 ├── templates/         # Starter kits (API, MVC, SaaS, package)
 ├── tools/             # Internal generators & build utilities

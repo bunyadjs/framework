@@ -77,6 +77,7 @@ BunyadOrmModule.forRootAsync({
 
 ## Dual runtime
 
+Same models/queries as Bun. Under Node, `@bunyad/database` resolves Node drivers (`pg` / `mysql2` / `better-sqlite3`).
 
 ## Publish / peers note
 
