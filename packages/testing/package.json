@@ -1,8 +1,32 @@
 {
   "name": "@bunyad/testing",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0-alpha.0",
+  "description": "Testing helpers for Bunyad apps.",
+  "license": "MIT",
+  "author": "Shah Khalid",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunyadjs/framework.git",
+    "directory": "packages/testing"
+  },
+  "homepage": "https://github.com/bunyadjs/framework#readme",
+  "bugs": {
+    "url": "https://github.com/bunyadjs/framework/issues"
+  },
+  "keywords": [
+    "bunyad",
+    "bun",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -10,15 +34,25 @@
     }
   },
   "dependencies": {
-    "@bunyad/auth": "workspace:*",
-    "@bunyad/cli": "workspace:*",
-    "@bunyad/contracts": "workspace:*",
-    "@bunyad/core": "workspace:*",
-    "@bunyad/database": "workspace:*",
-    "@bunyad/http": "workspace:*",
-    "@bunyad/orm": "workspace:*"
+    "@bunyad/auth": "workspace:^",
+    "@bunyad/cli": "workspace:^",
+    "@bunyad/contracts": "workspace:^",
+    "@bunyad/core": "workspace:^",
+    "@bunyad/database": "workspace:^",
+    "@bunyad/http": "workspace:^",
+    "@bunyad/orm": "workspace:^"
   },
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "build": "bun ../../scripts/build-package.ts ."
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
   }
 }

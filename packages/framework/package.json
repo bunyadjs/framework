@@ -1,8 +1,32 @@
 {
   "name": "@bunyad/framework",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0-alpha.0",
+  "description": "The Bunyad framework: the full stack in one package.",
+  "license": "MIT",
+  "author": "Shah Khalid",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunyadjs/framework.git",
+    "directory": "packages/framework"
+  },
+  "homepage": "https://github.com/bunyadjs/framework#readme",
+  "bugs": {
+    "url": "https://github.com/bunyadjs/framework/issues"
+  },
+  "keywords": [
+    "bunyad",
+    "bun",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -22,42 +46,64 @@
     }
   },
   "dependencies": {
-    "@bunyad/auth": "workspace:*",
-    "@bunyad/broadcasting": "workspace:*",
-    "@bunyad/cache": "workspace:*",
-    "@bunyad/billing": "workspace:*",
-    "@bunyad/cli": "workspace:*",
-    "@bunyad/common": "workspace:*",
-    "@bunyad/compiler": "workspace:*",
-    "@bunyad/config": "workspace:*",
-    "@bunyad/container": "workspace:*",
-    "@bunyad/contracts": "workspace:*",
-    "@bunyad/core": "workspace:*",
-    "@bunyad/database": "workspace:*",
-    "@bunyad/events": "workspace:*",
-    "@bunyad/filesystem": "workspace:*",
-    "@bunyad/head": "workspace:*",
-    "@bunyad/http": "workspace:*",
-    "@bunyad/image": "workspace:*",
-    "@bunyad/inertia": "workspace:*",
-    "@bunyad/live": "workspace:*",
-    "@bunyad/log": "workspace:*",
-    "@bunyad/mail": "workspace:*",
-    "@bunyad/notifications": "workspace:*",
-    "@bunyad/orm": "workspace:*",
-    "@bunyad/features": "workspace:*",
-    "@bunyad/metrics": "workspace:*",
-    "@bunyad/queue": "workspace:*",
-    "@bunyad/router": "workspace:*",
-    "@bunyad/schedule": "workspace:*",
-    "@bunyad/search": "workspace:*",
-    "@bunyad/session": "workspace:*",
-    "@bunyad/oauth": "workspace:*",
-    "@bunyad/testing": "workspace:*",
-    "@bunyad/validation": "workspace:*",
-    "@bunyad/view": "workspace:*"
+    "@bunyad/auth": "workspace:^",
+    "@bunyad/broadcasting": "workspace:^",
+    "@bunyad/cache": "workspace:^",
+    "@bunyad/billing": "workspace:^",
+    "@bunyad/cli": "workspace:^",
+    "@bunyad/common": "workspace:^",
+    "@bunyad/compiler": "workspace:^",
+    "@bunyad/config": "workspace:^",
+    "@bunyad/container": "workspace:^",
+    "@bunyad/contracts": "workspace:^",
+    "@bunyad/core": "workspace:^",
+    "@bunyad/database": "workspace:^",
+    "@bunyad/events": "workspace:^",
+    "@bunyad/filesystem": "workspace:^",
+    "@bunyad/head": "workspace:^",
+    "@bunyad/http": "workspace:^",
+    "@bunyad/image": "workspace:^",
+    "@bunyad/inertia": "workspace:^",
+    "@bunyad/live": "workspace:^",
+    "@bunyad/log": "workspace:^",
+    "@bunyad/mail": "workspace:^",
+    "@bunyad/notifications": "workspace:^",
+    "@bunyad/orm": "workspace:^",
+    "@bunyad/features": "workspace:^",
+    "@bunyad/metrics": "workspace:^",
+    "@bunyad/queue": "workspace:^",
+    "@bunyad/router": "workspace:^",
+    "@bunyad/schedule": "workspace:^",
+    "@bunyad/search": "workspace:^",
+    "@bunyad/session": "workspace:^",
+    "@bunyad/oauth": "workspace:^",
+    "@bunyad/testing": "workspace:^",
+    "@bunyad/validation": "workspace:^",
+    "@bunyad/view": "workspace:^"
   },
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "build": "bun ../../scripts/build-package.ts ."
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./plugins": {
+        "types": "./dist/plugins.d.ts",
+        "default": "./dist/plugins.js"
+      },
+      "./globals": {
+        "types": "./dist/globals.d.ts",
+        "default": "./dist/globals.js"
+      },
+      "./providers/LogServiceProvider": {
+        "types": "./dist/providers/LogServiceProvider.d.ts",
+        "default": "./dist/providers/LogServiceProvider.js"
+      }
+    }
   }
 }

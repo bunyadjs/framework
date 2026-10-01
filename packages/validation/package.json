@@ -1,8 +1,32 @@
 {
   "name": "@bunyad/validation",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0-alpha.0",
+  "description": "Validation for Bunyad: rules, form requests and messages.",
+  "license": "MIT",
+  "author": "Shah Khalid",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunyadjs/framework.git",
+    "directory": "packages/validation"
+  },
+  "homepage": "https://github.com/bunyadjs/framework#readme",
+  "bugs": {
+    "url": "https://github.com/bunyadjs/framework/issues"
+  },
+  "keywords": [
+    "bunyad",
+    "bun",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -14,13 +38,27 @@
     }
   },
   "dependencies": {
-    "@bunyad/common": "workspace:*",
-    "@bunyad/image": "workspace:*"
+    "@bunyad/common": "workspace:^",
+    "@bunyad/image": "workspace:^"
   },
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "build": "bun ../../scripts/build-package.ts ."
   },
   "devDependencies": {
     "@bunyad/auth": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./lang/en/validation": {
+        "types": "./dist/lang/en/validation.d.ts",
+        "default": "./dist/lang/en/validation.js"
+      }
+    }
   }
 }

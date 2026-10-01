@@ -1,37 +1,89 @@
 {
   "name": "@bunyad/cli",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0-alpha.0",
+  "description": "The bunyad command line: scaffold apps, run migrations, serve, and generate code.",
+  "license": "MIT",
+  "author": "Shah Khalid",
   "type": "module",
-  "bin": {
-    "bunyad": "./src/bunyad.ts"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunyadjs/framework.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/bunyadjs/framework#readme",
+  "bugs": {
+    "url": "https://github.com/bunyadjs/framework/issues"
+  },
+  "keywords": [
+    "bunyad",
+    "bun",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
   },
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./command": "./command.ts",
-    "./commands": "./commands.ts"
+    "./command": {
+      "types": "./src/command.ts",
+      "default": "./src/command.ts"
+    },
+    "./commands": {
+      "types": "./src/app-commands.ts",
+      "default": "./src/app-commands.ts"
+    }
   },
   "dependencies": {
-    "@bunyad/cache": "workspace:*",
-    "@bunyad/common": "workspace:*",
-    "@bunyad/compiler": "workspace:*",
-    "@bunyad/console": "workspace:*",
-    "@bunyad/core": "workspace:*",
-    "@bunyad/database": "workspace:*",
-    "@bunyad/events": "workspace:*",
-    "@bunyad/features": "workspace:*",
-    "@bunyad/migrate": "workspace:*",
-    "@bunyad/orm": "workspace:*",
-    "@bunyad/queue": "workspace:*",
-    "@bunyad/router": "workspace:*",
-    "@bunyad/schedule": "workspace:*",
-    "@bunyad/view": "workspace:*",
+    "@bunyad/cache": "workspace:^",
+    "@bunyad/common": "workspace:^",
+    "@bunyad/compiler": "workspace:^",
+    "@bunyad/console": "workspace:^",
+    "@bunyad/core": "workspace:^",
+    "@bunyad/database": "workspace:^",
+    "@bunyad/events": "workspace:^",
+    "@bunyad/features": "workspace:^",
+    "@bunyad/migrate": "workspace:^",
+    "@bunyad/orm": "workspace:^",
+    "@bunyad/queue": "workspace:^",
+    "@bunyad/router": "workspace:^",
+    "@bunyad/schedule": "workspace:^",
+    "@bunyad/view": "workspace:^",
     "typescript": "^5.9.2"
   },
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "build": "bun ../../scripts/build-package.ts . && bun scripts/bundle-templates.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./command": {
+        "types": "./dist/command.d.ts",
+        "default": "./dist/command.js"
+      },
+      "./commands": {
+        "types": "./dist/app-commands.d.ts",
+        "default": "./dist/app-commands.js"
+      }
+    },
+    "bin": {
+      "bunyad": "./dist/bunyad.js"
+    }
+  },
+  "bin": {
+    "bunyad": "./src/bunyad.ts"
   }
 }

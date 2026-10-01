@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { flockServedHint, listTemplates, newProject } from "./new.ts";
+import { applyDatabase, flockServedHint, listTemplates, newProject } from "./new.ts";
 import { Prompt, restore, setPromptOutput } from "./prompts.ts";
 
 test("listTemplates includes every starter kit and saas", async () => {
@@ -92,7 +92,7 @@ test("the prompt offers the starter kits by name and copies no runtime leftovers
   const cwd = process.cwd();
   process.chdir(parent);
   try {
-    Prompt.fake(["1", "shop", true]);
+    Prompt.fake(["1", "shop", "1", false, false, true]);
     await newProject([]);
 
     const menu = lines.join("\n");
@@ -116,6 +116,85 @@ test("the prompt offers the starter kits by name and copies no runtime leftovers
     console.log = log;
     restore();
     setPromptOutput((line) => console.log(line));
+    process.chdir(cwd);
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test("--database points the new app's .env at PostgreSQL", async () => {
+  const parent = resolve(import.meta.dir, "../.tmp-new-db");
+  await rm(parent, { recursive: true, force: true });
+  await mkdir(parent, { recursive: true });
+  const cwd = process.cwd();
+  process.chdir(parent);
+  try {
+    await newProject(["api", "shop-api", "--database=pgsql"]);
+    const env = await Bun.file(resolve(parent, "shop-api/.env")).text();
+    expect(env).toContain("DB_CONNECTION=pgsql");
+    expect(env).toContain("DB_PORT=5432");
+    expect(env).toContain("DB_DATABASE=shop_api");
+    expect(env).toContain("DB_USERNAME=postgres");
+    expect(env).not.toContain("# DB_HOST");
+    expect(env).toMatch(/^APP_KEY=.{20,}$/m);
+  } finally {
+    process.chdir(cwd);
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test("applyDatabase appends settings the template does not list", async () => {
+  const dir = resolve(import.meta.dir, "../.tmp-new-env");
+  await rm(dir, { recursive: true, force: true });
+  await mkdir(dir, { recursive: true });
+  try {
+    await Bun.write(resolve(dir, ".env.example"), "APP_NAME=x\nDB_CONNECTION=sqlite\n");
+    await applyDatabase(dir, "mysql", "my-app");
+    const env = await Bun.file(resolve(dir, ".env.example")).text();
+    expect(env).toContain("DB_CONNECTION=mysql");
+    expect(env).toContain("DB_PORT=3306");
+    expect(env).toContain("DB_DATABASE=my_app");
+    expect(env).toContain("APP_NAME=x");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("unknown options and databases are rejected before anything is created", async () => {
+  const parent = resolve(import.meta.dir, "../.tmp-new-bad");
+  await rm(parent, { recursive: true, force: true });
+  await mkdir(parent, { recursive: true });
+  const cwd = process.cwd();
+  const err = console.error;
+  const messages: string[] = [];
+  console.error = (line: string) => messages.push(String(line));
+  process.chdir(parent);
+  try {
+    await newProject(["api", "a", "--database=oracle"]);
+    await newProject(["api", "b", "--nope"]);
+    expect(messages.join("\n")).toContain('Unknown database "oracle"');
+    expect(messages.join("\n")).toContain("Unknown option --nope");
+    expect(existsSync(resolve(parent, "a"))).toBe(false);
+    expect(existsSync(resolve(parent, "b"))).toBe(false);
+  } finally {
+    process.exitCode = 0;
+    console.error = err;
+    process.chdir(cwd);
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test("--kit and --dir name the starter kit and directory without prompts", async () => {
+  const parent = resolve(import.meta.dir, "../.tmp-new-flags");
+  await rm(parent, { recursive: true, force: true });
+  await mkdir(parent, { recursive: true });
+  const cwd = process.cwd();
+  process.chdir(parent);
+  try {
+    await newProject(["--kit=api", "--dir=from-flags"]);
+    await newProject(["--kit=api", "positional-dir"]);
+    expect(existsSync(resolve(parent, "from-flags/routes/api.ts"))).toBe(true);
+    expect(existsSync(resolve(parent, "positional-dir/routes/api.ts"))).toBe(true);
+  } finally {
     process.chdir(cwd);
     await rm(parent, { recursive: true, force: true });
   }

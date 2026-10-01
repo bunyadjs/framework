@@ -18,3 +18,5 @@ coverage/
 **/bootstrap/ssr-chunk-*
 packages/session/src/.tmp-sessions/
 .packs/
+tsconfig.build.generated.json
+packages/cli/templates/

@@ -1,3 +1,4 @@
+import type { EventEmitter } from "node:events";
 import * as readline from "node:readline";
 import { inspect } from "node:util";
 import type { Readable, Writable } from "node:stream";
@@ -56,14 +57,14 @@ export async function startConsole(options: ConsoleOptions = {}): Promise<void> 
       (input as NodeJS.ReadStream).isTTY && (output as NodeJS.WriteStream).isTTY,
     ),
     prompt,
-  });
+  }) as unknown as readline.Interface & EventEmitter;
 
   console.log("");
   rl.prompt();
 
   let processing = Promise.resolve();
 
-  rl.on("line", (line) => {
+  rl.on("line", (line: string) => {
     processing = processing.then(async () => {
       const trimmed = line.trim();
       if (!trimmed) {

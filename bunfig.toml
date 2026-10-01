@@ -1,0 +1,3 @@
+[test]
+# Build output: starter kits copied into the CLI package by `bun run build`.
+pathIgnorePatterns = ["**/node_modules/**", "packages/*/templates/**", "packages/*/dist/**"]

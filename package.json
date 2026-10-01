@@ -31,8 +31,9 @@
     "bench:orm": "bun benchmarks/orm/compare.ts",
     "bench:summarize": "bun benchmarks/scripts/summarize-results.ts",
     "bench:regression": "bun benchmarks/scripts/check-regression.ts",
-    "build:publishable": "bun scripts/build-package.ts packages/contracts && bun scripts/build-package.ts packages/common && bun scripts/build-package.ts packages/database && bun scripts/build-package.ts packages/orm",
-    "pack:publishable": "bun run build:publishable && (cd packages/contracts && pnpm pack --pack-destination ../../.packs) && (cd packages/common && pnpm pack --pack-destination ../../.packs) && (cd packages/database && pnpm pack --pack-destination ../../.packs) && (cd packages/orm && pnpm pack --pack-destination ../../.packs)"
+    "release:build": "bun scripts/release.ts build",
+    "release:pack": "bun scripts/release.ts pack",
+    "release:publish": "bun scripts/release.ts publish"
   },
   "devDependencies": {
     "@types/bun": "latest",

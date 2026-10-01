@@ -7,9 +7,9 @@ export type SearchDocument = Record<string, unknown> & {
 export type SearchableModel = {
   id?: string | number;
   getKey?: () => string | number;
-  getSearchKey?: () => string | number;
-  toSearchableArray?: () => Record<string, unknown>;
-  searchableAs?: () => string;
+  getSearchKey?(): string | number;
+  toSearchableArray?(): Record<string, unknown>;
+  searchableAs?(): string;
   toArray?: () => Record<string, unknown>;
   [key: string]: unknown;
 };
