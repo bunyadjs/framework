@@ -48,27 +48,33 @@ bun --version
 
 ### Create the project
 
-From a checkout of the Bunyad repository:
-
 ```shell
-bun install
-bun run bunyad new views my-app
+bun create bunyad my-app
 cd my-app
-bun install
 bun run dev
 ```
 
-`bun run bunyad new` with no arguments asks which starter kit to use (Views, Live, React, Vue, Svelte, or API) and the directory name. Pass the folder name to skip the question: `views`, `live`, `react`, `vue`, `svelte`, `api`, or `saas` (the billing add-on is not in the menu). It copies the kit without build output or local databases, copies `.env.example` to `.env`, sets `APP_KEY`, and prints the next commands.
+`bun create bunyad` asks which starter kit to use (Views, Live, React, Vue, Svelte, or API), which database (SQLite, PostgreSQL, or MySQL), whether to install the packages now, and whether to start a git repository. It copies the kit without build output or local databases, copies `.env.example` to `.env`, sets `APP_KEY`, and prints the next commands.
+
+Skip the questions with options:
 
 ```shell
-bun run bunyad new
+bun create bunyad my-app --kit=react --database=pgsql --install --git
 ```
+
+| Option | Meaning |
+| --- | --- |
+| `--kit=<name>` | `views`, `live`, `react`, `vue`, `svelte`, `api`, or `saas` (the billing add-on is not in the menu) |
+| `--database=<name>` | `sqlite` (default), `pgsql`, or `mysql` |
+| `--install` / `--no-install` | Run `bun install` in the new app |
+| `--git` / `--no-git` | Run `git init` in the new app |
+
+To use the `bunyad` command anywhere, install the CLI globally with `bun add -g @bunyad/cli`. `bunyad new` then asks the same questions. Inside an app, `bunyad` runs the app's own copy of the framework.
+
+If you are working from a checkout of the Bunyad repository, `bun run bunyad new views my-app` does the same.
 
 The development server listens on [http://localhost:3000](http://localhost:3000) unless `PORT` is set.
 
-:::note
-An application created inside this repository must be a workspace member. `apps/*` already covers `apps/my-app`. A directory outside `apps/` runs its own `bun install` and does not use the repository workspaces.
-:::
 
 `bun run dev` starts the server with hot reload (`bunyad serve --hot`) and the asset watchers side by side: Tailwind for every web starter, plus the frontend bundle for React, Vue, and Svelte. Each output line is prefixed with the process it came from. The server loads `server.ts`:
 

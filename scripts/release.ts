@@ -66,11 +66,13 @@ for (const name of names) {
     continue;
   }
   const cmd = ["pnpm", "publish", "--tag", "alpha", "--no-git-checks", ...(dryRun ? ["--dry-run"] : []), ...(otp ? [otp] : [])];
-  const r = sh(cmd, dir);
-  console.log(`${r.ok ? (dryRun ? "dry-run" : "published") : "FAIL   "} ${pkg.name}@${pkg.version}`);
-  if (!r.ok) {
-    console.error(r.out);
+  // Inherit the terminal so npm can ask for a one-time password or open the browser approval.
+  console.log(`publishing ${pkg.name}@${pkg.version} ...`);
+  const r = Bun.spawnSync(cmd, { cwd: dir, stdin: "inherit", stdout: "inherit", stderr: "inherit" });
+  if (r.exitCode !== 0) {
+    console.error(`FAIL    ${pkg.name}@${pkg.version}`);
     process.exit(1); // dependents would fail too; stop here
   }
+  console.log(`${dryRun ? "dry-run" : "published"} ${pkg.name}@${pkg.version}`);
 }
 process.exit(failed ? 1 : 0);

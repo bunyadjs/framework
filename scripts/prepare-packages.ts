@@ -9,7 +9,7 @@ import { join } from "node:path";
 
 const root = join(import.meta.dir, "..");
 const VERSION = "0.1.0-alpha.0";
-const SKIP = new Set(["nestjs", "create-bunyad", "bunyad"]);
+const SKIP = new Set(["nestjs", "create-bunyad"]);
 /** Packages that also run on plain Node (everything else needs Bun). */
 const NODE_OK = new Set(["contracts", "common", "database", "orm"]);
 
