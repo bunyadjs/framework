@@ -1,0 +1,37 @@
+{
+  "name": "@bunyad/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "bunyad": "./src/bunyad.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./command": "./command.ts",
+    "./commands": "./commands.ts"
+  },
+  "dependencies": {
+    "@bunyad/cache": "workspace:*",
+    "@bunyad/common": "workspace:*",
+    "@bunyad/compiler": "workspace:*",
+    "@bunyad/console": "workspace:*",
+    "@bunyad/core": "workspace:*",
+    "@bunyad/database": "workspace:*",
+    "@bunyad/events": "workspace:*",
+    "@bunyad/features": "workspace:*",
+    "@bunyad/migrate": "workspace:*",
+    "@bunyad/orm": "workspace:*",
+    "@bunyad/queue": "workspace:*",
+    "@bunyad/router": "workspace:*",
+    "@bunyad/schedule": "workspace:*",
+    "@bunyad/view": "workspace:*",
+    "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "test": "bun test"
+  }
+}

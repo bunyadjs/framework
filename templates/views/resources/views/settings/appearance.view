@@ -1,0 +1,26 @@
+@extends('layouts.app')
+
+@section('content')
+<x-settings-layout heading="Appearance" subheading="Update the appearance settings for your account">
+  <div class="join" role="radiogroup" aria-label="Appearance">
+    @foreach(['light', 'dark', 'system'] as option)
+    <input type="radio" name="appearance" value="{{ option }}" aria-label="{{ option[0].toUpperCase() + option.slice(1) }}" class="btn join-item" />
+    @endforeach
+  </div>
+
+  <script>
+    {{-- Saved per browser; the head script applies it on every page. --}}
+    (() => {
+      const current = localStorage.getItem("appearance") ?? "system";
+      for (const input of document.querySelectorAll('input[name="appearance"]')) {
+        input.checked = input.value === current;
+        input.addEventListener("change", () => {
+          localStorage.setItem("appearance", input.value);
+          if (input.value === "system") delete document.documentElement.dataset.theme;
+          else document.documentElement.dataset.theme = input.value;
+        });
+      }
+    })();
+  </script>
+</x-settings-layout>
+@endsection

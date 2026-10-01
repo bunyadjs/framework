@@ -1,0 +1,25 @@
+{
+  "name": "@bunyad/live",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./src/client.ts"
+    }
+  },
+  "dependencies": {
+    "@bunyad/http": "workspace:*",
+    "@bunyad/router": "workspace:*",
+    "@bunyad/validation": "workspace:*",
+    "@bunyad/view": "workspace:*"
+  },
+  "scripts": {
+    "test": "bun test"
+  }
+}

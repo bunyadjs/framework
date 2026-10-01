@@ -1,0 +1,13 @@
+{
+  "name": "bunyad-benchmarks-orm",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prisma:generate": "bunx prisma generate --schema=./prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.15.0",
+    "drizzle-orm": "^0.44.5",
+    "prisma": "^6.15.0"
+  }
+}

@@ -1,0 +1,53 @@
+@extends('layouts.app')
+
+@section('content')
+<style>
+  .db-demo { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+  .db-demo nav { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; margin-bottom: 1.5rem; }
+  .db-demo a { color: #0b57d0; text-decoration: none; }
+  .db-demo a:hover { text-decoration: underline; }
+  .db-demo a.active { font-weight: 600; text-decoration: underline; }
+  .db-demo .lead { color: #555; }
+  .db-demo .tabs { display: flex; gap: 1rem; margin: 1.25rem 0; }
+  .db-demo code { font-size: 0.9em; }
+</style>
+<div class="db-demo">
+  <nav>
+    <a href="/" live:navigate>Home</a>
+    <a href="/welcome" live:navigate>Welcome</a>
+    <a href="/databases" live:navigate>Databases</a>
+  </nav>
+
+  <h1>{{ title }}</h1>
+  <p class="lead">
+    Same <code>User</code> model, different connections via
+    <code>User.on("secondary")</code> (or <code>DB.connection("name")</code>).
+    Switch below to list users from each SQLite file.
+  </p>
+
+  <div class="tabs">
+    @foreach(connections as c)
+    <a
+      href="/databases?connection={{ c.name }}"
+      @if(c.active)class="active"@endif
+      live:navigate
+    >{{ c.label }}</a>
+    @endforeach
+  </div>
+
+  <p>Active connection: <code>{{ connection }}</code></p>
+
+  @if(users.length)
+  <ul>
+    @foreach(users as user)
+    <li>{{ user.name }} ({{ user.email }})</li>
+    @endforeach
+  </ul>
+  @else
+  <p>No users on this connection yet.</p>
+  @endif
+</div>
+@push('scripts')
+{!! scripts !!}
+@endpush
+@endsection

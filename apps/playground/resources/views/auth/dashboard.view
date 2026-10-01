@@ -1,0 +1,22 @@
+@extends('layouts.app')
+
+@section('content')
+<h1>{{ title }}</h1>
+<p>Hello, {{ name }}.</p>
+<form method="post" action="/logout">
+  <input type="hidden" name="_token" value="{{ token }}" />
+  <button type="submit">Log out</button>
+</form>
+@prepend('scripts')
+<script>window.__boot=1</script>
+@endprepend
+@push('scripts')
+<script>window.__bunyad="dashboard"</script>
+@endpush
+@once
+<!-- once -->
+@endonce
+@once
+<!-- once -->
+@endonce
+@endsection

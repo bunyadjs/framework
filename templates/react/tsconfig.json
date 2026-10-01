@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "**/*.ts"
+  ],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "app/*"
+      ],
+      "@database/*": [
+        "database/*"
+      ]
+    }
+  },
+  "exclude": [
+    "resources/js",
+    "node_modules"
+  ]
+}

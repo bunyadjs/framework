@@ -1,0 +1,7 @@
+/* Only views hold class names; scanning the whole app rebuilds on every session or database write. */
+@import "tailwindcss" source(none);
+@source "../views";
+
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+}

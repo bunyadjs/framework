@@ -1,0 +1,63 @@
+{
+  "name": "@bunyad/framework",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./plugins": {
+      "types": "./src/plugins.ts",
+      "default": "./src/plugins.ts"
+    },
+    "./globals": {
+      "types": "./src/globals.ts",
+      "default": "./src/globals.ts"
+    },
+    "./providers/LogServiceProvider": {
+      "types": "./src/providers/LogServiceProvider.ts",
+      "default": "./src/providers/LogServiceProvider.ts"
+    }
+  },
+  "dependencies": {
+    "@bunyad/auth": "workspace:*",
+    "@bunyad/broadcasting": "workspace:*",
+    "@bunyad/cache": "workspace:*",
+    "@bunyad/billing": "workspace:*",
+    "@bunyad/cli": "workspace:*",
+    "@bunyad/common": "workspace:*",
+    "@bunyad/compiler": "workspace:*",
+    "@bunyad/config": "workspace:*",
+    "@bunyad/container": "workspace:*",
+    "@bunyad/contracts": "workspace:*",
+    "@bunyad/core": "workspace:*",
+    "@bunyad/database": "workspace:*",
+    "@bunyad/events": "workspace:*",
+    "@bunyad/filesystem": "workspace:*",
+    "@bunyad/head": "workspace:*",
+    "@bunyad/http": "workspace:*",
+    "@bunyad/image": "workspace:*",
+    "@bunyad/inertia": "workspace:*",
+    "@bunyad/live": "workspace:*",
+    "@bunyad/log": "workspace:*",
+    "@bunyad/mail": "workspace:*",
+    "@bunyad/notifications": "workspace:*",
+    "@bunyad/orm": "workspace:*",
+    "@bunyad/features": "workspace:*",
+    "@bunyad/metrics": "workspace:*",
+    "@bunyad/queue": "workspace:*",
+    "@bunyad/router": "workspace:*",
+    "@bunyad/schedule": "workspace:*",
+    "@bunyad/search": "workspace:*",
+    "@bunyad/session": "workspace:*",
+    "@bunyad/oauth": "workspace:*",
+    "@bunyad/testing": "workspace:*",
+    "@bunyad/validation": "workspace:*",
+    "@bunyad/view": "workspace:*"
+  },
+  "scripts": {
+    "test": "bun test"
+  }
+}

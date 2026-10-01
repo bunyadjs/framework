@@ -1,0 +1,19 @@
+{
+  "name": "@bunyad-apps/docs-site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot server.ts",
+    "serve": "bun server.ts",
+    "build": "bun scripts/build.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@bunyad/core": "workspace:*",
+    "@bunyad/http": "workspace:*",
+    "@bunyad/router": "workspace:*",
+    "marked": "^16.2.1",
+    "shiki": "^3.13.0"
+  }
+}

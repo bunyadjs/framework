@@ -1,0 +1,66 @@
+@extends('layouts.app')
+
+@section('content')
+<h1>{{ title }}</h1>
+<p>Queue monitor (Horizon-lite).</p>
+<div id="stats">Loading…</div>
+<p>
+  <button type="button" id="retry-all">Retry all failed</button>
+  <button type="button" id="refresh">Refresh</button>
+</p>
+<input type="hidden" id="csrf" value="{{ token }}" />
+@push('scripts')
+<script>
+async function load() {
+  const res = await fetch("/horizon/api/stats", { credentials: "same-origin" });
+  const data = await res.json();
+  const el = document.getElementById("stats");
+  if (!res.ok) {
+    el.textContent = data.message || "Forbidden";
+    return;
+  }
+  el.innerHTML =
+    "<p>Queue <code>" + data.queue + "</code> — pending: <strong>" + data.pending +
+    "</strong>, failed: <strong>" + data.failed.length + "</strong></p>" +
+    (data.failed.length
+      ? "<ul>" +
+        data.failed
+          .map(
+            (j) =>
+              "<li><code>" +
+              j.id +
+              "</code> " +
+              j.name +
+              " — " +
+              j.exception +
+              ' <button data-id="' +
+              j.id +
+              '" class="retry">Retry</button></li>',
+          )
+          .join("") +
+        "</ul>"
+      : "<p>No failed jobs.</p>");
+  el.querySelectorAll(".retry").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await fetch("/horizon/api/failed/" + btn.dataset.id + "/retry", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "x-csrf-token": document.getElementById("csrf").value },
+      });
+      load();
+    });
+  });
+}
+document.getElementById("refresh").onclick = load;
+document.getElementById("retry-all").onclick = async () => {
+  await fetch("/horizon/api/retry-all", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "x-csrf-token": document.getElementById("csrf").value },
+  });
+  load();
+};
+load();
+</script>
+@endpush
+@endsection

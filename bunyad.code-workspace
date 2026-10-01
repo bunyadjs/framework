@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.view": "blade"
+		},
+		"blade.format.enable": true,
+		"[blade]": {
+			"editor.autoClosingBrackets": "always",
+			"editor.defaultFormatter": "onecentlin.laravel-blade",
+			"editor.formatOnSave": true
+		}
+	},
+	"extensions": {
+		"recommendations": ["onecentlin.laravel-blade"]
+	}
+}

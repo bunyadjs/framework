@@ -1,0 +1,31 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="csrf-token" content="{{ csrf_token() }}" />
+<title>@if(title){{ title }} - @endif{{ config('app.name') }}</title>
+<script>
+  {{-- Apply the saved appearance before first paint. "system" follows the OS.
+       Pages swapped in by live:navigate don't run their own scripts, so the
+       appearance radios are handled here too. --}}
+  (() => {
+    const apply = (value) => {
+      if (value === "system") delete document.documentElement.dataset.theme;
+      else document.documentElement.dataset.theme = value;
+    };
+    const current = () => localStorage.getItem("appearance") ?? "system";
+    const sync = () => {
+      for (const input of document.querySelectorAll('input[name="appearance"]')) {
+        input.checked = input.value === current();
+      }
+    };
+    apply(current());
+    document.addEventListener("DOMContentLoaded", sync);
+    document.addEventListener("live:navigated", sync);
+    document.addEventListener("change", (event) => {
+      if (event.target.name !== "appearance") return;
+      localStorage.setItem("appearance", event.target.value);
+      apply(event.target.value);
+    });
+  })();
+</script>
+<link rel="stylesheet" href="/build/app.css" />
+<script src="/live/live.js" defer></script>

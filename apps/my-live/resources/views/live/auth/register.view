@@ -1,0 +1,34 @@
+<div class="flex flex-col gap-6">
+  <x-auth-header title="Create an account" description="Enter your details below to create your account" />
+
+  <form live:submit="register" class="flex flex-col gap-4">
+    <fieldset class="fieldset">
+      <label class="label" for="name">Name</label>
+      <input id="name" type="text" live:model.defer="name" value="{{ name }}" class="input w-full" required autofocus autocomplete="name" placeholder="Full name" />
+      @error('name')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+
+    <fieldset class="fieldset">
+      <label class="label" for="email">Email address</label>
+      <input id="email" type="email" live:model.defer="email" value="{{ email }}" class="input w-full" required autocomplete="email" placeholder="email@example.com" />
+      @error('email')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+
+    <fieldset class="fieldset">
+      <label class="label" for="password">Password</label>
+      <input id="password" type="password" live:model.defer="password" class="input w-full" required autocomplete="new-password" placeholder="Password" />
+      @error('password')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+
+    <fieldset class="fieldset">
+      <label class="label" for="password_confirmation">Confirm password</label>
+      <input id="password_confirmation" type="password" live:model.defer="password_confirmation" class="input w-full" required autocomplete="new-password" placeholder="Confirm password" />
+    </fieldset>
+
+    <button type="submit" class="btn btn-primary w-full">Create account</button>
+  </form>
+
+  <p class="text-center text-sm text-base-content/70">
+    Already have an account? <a href="{{ route('login') }}" live:navigate class="link">Log in</a>
+  </p>
+</div>

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  @if(token)
+  <meta name="csrf-token" content="{{ token }}" />
+  @endif
+  @head
+</head>
+<body>
+  @include('partials.status')
+  @yield('content')
+  @stack('scripts')
+</body>
+</html>

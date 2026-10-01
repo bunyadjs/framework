@@ -1,0 +1,84 @@
+@extends('layouts.app')
+
+@section('content')
+<x-settings-layout heading="Two-factor authentication" subheading="Manage your two-factor authentication settings">
+  @if(enabled)
+  <div class="flex flex-col gap-4">
+    <div><span class="badge badge-success">Enabled</span></div>
+    <p class="text-sm text-base-content/70">
+      With two-factor authentication enabled, you will be prompted for a secure, random code during login,
+      which you can retrieve from the TOTP-supported application on your phone.
+    </p>
+    @if(session('status') === 'two-factor-confirmed')
+    <p class="text-sm text-success">Two-factor authentication is now on.</p>
+    @endif
+
+    <details class="collapse collapse-arrow border border-base-300 bg-base-100" @if(session('status') === 'recovery-codes-generated' || session('status') === 'two-factor-confirmed') open @endif>
+      <summary class="collapse-title font-medium">Recovery codes</summary>
+      <div class="collapse-content flex flex-col gap-3">
+        <p class="text-sm text-base-content/70">
+          Store these in a password manager. Each one signs you in once if you lose your authenticator device.
+        </p>
+        <ul class="grid gap-1 rounded-box bg-base-200 p-4 font-mono text-sm">
+          @foreach(recoveryCodes as code)
+          <li>{{ code }}</li>
+          @endforeach
+        </ul>
+        <form method="POST" action="{{ route('two-factor.recovery-codes') }}">
+          @csrf
+          <button type="submit" class="btn btn-sm">Regenerate codes</button>
+        </form>
+      </div>
+    </details>
+
+    <form method="POST" action="{{ route('two-factor.disable') }}">
+      @csrf
+      @method('DELETE')
+      <button type="submit" class="btn btn-error">Disable 2FA</button>
+    </form>
+  </div>
+
+  @elseif(pending)
+  <div class="flex flex-col gap-4">
+    <p class="text-sm text-base-content/70">
+      Scan this QR code with your authenticator application, or enter the setup key, then enter the code it shows.
+    </p>
+    <div class="w-48 rounded-box bg-white p-2">{!! qrCodeSvg !!}</div>
+    <p class="text-sm">Setup key: <code class="font-mono">{{ setupKey }}</code></p>
+
+    <form method="POST" action="{{ route('two-factor.confirm') }}" class="flex flex-col gap-4">
+      @csrf
+      <fieldset class="fieldset">
+        <label class="label" for="code">Code</label>
+        <input id="code" type="text" name="code" class="input w-full max-w-xs tracking-widest" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus placeholder="123456" />
+        @error('code')<p class="text-sm text-error">{{ message }}</p>@enderror
+      </fieldset>
+      <div class="flex gap-2">
+        <button type="submit" class="btn btn-primary">Confirm</button>
+      </div>
+    </form>
+    <form method="POST" action="{{ route('two-factor.disable') }}">
+      @csrf
+      @method('DELETE')
+      <button type="submit" class="btn btn-ghost btn-sm">Cancel</button>
+    </form>
+  </div>
+
+  @else
+  <div class="flex flex-col gap-4">
+    <div><span class="badge badge-error badge-soft">Disabled</span></div>
+    <p class="text-sm text-base-content/70">
+      When you enable two-factor authentication, you will be prompted for a secure code during login.
+      This code can be retrieved from a TOTP-supported application on your phone.
+    </p>
+    @if(session('status') === 'two-factor-disabled')
+    <p class="text-sm text-success">Two-factor authentication is now off.</p>
+    @endif
+    <form method="POST" action="{{ route('two-factor.enable') }}">
+      @csrf
+      <button type="submit" class="btn btn-primary">Enable 2FA</button>
+    </form>
+  </div>
+  @endif
+</x-settings-layout>
+@endsection

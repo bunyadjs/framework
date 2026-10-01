@@ -1,0 +1,4 @@
+@props({ status: null })
+@if(status)
+<div role="status" class="alert alert-success alert-soft text-sm">{{ status }}</div>
+@endif

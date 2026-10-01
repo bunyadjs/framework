@@ -1,0 +1,22 @@
+{
+  "name": "@bunyad/compiler",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@bunyad/auth": "workspace:*",
+    "@bunyad/common": "workspace:*",
+    "@bunyad/http": "workspace:*",
+    "@bunyad/router": "workspace:*",
+    "@bunyad/view": "workspace:*"
+  },
+  "scripts": {
+    "test": "bun test"
+  }
+}

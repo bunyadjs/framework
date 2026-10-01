@@ -1,0 +1,34 @@
+{
+  "name": "@bunyad-templates/live",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun scripts/dev.ts",
+    "build": "tailwindcss -i resources/css/app.css -o public/build/app.css --minify",
+    "serve": "bun ./bunyad serve",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@bunyad/auth": "workspace:*",
+    "@bunyad/cli": "workspace:*",
+    "@bunyad/core": "workspace:*",
+    "@bunyad/database": "workspace:*",
+    "@bunyad/events": "workspace:*",
+    "@bunyad/framework": "workspace:*",
+    "@bunyad/http": "workspace:*",
+    "@bunyad/live": "workspace:*",
+    "@bunyad/mail": "workspace:*",
+    "@bunyad/orm": "workspace:*",
+    "@bunyad/router": "workspace:*",
+    "@bunyad/session": "workspace:*",
+    "@bunyad/testing": "workspace:*",
+    "@bunyad/validation": "workspace:*",
+    "@bunyad/view": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "daisyui": "^5.7.46",
+    "tailwindcss": "^4.3.3"
+  }
+}

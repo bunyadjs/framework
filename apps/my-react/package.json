@@ -1,0 +1,40 @@
+{
+  "name": "@bunyad-apps/my-react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun scripts/dev.ts",
+    "build": "bun scripts/build.ts",
+    "types": "bun ./bunyad types:generate",
+    "serve": "bun ./bunyad serve",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@bunyad/auth": "workspace:*",
+    "@bunyad/cli": "workspace:*",
+    "@bunyad/core": "workspace:*",
+    "@bunyad/database": "workspace:*",
+    "@bunyad/events": "workspace:*",
+    "@bunyad/framework": "workspace:*",
+    "@bunyad/http": "workspace:*",
+    "@bunyad/inertia": "workspace:*",
+    "@bunyad/mail": "workspace:*",
+    "@bunyad/orm": "workspace:*",
+    "@bunyad/router": "workspace:*",
+    "@bunyad/session": "workspace:*",
+    "@bunyad/testing": "workspace:*",
+    "@bunyad/validation": "workspace:*",
+    "@bunyad/view": "workspace:*",
+    "@inertiajs/react": "^3.6.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "daisyui": "^5.7.46",
+    "tailwindcss": "^4.3.3"
+  }
+}

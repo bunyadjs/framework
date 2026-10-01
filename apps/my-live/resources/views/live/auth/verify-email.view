@@ -1,0 +1,12 @@
+<div class="flex flex-col gap-6">
+  <x-auth-header title="Verify email" description="Please verify your email address by clicking on the link we just emailed to you." />
+
+  @if(linkSent)
+  <div role="status" class="alert alert-success alert-soft text-sm">
+    A new verification link has been sent to the email address you provided during registration.
+  </div>
+  @endif
+
+  <button type="button" live:click="sendVerification" class="btn btn-primary w-full">Resend verification email</button>
+  <button type="button" live:click="logout" class="link text-center text-sm">Log out</button>
+</div>

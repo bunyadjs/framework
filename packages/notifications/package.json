@@ -1,0 +1,23 @@
+{
+  "name": "@bunyad/notifications",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@bunyad/broadcasting": "workspace:*",
+    "@bunyad/contracts": "workspace:*",
+    "@bunyad/mail": "workspace:*"
+  },
+  "devDependencies": {
+    "@bunyad/queue": "workspace:*"
+  },
+  "scripts": {
+    "test": "bun test"
+  }
+}

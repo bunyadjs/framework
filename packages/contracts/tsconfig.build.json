@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.build-base.json",
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.node-test.ts",
+    "src/**/*.spike.test.ts"
+  ],
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  }
+}

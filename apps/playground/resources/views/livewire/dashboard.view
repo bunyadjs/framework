@@ -1,0 +1,4 @@
+<div style="font-family: system-ui; max-width: 32rem; margin: 0 auto;">
+  <h2 style="margin: 0 0 1rem;">{{ title }}</h2>
+  {!! counter !!}
+</div>

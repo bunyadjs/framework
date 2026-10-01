@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("ORM_BENCH_PRISMA_URL")
+}
+
+model Brand {
+  id       Int       @id @default(autoincrement())
+  name     String
+  products Product[]
+
+  @@map("brands")
+}
+
+model Product {
+  id      Int    @id @default(autoincrement())
+  name    String
+  brandId Int    @map("brand_id")
+  price   Int
+  brand   Brand  @relation(fields: [brandId], references: [id])
+
+  @@map("products")
+  @@index([brandId])
+}

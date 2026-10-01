@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "bun"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "app/*"
+      ]
+    }
+  },
+  "include": [
+    "resources/js/**/*",
+    "app/**/*",
+    "bootstrap/**/*",
+    "routes/**/*",
+    "scripts/**/*"
+  ]
+}

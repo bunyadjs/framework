@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="application-name" content="{{ config('app.name') }}" />
+  @if(ssrHead)
+  {!! ssrHead !!}
+  @else
+  <title>{{ config('app.name') }}</title>
+  @endif
+  <script>
+    {{-- Apply the saved appearance before first paint. "system" follows the OS. --}}
+    (() => {
+      const appearance = localStorage.getItem("appearance") ?? "system";
+      if (appearance !== "system") document.documentElement.dataset.theme = appearance;
+    })();
+  </script>
+  <link rel="stylesheet" href="/build/app.css" />
+  <script type="module" src="/build/app.js"></script>
+</head>
+<body class="min-h-screen bg-base-200">
+  @if(ssrBody)
+  {!! ssrBody !!}
+  @else
+  <script data-page="app" type="application/json">{!! pageJson !!}</script>
+  <div id="app"></div>
+  @endif
+</body>
+</html>

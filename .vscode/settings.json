@@ -1,0 +1,11 @@
+{
+  "files.associations": {
+    "*.view": "blade"
+  },
+  "blade.format.enable": true,
+  "[blade]": {
+    "editor.autoClosingBrackets": "always",
+    "editor.defaultFormatter": "onecentlin.laravel-blade",
+    "editor.formatOnSave": true
+  }
+}

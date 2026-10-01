@@ -1,0 +1,28 @@
+@extends('layouts.app')
+
+@section('content')
+<nav style="display:flex;flex-wrap:wrap;gap:0.75rem 1rem;margin-bottom:1.5rem;font-family:system-ui;">
+  <a href="/" live:navigate>Home</a>
+  <a href="/welcome" live:navigate>Welcome</a>
+  <a href="/inertia" live:navigate>Inertia</a>
+  <a href="/livewire" live:navigate>Livewire</a>
+  <a href="/features" live:navigate>Features</a>
+  <a href="/pulse" live:navigate>Pulse</a>
+  <a href="/databases" live:navigate>Databases</a>
+  <a href="/login" live:navigate>Login</a>
+  <a href="/dashboard" live:navigate>Dashboard</a>
+</nav>
+<h1>{{ title }}</h1>
+@if(users.length)
+<ul>
+  @foreach(users as user)
+  <li>{{ user.name }} ({{ user.email }})</li>
+  @endforeach
+</ul>
+@else
+<p>No users yet.</p>
+@endif
+@push('scripts')
+{!! scripts !!}
+@endpush
+@endsection

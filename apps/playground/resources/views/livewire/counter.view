@@ -1,0 +1,14 @@
+<div style="font-family: system-ui; max-width: 28rem; margin: 2rem auto; text-align: center;">
+  <p style="font-size: 2rem; margin: 0 0 1rem;">
+    <span data-count="{{ count }}">{{ count }}</span>
+    <span>{{ label }}</span>
+  </p>
+  <p style="margin: 0 0 1rem;">
+    <input data-model="label" value="{{ label }}" />
+  </p>
+  <p style="display: flex; gap: 0.5rem; justify-content: center;">
+    <button type="button" data-action="decrement">−</button>
+    <button type="button" data-action="reset">Reset</button>
+    <button type="button" data-action="increment">+</button>
+  </p>
+</div>

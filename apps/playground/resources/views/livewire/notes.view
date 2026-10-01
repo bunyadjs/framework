@@ -1,0 +1,53 @@
+<div class="notes-board" live:poll.2s="reload">
+  @if (status)
+  <p class="notes-status" data-status="1">{{ status }}</p>
+  @endif
+  <form class="notes-form" onsubmit="return false;">
+    <label>
+      Title
+      <input data-model.lazy="title" value="{{ title }}" placeholder="Title" />
+    </label>
+    <label>
+      Body
+      <textarea data-model.lazy="body" placeholder="Optional body">{{ body }}</textarea>
+    </label>
+    <label>
+      Tags
+      <input data-model.lazy="tags" value="{{ tags }}" placeholder="work, ideas, sse" />
+    </label>
+    <p class="notes-form-actions">
+      <button type="button" data-action="save">{{ editingId ? "Save changes" : "Add note" }}</button>
+      @if (editingId)
+      <button type="button" data-action="cancel">Cancel</button>
+      @endif
+      <button type="button" class="notes-sse-reload" hidden data-action="reload">Reload</button>
+    </p>
+  </form>
+  @if (notes.length === 0)
+  <p class="notes-empty" data-empty="1">No notes yet. Create one above.</p>
+  @else
+  <ul class="notes-list">
+    @foreach (notes as note)
+    <li class="notes-item{{ note.id === editingId ? ' is-editing' : '' }}" data-note-id="{{ note.id }}">
+      <div>
+        <strong>{{ note.title }}</strong>
+        @if (note.body)
+        <p>{{ note.body }}</p>
+        @endif
+        @if (note.tags.length)
+        <p class="notes-tags">
+          @foreach (note.tags as tag)
+          <span class="notes-tag" data-tag="{{ tag }}">#{{ tag }}</span>
+          @endforeach
+        </p>
+        @endif
+      </div>
+      <p class="notes-item-actions">
+        <button type="button" data-action="edit(&quot;{{ note.id }}&quot;)">Edit</button>
+        <button type="button" data-action="remove(&quot;{{ note.id }}&quot;)">Delete</button>
+      </p>
+    </li>
+    @endforeach
+  </ul>
+  @endif
+</div>

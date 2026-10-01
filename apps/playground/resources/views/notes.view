@@ -1,0 +1,85 @@
+@extends('layouts.app')
+
+@section('content')
+<style>
+  .notes-page {
+    font-family: system-ui, sans-serif;
+    max-width: 40rem;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+  .notes-page nav {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .notes-page a { color: #0b57d0; text-decoration: none; }
+  .notes-page a:hover { text-decoration: underline; }
+  .notes-board { margin-top: 1rem; }
+  .notes-status {
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+  }
+  .notes-form {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .notes-form label { display: grid; gap: 0.25rem; font-size: 0.875rem; color: #444; }
+  .notes-form input, .notes-form textarea {
+    font: inherit;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+  .notes-form textarea { min-height: 4.5rem; }
+  .notes-form-actions, .notes-item-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .notes-form button, .notes-item-actions button {
+    font: inherit;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+  }
+  .notes-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
+  .notes-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+  }
+  .notes-item.is-editing { border-color: #0b57d0; }
+  .notes-item p { margin: 0.35rem 0 0; color: #555; }
+  .notes-empty { color: #777; }
+  .notes-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.4rem 0 0; }
+  .notes-tag {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: #e8eef9;
+    color: #1a4b9b;
+  }
+</style>
+<div class="notes-page">
+  <nav>
+    <a href="/" live:navigate>Home</a>
+    <a href="/dashboard" live:navigate>Dashboard</a>
+    <a href="/notes" live:navigate>Notes</a>
+  </nav>
+  <h1>{{ title }}</h1>
+  <p>Create, edit, and delete notes. Members of the same tenant share this board. Add comma-separated tags (for example <span class="notes-tag">#work</span> <span class="notes-tag">#ideas</span>).</p>
+  {!! board !!}
+</div>
+@push('scripts')
+{!! scripts !!}
+@endpush
+@endsection

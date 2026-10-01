@@ -1,0 +1,24 @@
+@extends('layouts.app')
+
+@section('content')
+<h1>{{ title }} !!!</h1>
+@if(error)
+<x-alert type="error">{{ error }}</x-alert>
+@endif
+@error('email')
+<x-alert type="error">{{ message }}</x-alert>
+@enderror
+@error('password')
+<x-alert type="error">{{ message }}</x-alert>
+@enderror
+<form method="post" action="/login">
+  <input type="hidden" name="_token" value="{{ token }}" />
+  <p>
+    <label>Email <input type="email" name="email" value="{{ old('email') }}" required /></label>
+  </p>
+  <p>
+    <label>Password <input type="password" name="password" required /></label>
+  </p>
+  <button type="submit">Log in</button>
+</form>
+@endsection

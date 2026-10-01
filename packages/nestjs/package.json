@@ -1,0 +1,36 @@
+{
+  "name": "@bunyad/nestjs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal NestJS glue for Bunyad ORM / database Connection (Phase 5). Nest peers are optional so Bun apps do not pull Nest.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@bunyad/database": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^10.0.0 || ^11.0.0 || ^12.0.0",
+    "reflect-metadata": ">=0.1.13"
+  },
+  "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    },
+    "reflect-metadata": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.1.6",
+    "reflect-metadata": "^0.2.2"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "bunx tsc -p tsconfig.json --noEmit"
+  }
+}

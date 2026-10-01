@@ -1,0 +1,26 @@
+{
+  "name": "@bunyad/validation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./lang/en/validation": {
+      "types": "./src/lang/en/validation.ts",
+      "default": "./src/lang/en/validation.ts"
+    }
+  },
+  "dependencies": {
+    "@bunyad/common": "workspace:*",
+    "@bunyad/image": "workspace:*"
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@bunyad/auth": "workspace:*"
+  }
+}

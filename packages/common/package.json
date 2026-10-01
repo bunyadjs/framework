@@ -1,0 +1,61 @@
+{
+  "name": "@bunyad/common",
+  "version": "0.1.0-alpha.0",
+  "description": "Collections, string/array helpers and errors shared across Bunyad packages.",
+  "license": "MIT",
+  "author": "Shah Khalid",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunyadjs/framework.git",
+    "directory": "packages/common"
+  },
+  "homepage": "https://github.com/bunyadjs/framework#readme",
+  "bugs": {
+    "url": "https://github.com/bunyadjs/framework/issues"
+  },
+  "keywords": [
+    "bunyad",
+    "bun",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./globals": {
+      "types": "./src/globals.ts",
+      "default": "./src/globals.ts"
+    }
+  },
+  "dependencies": {
+    "@bunyad/contracts": "workspace:^"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "bunx tsc -p tsconfig.json --noEmit",
+    "build": "bun ../../scripts/build-package.ts ."
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./globals": {
+        "types": "./dist/globals.d.ts",
+        "default": "./dist/globals.js"
+      }
+    }
+  }
+}

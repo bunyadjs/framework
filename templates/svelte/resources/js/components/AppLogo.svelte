@@ -1,0 +1,12 @@
+<script lang="ts">
+  import { page } from "@inertiajs/svelte";
+</script>
+
+<span class="flex items-center gap-2 font-semibold">
+  <span class="flex size-8 items-center justify-center rounded-md bg-primary text-primary-content">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true">
+      <path d="M3 21V9l9-6 9 6v12h-6v-7H9v7H3Z" />
+    </svg>
+  </span>
+  <span>{page.props.name}</span>
+</span>

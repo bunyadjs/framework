@@ -1,0 +1,21 @@
+{
+  "name": "@bunyad/example-orm-node-express",
+  "private": true,
+  "type": "module",
+  "description": "Runnable Express (Node) + Bunyad ORM example using SQLite",
+  "scripts": {
+    "start": "node --experimental-transform-types src/server.ts",
+    "dev": "node --watch --experimental-transform-types src/server.ts"
+  },
+  "dependencies": {
+    "@bunyad/database": "workspace:*",
+    "@bunyad/orm": "workspace:*",
+    "better-sqlite3": "^13.0.3",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.13.10"
+  }
+}

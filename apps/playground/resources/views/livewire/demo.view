@@ -1,0 +1,16 @@
+@extends('layouts.app')
+
+@section('content')
+<nav style="display:flex;gap:1rem;margin-bottom:1.5rem;font-family:system-ui;">
+  <a href="/" live:navigate>Home</a>
+  <a href="/livewire" live:navigate>Demo</a>
+  <a href="/livewire/about" live:navigate>About</a>
+  <a href="/pulse" live:navigate>Pulse</a>
+</nav>
+<h1>{{ title }}</h1>
+<p>Nested Livewire dashboard — counter is a child with its own snapshot. Links use <code>live:navigate</code>.</p>
+{!! dashboard !!}
+@push('scripts')
+{!! scripts !!}
+@endpush
+@endsection

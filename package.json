@@ -1,0 +1,42 @@
+{
+  "name": "bunyad",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "tools/*",
+    "templates/api",
+    "templates/views",
+    "templates/live",
+    "templates/react",
+    "templates/vue",
+    "templates/svelte",
+    "templates/saas",
+    "docs/examples/orm-node-express"
+  ],
+  "bin": {
+    "bunyad": "./packages/cli/src/bunyad.ts"
+  },
+  "scripts": {
+    "bunyad": "bun packages/cli/src/bunyad.ts",
+    "test": "bun test packages apps/playground apps/my-api apps/my-app apps/my-saas apps/my-live apps/my-react apps/my-vue apps/my-svelte templates/api templates/views templates/live templates/react templates/vue templates/svelte templates/saas",
+    "typecheck": "bunx tsc -p packages/contracts --noEmit && bunx tsc -p packages/common --noEmit && bunx tsc -p packages/container --noEmit && bunx tsc -p packages/config --noEmit && bunx tsc -p packages/http --noEmit && bunx tsc -p packages/router --noEmit && bunx tsc -p packages/core --noEmit",
+    "playground": "bun run apps/playground/server.ts",
+    "serve": "bun run apps/playground/server.ts",
+    "compile": "bun run apps/playground/bunyad compile",
+    "start:compiled": "bun run apps/playground/bunyad start",
+    "routes": "bun run apps/playground/bunyad route:list",
+    "bench": "bun benchmarks/run.ts",
+    "bench:competitors": "bun benchmarks/competitors/compare.ts",
+    "bench:orm": "bun benchmarks/orm/compare.ts",
+    "bench:summarize": "bun benchmarks/scripts/summarize-results.ts",
+    "bench:regression": "bun benchmarks/scripts/check-regression.ts",
+    "build:publishable": "bun scripts/build-package.ts packages/contracts && bun scripts/build-package.ts packages/common && bun scripts/build-package.ts packages/database && bun scripts/build-package.ts packages/orm",
+    "pack:publishable": "bun run build:publishable && (cd packages/contracts && pnpm pack --pack-destination ../../.packs) && (cd packages/common && pnpm pack --pack-destination ../../.packs) && (cd packages/database && pnpm pack --pack-destination ../../.packs) && (cd packages/orm && pnpm pack --pack-destination ../../.packs)"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/mssql": "^12.3.0",
+    "typescript": "^5.9.2"
+  }
+}

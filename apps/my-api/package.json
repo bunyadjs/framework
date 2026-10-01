@@ -1,0 +1,23 @@
+{
+  "name": "@bunyad-apps/my-api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun ./bunyad serve --hot",
+    "serve": "bun ./bunyad serve",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@bunyad/auth": "workspace:*",
+    "@bunyad/cli": "workspace:*",
+    "@bunyad/core": "workspace:*",
+    "@bunyad/database": "workspace:*",
+    "@bunyad/http": "workspace:*",
+    "@bunyad/orm": "workspace:*",
+    "@bunyad/router": "workspace:*",
+    "@bunyad/testing": "workspace:*",
+    "@bunyad/validation": "workspace:*",
+    "@bunyad/framework": "workspace:*"
+  }
+}

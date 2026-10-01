@@ -1,0 +1,103 @@
+@extends('layouts.app')
+
+@section('content')
+<style>
+  .home {
+    font-family: system-ui, sans-serif;
+    max-width: 40rem;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+
+  .home h1 {
+    margin-bottom: 0.25rem;
+  }
+
+  .home p.lead {
+    color: #555;
+    margin-top: 0;
+  }
+
+  .home h2 {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #666;
+    margin: 1.75rem 0 0.5rem;
+  }
+
+  .home ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .home li {
+    margin: 0.35rem 0;
+  }
+
+  .home a {
+    color: #0b57d0;
+    text-decoration: none;
+  }
+
+  .home a:hover {
+    text-decoration: underline;
+  }
+
+  .home .note {
+    font-size: 0.875rem;
+    color: #777;
+  }
+</style>
+<div class="home">
+  <h1>{{ title }}</h1>
+  <p class="lead">Playground hub — jump to any demo.</p>
+
+  <h2>Demos</h2>
+  <ul>
+    <li><a href="/" live:navigate>Home</a></li>
+    <li><a href="/welcome" live:navigate>Welcome</a> <span class="note">(users list)</span></li>
+    <li><a href="/inertia" live:navigate>Inertia</a></li>
+    <li><a href="/livewire" live:navigate>Livewire</a></li>
+    <li><a href="/livewire/about" live:navigate>Livewire · About</a></li>
+    <li><a href="/features" live:navigate>Pennant features</a></li>
+    <li><a href="/pulse" live:navigate>Pulse</a></li>
+    <li><a href="/pulse/aggregates">Pulse aggregates</a> <span class="note">(JSON)</span></li>
+    <li><a href="/hello/world">Hello JSON</a> <span class="note">(/hello/&#123;name&#125;)</span></li>
+  </ul>
+
+  <h2>Bench</h2>
+  <ul>
+    <li><a href="/bench/hello">Bunyad hello JSON</a></li>
+    <li><a href="/bench/bun/hello">Bun.serve hello JSON</a> <span class="note">(kernel bypass)</span></li>
+    <li><a href="/bench/select">Bunyad ORM select</a></li>
+    <li><a href="/bench/bun/select">bun:sqlite select</a></li>
+    <li><span class="note">POST /bench/insert · POST /bench/bun/insert</span></li>
+  </ul>
+
+  <h2>Auth</h2>
+  <ul>
+    <li><a href="/login" live:navigate>Login</a></li>
+    <li><a href="/register" live:navigate>Register</a></li>
+    <li><a href="/dashboard" live:navigate>Dashboard</a> <span class="note">(auth)</span></li>
+    <li><a href="/horizon" live:navigate>Horizon</a> <span class="note">(auth)</span></li>
+  </ul>
+
+  <h2>Data</h2>
+  <ul>
+    <li><a href="/notes" live:navigate>Notes</a> <span class="note">(auth · Livewire)</span></li>
+    <li><a href="/users">Users</a> <span class="note">(JSON index)</span></li>
+    <li><a href="/databases" live:navigate>Databases</a> <span class="note">(multi-connection)</span></li>
+  </ul>
+
+  <h2>Realtime / API</h2>
+  <ul>
+    <li><a href="/api/broadcasting/sse">Broadcasting SSE</a></li>
+    <li><span class="note">POST /api/token · GET /api/me · GET /api/notifications (auth)</span></li>
+  </ul>
+</div>
+@push('scripts')
+{!! scripts !!}
+@endpush
+@endsection

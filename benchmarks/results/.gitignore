@@ -1,0 +1,6 @@
+# Generated benchmark JSON — keep the directory, ignore artefacts.
+*
+!.gitignore
+!README.md
+!baselines/
+!baselines/**

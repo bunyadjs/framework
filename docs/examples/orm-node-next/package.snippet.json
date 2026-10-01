@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "description": "Suggested deps when copying docs/examples/orm-node-next into a Next app",
+  "dependencies": {
+    "@bunyad/database": "workspace:*",
+    "@bunyad/orm": "workspace:*",
+    "next": ">=14",
+    "pg": "^8.13.0",
+    "react": ">=18",
+    "react-dom": ">=18",
+    "server-only": "^0.0.1"
+  },
+  "peerDependenciesNotes": {
+    "pg": "Postgres Node driver (optional peer of @bunyad/database)",
+    "mysql2": "Use instead of pg for MySQL/MariaDB",
+    "better-sqlite3": "Use instead of pg for SQLite on Node"
+  }
+}

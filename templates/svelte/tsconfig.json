@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "**/*.ts"
+  ],
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "./app/*"
+      ],
+      "@database/*": [
+        "./database/*"
+      ],
+      "@inertiajs/svelte": [
+        "./node_modules/@inertiajs/svelte/dist/index.js"
+      ]
+    }
+  },
+  "exclude": [
+    "resources/js",
+    "node_modules"
+  ]
+}
