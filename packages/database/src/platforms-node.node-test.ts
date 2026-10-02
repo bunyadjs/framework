@@ -4,10 +4,11 @@
  */
 import assert from "node:assert/strict";
 import { describe, it, before, after } from "node:test";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { password, createGlob } from "./platforms/node/index.ts";
+import { createWalkGlob, __globToRegExp } from "./platforms/node/glob.ts";
 import { loadNodeBcrypt } from "./platforms/node/password.ts";
 
 const PLAIN = "plain-password-phase3-node";
@@ -73,5 +74,37 @@ describe("Node glob platform (migrator discovery)", () => {
       "20260101000000_create_users.ts",
       "20260102000000_add_posts.ts",
     ]);
+  });
+});
+
+describe("Node glob fallback (used when fs.promises.glob is missing, i.e. Node 20)", () => {
+  it("globToRegExp handles *, **, ? and escapes dots", () => {
+    assert.ok(__globToRegExp("*.ts").test("a.ts"));
+    assert.ok(!__globToRegExp("*.ts").test("a.js"));
+    assert.ok(!__globToRegExp("*.ts").test("sub/a.ts"));
+    assert.ok(__globToRegExp("**/*.ts").test("a.ts"));
+    assert.ok(__globToRegExp("**/*.ts").test("x/y/a.ts"));
+    assert.ok(__globToRegExp("a?.ts").test("ab.ts"));
+    assert.ok(!__globToRegExp("a.ts").test("abts"));
+  });
+
+  it("createWalkGlob yields relative file paths, recursing only for **", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "bunyad-walkglob-"));
+    try {
+      await mkdir(join(dir, "nested"), { recursive: true });
+      await writeFile(join(dir, "a.ts"), "");
+      await writeFile(join(dir, "b.js"), "");
+      await writeFile(join(dir, "nested", "c.ts"), "");
+      const scan = async (pattern: string) => {
+        const out: string[] = [];
+        for await (const file of createWalkGlob(pattern).scan({ cwd: dir })) out.push(file);
+        return out.sort();
+      };
+      assert.deepEqual(await scan("*.ts"), ["a.ts"]);
+      assert.deepEqual(await scan("**/*.ts"), ["a.ts", "nested/c.ts"]);
+      assert.deepEqual(await scan("*.ts").then(() => scan("missing/*.ts")), []);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
