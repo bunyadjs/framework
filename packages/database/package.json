@@ -38,15 +38,15 @@
     "./node": "./src/index.node.ts"
   },
   "dependencies": {
-    "@bunyad/common": "workspace:^",
-    "mssql": "^12.7.0"
+    "@bunyad/common": "workspace:^"
   },
   "peerDependencies": {
     "pg": "^8.13.0",
     "mysql2": "^3.11.0",
     "better-sqlite3": ">=9.0.0",
     "bcrypt": ">=5.0.0",
-    "bcryptjs": ">=2.4.0"
+    "bcryptjs": ">=2.4.0",
+    "mssql": "^12.7.0"
   },
   "peerDependenciesMeta": {
     "pg": {
@@ -62,6 +62,9 @@
       "optional": true
     },
     "bcryptjs": {
+      "optional": true
+    },
+    "mssql": {
       "optional": true
     }
   },
@@ -81,7 +84,8 @@
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.3",
     "mysql2": "^3.24.5",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "mssql": "^12.7.0"
   },
   "publishConfig": {
     "access": "public",
