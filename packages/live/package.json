@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/live",
-  "version": "0.1.0-alpha.0",
+  "version": "0.2.0-beta.0",
   "description": "Server-driven reactive components for Bunyad views.",
   "license": "MIT",
   "author": "Shah Khalid",

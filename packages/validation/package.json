@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/validation",
-  "version": "0.1.0-alpha.0",
+  "version": "0.2.0-beta.0",
   "description": "Validation for Bunyad: rules, form requests and messages.",
   "license": "MIT",
   "author": "Shah Khalid",

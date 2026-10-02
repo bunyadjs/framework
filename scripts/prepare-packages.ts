@@ -8,7 +8,8 @@ import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } fr
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..");
-const VERSION = "0.1.0-alpha.0";
+/** One lock-step version: set it with `bun scripts/release.ts version <x.y.z>`; this script follows it. */
+const VERSION: string = JSON.parse(readFileSync(join(root, "packages/contracts/package.json"), "utf8")).version;
 const SKIP = new Set(["nestjs", "create-bunyad"]);
 /** Packages that also run on plain Node (everything else needs Bun). */
 const NODE_OK = new Set(["contracts", "common", "database", "orm"]);
@@ -98,7 +99,7 @@ for (const name of readdirSync(join(root, "packages")).sort()) {
     bugs: { url: "https://github.com/bunyadjs/framework/issues" },
     keywords: ["bunyad", "bun", "typescript", ...(name === "orm" ? ["orm", "active-record"] : [])],
     files: ["dist", ...extraFiles, "README.md", "LICENSE"],
-    engines: NODE_OK.has(name) ? { node: ">=20" } : { bun: ">=1.1.0" },
+    engines: NODE_OK.has(name) ? { node: ">=20" } : { bun: ">=1.4.0" },
   };
   for (const [key, value] of Object.entries(pkg)) {
     if (key in out || ["private", "version", "type", "publishConfig", "bin"].includes(key)) continue;
@@ -128,21 +129,20 @@ for (const name of readdirSync(join(root, "packages")).sort()) {
   writeFileSync(file, `${JSON.stringify(out, null, 2)}\n`);
   copyFileSync(join(root, "LICENSE"), join(root, "packages", name, "LICENSE"));
 
-  // Keep hand-written READMEs; replace missing ones and ones pointing at private docs.
+  // Never overwrite a README: they are hand-written. Only create a minimal one when it is missing.
   const readme = join(root, "packages", name, "README.md");
-  const current = existsSync(readme) ? readFileSync(readme, "utf8") : "";
-  if (!NODE_OK.has(name) && (!current || /SPEC\.md|ARCHITECTURE\.md|docs\/|ADR-/.test(current))) {
+  if (!existsSync(readme)) {
     const install = NODE_OK.has(name)
-      ? `npm install ${pkg.name}@alpha`
-      : `bun add ${pkg.name}@alpha`;
-    const runtime = NODE_OK.has(name) ? "Works on Node 20+ and Bun." : "Requires Bun 1.1 or newer.";
+      ? `npm install ${pkg.name}@beta`
+      : `bun add ${pkg.name}@beta`;
+    const runtime = NODE_OK.has(name) ? "Works on Node 20+ and Bun." : "Requires Bun 1.4 or newer.";
     writeFileSync(
       readme,
       `# ${pkg.name}
 
 ${description}
 
-> **Alpha.** APIs may change between \`0.x\` releases.
+> **Beta.** Public APIs change only in minor releases, with a changelog entry and migration note. See the [stability policy](https://github.com/bunyadjs/framework/blob/main/docs/STABILITY.md).
 
 \`\`\`bash
 ${install}
