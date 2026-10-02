@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/oauth",
-  "version": "0.1.0-alpha.0",
+  "version": "0.2.0-beta.0",
   "description": "OAuth social login for Bunyad.",
   "license": "MIT",
   "author": "Shah Khalid",

@@ -261,7 +261,7 @@
     },
     "packages/auth": {
       "name": "@bunyad/auth",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/common": "workspace:^",
         "@bunyad/contracts": "workspace:^",
@@ -275,11 +275,11 @@
     },
     "packages/billing": {
       "name": "@bunyad/billing",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
     },
     "packages/broadcasting": {
       "name": "@bunyad/broadcasting",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/events": "workspace:*",
         "@bunyad/http": "workspace:*",
@@ -291,14 +291,14 @@
     },
     "packages/cache": {
       "name": "@bunyad/cache",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/contracts": "workspace:^",
       },
     },
     "packages/cli": {
       "name": "@bunyad/cli",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "bin": {
         "bunyad": "./src/bunyad.ts",
       },
@@ -322,14 +322,14 @@
     },
     "packages/common": {
       "name": "@bunyad/common",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/contracts": "workspace:^",
       },
     },
     "packages/compiler": {
       "name": "@bunyad/compiler",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/auth": "workspace:^",
         "@bunyad/common": "workspace:^",
@@ -342,29 +342,29 @@
     },
     "packages/config": {
       "name": "@bunyad/config",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/common": "workspace:^",
       },
     },
     "packages/console": {
       "name": "@bunyad/console",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
     },
     "packages/container": {
       "name": "@bunyad/container",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/common": "workspace:^",
       },
     },
     "packages/contracts": {
       "name": "@bunyad/contracts",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
     },
     "packages/core": {
       "name": "@bunyad/core",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/common": "workspace:^",
         "@bunyad/config": "workspace:^",
@@ -378,7 +378,7 @@
     },
     "packages/create-bunyad": {
       "name": "create-bunyad",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "bin": {
         "create-bunyad": "./index.js",
       },
@@ -388,7 +388,7 @@
     },
     "packages/database": {
       "name": "@bunyad/database",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/common": "workspace:^",
       },
@@ -425,7 +425,7 @@
     },
     "packages/events": {
       "name": "@bunyad/events",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/container": "workspace:^",
         "@bunyad/database": "workspace:^",
@@ -433,21 +433,21 @@
     },
     "packages/features": {
       "name": "@bunyad/features",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/http": "workspace:^",
       },
     },
     "packages/filesystem": {
       "name": "@bunyad/filesystem",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/contracts": "workspace:^",
       },
     },
     "packages/framework": {
       "name": "@bunyad/framework",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/auth": "workspace:*",
         "@bunyad/billing": "workspace:*",
@@ -487,7 +487,7 @@
     },
     "packages/head": {
       "name": "@bunyad/head",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/contracts": "workspace:*",
         "@bunyad/http": "workspace:*",
@@ -495,7 +495,7 @@
     },
     "packages/http": {
       "name": "@bunyad/http",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/common": "workspace:^",
         "@bunyad/contracts": "workspace:^",
@@ -506,7 +506,7 @@
     },
     "packages/image": {
       "name": "@bunyad/image",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/filesystem": "workspace:^",
         "sharp": "^0.35.5",
@@ -517,7 +517,7 @@
     },
     "packages/inertia": {
       "name": "@bunyad/inertia",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/contracts": "workspace:*",
         "@bunyad/http": "workspace:*",
@@ -527,7 +527,7 @@
     },
     "packages/live": {
       "name": "@bunyad/live",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/http": "workspace:*",
         "@bunyad/router": "workspace:*",
@@ -537,28 +537,28 @@
     },
     "packages/log": {
       "name": "@bunyad/log",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/contracts": "workspace:*",
       },
     },
     "packages/mail": {
       "name": "@bunyad/mail",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/contracts": "workspace:*",
       },
     },
     "packages/metrics": {
       "name": "@bunyad/metrics",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/router": "workspace:*",
       },
     },
     "packages/migrate": {
       "name": "@bunyad/migrate",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
     },
     "packages/nestjs": {
       "name": "@bunyad/nestjs",
@@ -581,7 +581,7 @@
     },
     "packages/notifications": {
       "name": "@bunyad/notifications",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/broadcasting": "workspace:*",
         "@bunyad/contracts": "workspace:*",
@@ -593,7 +593,7 @@
     },
     "packages/oauth": {
       "name": "@bunyad/oauth",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/http": "workspace:*",
         "@bunyad/session": "workspace:*",
@@ -601,7 +601,7 @@
     },
     "packages/orm": {
       "name": "@bunyad/orm",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/common": "workspace:^",
         "@bunyad/database": "workspace:^",
@@ -609,7 +609,7 @@
     },
     "packages/queue": {
       "name": "@bunyad/queue",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/cache": "workspace:^",
         "@bunyad/common": "workspace:^",
@@ -624,7 +624,7 @@
     },
     "packages/router": {
       "name": "@bunyad/router",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/common": "workspace:^",
         "@bunyad/contracts": "workspace:^",
@@ -633,15 +633,15 @@
     },
     "packages/schedule": {
       "name": "@bunyad/schedule",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
     },
     "packages/search": {
       "name": "@bunyad/search",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
     },
     "packages/session": {
       "name": "@bunyad/session",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/cache": "workspace:^",
         "@bunyad/common": "workspace:^",
@@ -654,7 +654,7 @@
     },
     "packages/testing": {
       "name": "@bunyad/testing",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/auth": "workspace:*",
         "@bunyad/cli": "workspace:*",
@@ -667,7 +667,7 @@
     },
     "packages/validation": {
       "name": "@bunyad/validation",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/common": "workspace:^",
         "@bunyad/image": "workspace:^",
@@ -678,7 +678,7 @@
     },
     "packages/view": {
       "name": "@bunyad/view",
-      "version": "0.1.0-alpha.0",
+      "version": "0.2.0-beta.0",
       "dependencies": {
         "@bunyad/common": "workspace:^",
         "@bunyad/compiler": "workspace:^",

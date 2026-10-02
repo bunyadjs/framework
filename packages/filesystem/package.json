@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/filesystem",
-  "version": "0.1.0-alpha.0",
+  "version": "0.2.0-beta.0",
   "description": "Storage abstraction for Bunyad: local disk and S3.",
   "license": "MIT",
   "author": "Shah Khalid",

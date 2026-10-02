@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/inertia",
-  "version": "0.1.0-alpha.0",
+  "version": "0.2.0-beta.0",
   "description": "Inertia.js server adapter for Bunyad.",
   "license": "MIT",
   "author": "Shah Khalid",

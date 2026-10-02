@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/compiler",
-  "version": "0.1.0-alpha.0",
+  "version": "0.2.0-beta.0",
   "description": "Build-time compiler for Bunyad: turns routes, views and the container into optimized JavaScript.",
   "license": "MIT",
   "author": "Shah Khalid",
