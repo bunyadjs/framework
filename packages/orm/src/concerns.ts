@@ -16,7 +16,7 @@ type ConcernModel = typeof Model & {
   keyType?: "int" | "string";
   softDeletes?: boolean;
   deletedAt?: string;
-  factory?: () => Factory;
+  factory?: () => Factory<any>;
   newUniqueId?: () => string;
   uniqueIds?: () => string[];
   prunable?: () => ModelQuery | Promise<ModelQuery>;
@@ -114,10 +114,10 @@ export function HasUlids(): ClassDecorator {
   };
 }
 
-type FactoryClass = new () => Factory;
-type FactoryResolver = FactoryClass | (() => Factory);
+type FactoryClass = new () => Factory<any>;
+type FactoryResolver = FactoryClass | (() => Factory<any>);
 
-function resolveFactory(factory: FactoryResolver): Factory {
+function resolveFactory(factory: FactoryResolver): Factory<any> {
   if (
     typeof factory === "function" &&
     factory.prototype != null &&
@@ -125,7 +125,7 @@ function resolveFactory(factory: FactoryResolver): Factory {
   ) {
     return new (factory as FactoryClass)();
   }
-  return (factory as () => Factory)();
+  return (factory as () => Factory<any>)();
 }
 
 /**

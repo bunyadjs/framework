@@ -13,17 +13,17 @@ export type FactorySequenceState =
   | ((sequence: number) => FactoryAttributes);
 
 type HasRelationSpec = {
-  factory: Factory;
+  factory: Factory<any>;
   relationship?: string;
 };
 
 type ForRelationSpec = {
-  parent: Model | Factory;
+  parent: Model | Factory<any>;
   relationship?: string;
 };
 
 type HasAttachedSpec = {
-  related: Factory | Model | Model[];
+  related: Factory<any> | Model | Model[];
   pivot?: FactoryAttributes;
   relationship?: string;
 };
@@ -193,7 +193,7 @@ export abstract class Factory<T extends Model = Model> {
   /**
    * Create related models after the parent (`has(PostFactory.new().count(3))`).
    */
-  has(factory: Factory, relationship?: string): this {
+  has(factory: Factory<any>, relationship?: string): this {
     this.#has.push({ factory, relationship });
     return this;
   }
@@ -201,7 +201,7 @@ export abstract class Factory<T extends Model = Model> {
   /**
    * Associate a parent model / factory (`for(TeamFactory.new())`).
    */
-  for(parent: Model | Factory, relationship?: string): this {
+  for(parent: Model | Factory<any>, relationship?: string): this {
     this.#for.push({ parent, relationship });
     return this;
   }
@@ -210,7 +210,7 @@ export abstract class Factory<T extends Model = Model> {
    * Attach related models on a belongs-to-many after create.
    */
   hasAttached(
-    related: Factory | Model | Model[],
+    related: Factory<any> | Model | Model[],
     pivot: FactoryAttributes = {},
     relationship?: string,
   ): this {

@@ -1,6 +1,6 @@
 /**
  * Dot-path get for nested objects/arrays.
- * Laravel `data_get($target, $path, $default)`.
+ * `data_get($target, $path, $default)`.
  */
 export function dataGet(
   target: unknown,
@@ -40,8 +40,11 @@ function valueOfDefault(defaultValue: unknown): unknown {
     : defaultValue;
 }
 
+const isUnsafeKey = (key: string): boolean =>
+  key === "__proto__" || key === "constructor" || key === "prototype";
+
 /**
- * Laravel `data_set` — set a nested value by dot path (creates intermediates).
+ * `data_set` — set a nested value by dot path (creates intermediates).
  * Mutates `target` and returns it.
  */
 export function dataSet(
@@ -51,6 +54,8 @@ export function dataSet(
   overwrite = true,
 ): Record<string, unknown> {
   const parts = path.split(".");
+  // Never write through keys that reach Object.prototype.
+  if (parts.some(isUnsafeKey)) return target;
   let current: Record<string, unknown> = target;
 
   for (let i = 0; i < parts.length; i++) {
@@ -95,7 +100,7 @@ export function dataSet(
 }
 
 /**
- * Laravel `data_fill` — `data_set` only when the key is missing.
+ * `data_fill` — `data_set` only when the key is missing.
  */
 export function dataFill(
   target: Record<string, unknown>,
@@ -106,7 +111,7 @@ export function dataFill(
 }
 
 /**
- * Laravel `data_forget` — remove a nested key by dot path.
+ * `data_forget` — remove a nested key by dot path.
  */
 export function dataForget(
   target: Record<string, unknown>,

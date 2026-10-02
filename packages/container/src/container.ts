@@ -697,7 +697,7 @@ export class Container {
   }
 
   /**
-   * Invoke `instance[method]` with Laravel-like method injection:
+   * Invoke `instance[method]` with method injection:
    * `fn.inject` / Reflect paramtypes, with `parameters` overrides.
    */
   #invokeBoundMethod(

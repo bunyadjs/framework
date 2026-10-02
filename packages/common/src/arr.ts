@@ -1,7 +1,7 @@
 import { dataForget, dataGet, dataSet } from "./data-get.ts";
 
 /**
- * Laravel `Illuminate\Support\Arr` — static array/object helpers.
+ * Static array/object helpers.
  */
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -9,12 +9,12 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 export const Arr = {
-  /** Laravel `Arr::accessible`. */
+  /** `Arr::accessible`. */
   accessible(value: unknown): value is unknown[] | Record<string, unknown> {
     return Array.isArray(value) || isObject(value);
   },
 
-  /** Laravel `Arr::exists`. */
+  /** `Arr::exists`. */
   exists(array: unknown, key: string | number): boolean {
     if (Array.isArray(array)) {
       return Object.prototype.hasOwnProperty.call(array, key);
@@ -117,7 +117,7 @@ export const Arr = {
     return out;
   },
 
-  /** Laravel `Arr::dot`. */
+  /** `Arr::dot`. */
   dot(
     array: Record<string, unknown>,
     prepend = "",
@@ -134,7 +134,7 @@ export const Arr = {
     return out;
   },
 
-  /** Laravel `Arr::undot`. */
+  /** `Arr::undot`. */
   undot(array: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(array)) {
@@ -170,7 +170,7 @@ export const Arr = {
     return array.filter((v): v is T => v !== null && v !== undefined);
   },
 
-  /** Laravel `Arr::add` — set only if missing. */
+  /** `Arr::add` — set only if missing. */
   add<T extends Record<string, unknown>>(
     array: T,
     key: string,
@@ -230,7 +230,7 @@ export const Arr = {
     return out;
   },
 
-  /** Laravel `Arr::query` — URL query string. */
+  /** `Arr::query` — URL query string. */
   query(array: Record<string, unknown>): string {
     const params = new URLSearchParams();
     const walk = (obj: Record<string, unknown>, prefix?: string) => {

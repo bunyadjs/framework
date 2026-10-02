@@ -1,5 +1,5 @@
 /**
- * Base seeder (Laravel `Seeder`).
+ * Base seeder (`Seeder`).
  */
 export abstract class Seeder {
   abstract run(): void | Promise<void>;

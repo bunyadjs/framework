@@ -247,11 +247,11 @@ export type Connection = {
     callback: () => T | Promise<T>,
     attempts?: number,
   ): Promise<T>;
-  /** Laravel `beginTransaction` — nests with savepoints when already in a transaction. */
+  /** `beginTransaction` — nests with savepoints when already in a transaction. */
   beginTransaction(): Promise<void>;
-  /** Laravel `commit` — releases savepoint or commits outermost. */
+  /** `commit` — releases savepoint or commits outermost. */
   commit(): Promise<void>;
-  /** Laravel `rollBack` — rolls back savepoint or outermost transaction. */
+  /** `rollBack` — rolls back savepoint or outermost transaction. */
   rollBack(): Promise<void>;
   /** Queue work to run after a successful transaction commit. */
   afterCommit(callback: () => void | Promise<void>): void;
@@ -279,6 +279,8 @@ export type MysqlOptions = {
   username?: string;
   password?: string;
   max?: number;
+  /** Enable TLS. MySQL 8+ `caching_sha2_password` needs TLS (or a socket) on first login. */
+  tls?: boolean | { rejectUnauthorized?: boolean };
 };
 
 export type MariadbOptions = MysqlOptions;

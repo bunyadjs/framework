@@ -34,7 +34,7 @@ function resolveMigratorOptions(options?: MigratorOptions): ResolvedMigrator {
   };
 }
 
-function isDefaultLaravelTable(opts: ResolvedMigrator): boolean {
+function isDefaultMigrationsTable(opts: ResolvedMigrator): boolean {
   return (
     opts.table === "migrations" &&
     opts.migrationColumn === "migration" &&
@@ -85,7 +85,7 @@ async function ensureMigrationsTable(
   connection: Connection,
   opts: ResolvedMigrator,
 ): Promise<void> {
-  if (isDefaultLaravelTable(opts)) {
+  if (isDefaultMigrationsTable(opts)) {
     await connection.exec(connection.dialect.migrationsTableSql());
     return;
   }
@@ -298,7 +298,7 @@ export async function rollback(
 }
 
 /**
- * Drop all migrated tables and re-run migrations (Laravel `migrate:fresh`).
+ * Drop all migrated tables and re-run migrations (`migrate:fresh`).
  */
 export async function fresh(
   connection: Connection,
@@ -310,7 +310,7 @@ export async function fresh(
 }
 
 /**
- * Drop every user table (Laravel `db:wipe`).
+ * Drop every user table (`db:wipe`).
  */
 export async function wipe(connection: Connection): Promise<string[]> {
   const { sql, params } = connection.dialect.listTablesSql();
@@ -332,7 +332,7 @@ export type MigrationStatus = {
 };
 
 /**
- * List migration files and whether each has run (Laravel `migrate:status`).
+ * List migration files and whether each has run (`migrate:status`).
  */
 export async function status(
   connection: Connection,
@@ -349,8 +349,8 @@ export async function status(
     }
   } else {
     const orderBy =
-      isDefaultLaravelTable(opts) || opts.batchColumn
-        ? `ORDER BY ${isDefaultLaravelTable(opts) ? "id" : q(connection, opts.migrationColumn)}`
+      isDefaultMigrationsTable(opts) || opts.batchColumn
+        ? `ORDER BY ${isDefaultMigrationsTable(opts) ? "id" : q(connection, opts.migrationColumn)}`
         : "";
     const rows = await connection.all<{ migration: string; batch: number }>(
       `SELECT ${q(connection, opts.migrationColumn)} AS migration, ${q(connection, opts.batchColumn)} AS batch FROM ${q(connection, opts.table)} ${orderBy}`,

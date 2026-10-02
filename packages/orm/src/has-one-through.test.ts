@@ -43,6 +43,7 @@ test("hasOneThrough lazy get and eager with", async () => {
     static fillable = ["name", "supplier_id"];
   }
   class History extends Model {
+    declare note: string;
     static table = "histories";
     static timestamps = false;
     static fillable = ["note", "user_id"];

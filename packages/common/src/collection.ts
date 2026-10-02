@@ -179,7 +179,7 @@ export class Collection<T = unknown> implements Iterable<T> {
   }
 
   /**
-   * Underlying items (Laravel `Collection::all()`).
+   * Underlying items (`Collection::all()`).
    * Returns the live array — mutating it mutates the collection.
    * Copy explicitly when you need isolation (`[...c.all()]` / `c.all().slice()`).
    */
@@ -187,7 +187,7 @@ export class Collection<T = unknown> implements Iterable<T> {
     return this.items;
   }
 
-  /** Alias of {@link all} for Support Collection (Eloquent overrides map models). */
+  /** Alias of {@link all} for Support Collection. */
   toArray(): T[] {
     return this.all();
   }
@@ -582,12 +582,12 @@ export class Collection<T = unknown> implements Iterable<T> {
   }
 
   /**
-   * Laravel `Collection::pluck($value, $key = null)`.
+   * `Collection::pluck($value, $key = null)`.
    * One argument → list Collection of values.
    * With `keyedBy`, returns a plain object `{ [key]: value }` (PHP associative
    * array / `Arr.pluck` keyed form). Collection remains list-backed, so keyed
    * results are Records rather than a keyed Collection instance. Duplicate keys
-   * keep the last value (Laravel parity).
+   * keep the last value.
    */
   pluck(value: string): Collection<unknown>;
   pluck(value: string, keyedBy: string): Record<string, unknown>;

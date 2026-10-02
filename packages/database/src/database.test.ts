@@ -92,13 +92,13 @@ test("sqlite getSync1 and insertGetIdSync1", async () => {
 
   const id = connection.insertGetIdSync1!("items", "name", "hello");
   expect(id).toBe(1);
-  const row = connection.getSync1<{ id: number; name: string }>(
+  const row = connection.getSync1!<{ id: number; name: string }>(
     "SELECT id, name FROM items WHERE id = ? LIMIT 1",
     id,
   );
   expect(row).toEqual({ id: 1, name: "hello" });
   expect(
-    connection.getSync1("SELECT id FROM items WHERE id = ? LIMIT 1", 999),
+    connection.getSync1!("SELECT id FROM items WHERE id = ? LIMIT 1", 999),
   ).toBeNull();
 
   await connection.close();
@@ -487,14 +487,18 @@ test("postgres/mysql/mariadb/sqlsrv connections skip when unavailable", async ()
   } = await import("../src/index.ts");
 
   const tryPg = async () => {
-    const connection = connectPostgres({
-      hostname: "127.0.0.1",
-      port: 54329,
-      database: "bunyad",
-      username: "bunyad",
-      password: "bunyad",
-      max: 1,
-    });
+    const connection = connectPostgres(
+      Bun.env.BUNYAD_TEST_POSTGRES_URL
+        ? { url: Bun.env.BUNYAD_TEST_POSTGRES_URL, max: 1 }
+        : {
+            hostname: "127.0.0.1",
+            port: 54329,
+            database: "bunyad",
+            username: "bunyad",
+            password: "bunyad",
+            max: 1,
+          },
+    );
     try {
       await connection.exec("SELECT 1");
       const schema = schemaFor(connection);
@@ -514,14 +518,18 @@ test("postgres/mysql/mariadb/sqlsrv connections skip when unavailable", async ()
   };
 
   const tryMysql = async () => {
-    const connection = connectMysql({
-      hostname: "127.0.0.1",
-      port: 33069,
-      database: "bunyad",
-      username: "bunyad",
-      password: "bunyad",
-      max: 1,
-    });
+    const connection = connectMysql(
+      Bun.env.BUNYAD_TEST_MYSQL_URL
+        ? { url: Bun.env.BUNYAD_TEST_MYSQL_URL, tls: { rejectUnauthorized: false }, max: 1 }
+        : {
+            hostname: "127.0.0.1",
+            port: 33069,
+            database: "bunyad",
+            username: "bunyad",
+            password: "bunyad",
+            max: 1,
+          },
+    );
     try {
       await connection.exec("SELECT 1");
       const schema = schemaFor(connection);
@@ -619,7 +627,7 @@ test("sqlsrv query builder uses OFFSET FETCH", () => {
   expect(sql).not.toContain("LIMIT");
 });
 
-test("laravel query builder whereIn orWhere join select take skip", async () => {
+test("query builder whereIn orWhere join select take skip", async () => {
   const connection = connectSqlite();
   setDefaultConnection(connection);
   const schema = schemaFor(connection);
@@ -1214,7 +1222,7 @@ test("DB.listen fires query timing events", async () => {
 });
 
 
-test("Laravel callback where / exists / union call shapes", async () => {
+test("callback where / exists / union call shapes", async () => {
   const connection = connectSqlite();
   setDefaultConnection(connection);
   await connection.exec(
@@ -1268,7 +1276,7 @@ test("Laravel callback where / exists / union call shapes", async () => {
   await connection.close();
 });
 
-test("Laravel join and joinSub callback call shapes", async () => {
+test("join and joinSub callback call shapes", async () => {
   const connection = connectSqlite();
   setDefaultConnection(connection);
   await connection.exec(
@@ -1305,7 +1313,7 @@ test("Laravel join and joinSub callback call shapes", async () => {
   await connection.close();
 });
 
-test("Laravel paginator argument order and write return shapes", async () => {
+test("paginator argument order and write return shapes", async () => {
   const connection = connectSqlite();
   setDefaultConnection(connection);
   await connection.exec(

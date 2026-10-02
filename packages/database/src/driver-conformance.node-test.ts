@@ -285,13 +285,13 @@ describe("Node SQLite better-sqlite3 (in-memory)", () => {
       ]),
       1,
     );
-    const row = connection.getSync<{ name: string }>(
+    const row = connection.getSync!<{ name: string }>(
       "SELECT name FROM n6_sqlite_rows WHERE name = ?",
       ["alpha"],
     );
     assert.equal(row?.name, "alpha");
     assert.equal(
-      connection.allSync<{ name: string }>("SELECT name FROM n6_sqlite_rows")
+      connection.allSync!<{ name: string }>("SELECT name FROM n6_sqlite_rows")
         .length,
       1,
     );
@@ -300,7 +300,7 @@ describe("Node SQLite better-sqlite3 (in-memory)", () => {
     assert.ok(id > 0);
     const id1 = connection.insertGetIdSync1!("n6_sqlite_rows", "name", "gamma");
     assert.ok(id1 > id);
-    const byId = connection.getSync1<{ name: string }>(
+    const byId = connection.getSync1!<{ name: string }>(
       "SELECT name FROM n6_sqlite_rows WHERE id = ? LIMIT 1",
       id1,
     );

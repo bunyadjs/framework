@@ -1,6 +1,6 @@
 import type { Model } from "./model.ts";
 
-/** Eloquent model lifecycle event names. */
+/** Model lifecycle event names. */
 export type ModelEventName =
   | "retrieved"
   | "creating"
@@ -177,7 +177,7 @@ export function withoutModelEvents<T>(
   }
 }
 
-/** Register an observer instance or class (Laravel `Model::observe`). */
+/** Register an observer instance or class (`Model::observe`). */
 export function observeModel<T extends Model>(
   ctor: abstract new (...args: never[]) => T,
   observer:

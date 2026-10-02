@@ -6,6 +6,8 @@ import { Factory, HasMany, Model, ModelQuery, OrmCollection, Pivot, UseBuilder, 
 class User extends Model {
   declare name: string;
   declare email: string;
+  declare created_at: unknown;
+  declare updated_at: unknown;
   static table = "users";
 
   static factory() {
@@ -34,7 +36,7 @@ class UserFactory extends Factory<User> {
 let userFactorySequence = 0;
 
 type Expect<T extends true> = T;
-type _userFactoryAssignable = Expect<UserFactory extends Factory ? true : false>;
+type _userFactoryAssignable = Expect<UserFactory extends Factory<any> ? true : false>;
 type _userCreateThis = Expect<typeof User extends typeof Model ? true : false>;
 
 class Post extends Model {
@@ -719,7 +721,7 @@ test("explicit bigint id cast is preserved", () => {
   }
 
   const row = Row.newFromBuilder({ id: "144" });
-  expect(row.id).toBe(144n);
+  expect(row.id as unknown).toBe(144n);
 });
 
 test("incrementing int id is numeric even when other casts exist", () => {
@@ -1631,12 +1633,12 @@ test("global local scopes appends loadCount belongsToMany whereHas", async () =>
   expect(await Shop.newQuery().get()).toHaveLength(2);
   expect(await Shop.withoutGlobalScope("notArchived").get()).toHaveLength(3);
   expect(await (Shop.newQuery() as unknown as ModelQuery & { active(): ModelQuery }).active().get()).toHaveLength(1);
-  // Laravel `Model::active()` — static local scope via __callStatic
+  // `Model::active()` — static local scope via __callStatic
   expect(await (Shop as unknown as { active(): ModelQuery }).active().get()).toHaveLength(1);
 
   // Local scopes work inside nested `where((q) => …)` groups
   const nestedActive = await Shop.where((q) => {
-    (q as ModelQuery & { active(): ModelQuery }).active();
+    (q as unknown as { active(): ModelQuery }).active();
   }).get();
   expect(nestedActive).toHaveLength(1);
 
@@ -1705,7 +1707,7 @@ test("Model static terminals: get / pluck / count / scopes / no junk", async () 
   // User.pluck('name')
   expect((await User.pluck("name")).sort().all()).toEqual(["Ada", "Bob"]);
 
-  // User.pluck('name','id') keyed — plain object key→value (Laravel assoc)
+  // User.pluck('name','id') keyed — plain object key→value
   const keyed = await User.orderBy("id").pluck("name", "id");
   expect(keyed).toEqual({ "1": "Ada", "2": "Bob" });
   const keyedStatic = await User.pluck("name", "id");
@@ -1725,15 +1727,18 @@ test("Model static terminals: get / pluck / count / scopes / no junk", async () 
   });
 
   // Other allowlisted terminals via Proxy (__callStatic)
-  expect(await User.count()).toBe(2);
-  expect(await User.exists()).toBe(true);
-  expect(await User.doesntExist()).toBe(false);
-  expect(await User.value("name")).toBeTruthy();
-  expect((await User.first())?.name).toBeTruthy();
-  expect(await User.sum("id")).toBeGreaterThan(0);
+  // Proxy terminals are runtime-only; no static typings exist for them.
+  const DynamicUser = User as unknown as Record<string, (...args: unknown[]) => Promise<any>>;
+  expect(await DynamicUser.count()).toBe(2);
+  expect(await DynamicUser.exists()).toBe(true);
+  expect(await DynamicUser.doesntExist()).toBe(false);
+  expect(await DynamicUser.value("name")).toBeTruthy();
+  expect((await DynamicUser.first())?.name).toBeTruthy();
+  expect(await DynamicUser.sum("id")).toBeGreaterThan(0);
 
   // Local scopes still win when scopeFoo exists
   class Shop extends Model {
+    declare name: string;
     static table = "shops_static_term";
     static timestamps = false;
     static fillable = ["name", "active"];
@@ -2264,6 +2269,7 @@ test("Factory for has and fake helper", async () => {
     static fillable = ["name"];
   }
   class User extends Model {
+    declare team_id: unknown;
     static table = "users";
     static fillable = ["email", "name", "team_id"];
     posts() {
