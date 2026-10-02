@@ -259,7 +259,7 @@ function collectMiddlewareAliases(
     if (!alias) {
       diagnostics.push({
         code: "BUNYAD_ROUTE_012",
-        message: `Route [${route.uri}] has middleware without a Laravel alias; use string middleware (e.g. "auth") or tagged factories (auth(), throttle("api"), can("delete", "post")).`,
+        message: `Route [${route.uri}] has middleware without a middleware alias; use string middleware (e.g. "auth") or tagged factories (auth(), throttle("api"), can("delete", "post")).`,
         file: entry,
       });
       continue;
@@ -318,7 +318,7 @@ function injectSlotsFromParams(
       slots.push({ kind: "param", param: p.name });
       continue;
     }
-    // Laravel positional: `{user}` + `($id)` → raw URI segment.
+    // Positional: `{user}` + `($id)` → raw URI segment.
     if (!p.typeName) {
       const next = routeParams.find((name) => !usedRouteParams.has(name));
       if (next) {

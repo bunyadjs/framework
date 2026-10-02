@@ -1,46 +1,45 @@
 # @bunyad/view
 
-Laravel-like **Views** (we do not use the name Blade). No `$` in templates.
+Bunyad's template engine, Views: `.view` files compiled once to functions and cached, with `@foreach`/`@if` directives, components, layouts and HTML-escaped output.
+
+> **Beta.** Public APIs change only in minor releases, with a changelog entry and migration note. See the [stability policy](https://github.com/bunyadjs/framework/blob/main/docs/STABILITY.md).
+
+```bash
+bun add @bunyad/view@beta   # or: npm install @bunyad/view@beta
+```
+
+## Usage
 
 ```ts
-return view("welcome", { title: "Welcome", users });
+import { ViewFactory, setViewFactory, view } from "@bunyad/view";
+
+// views/page.view
+//   <h1>{{ title }}</h1>
+//   @use('money')
+//   @foreach(users as user)
+//     <li>{{ user.name }} - {{ money.format(user.balance) }}</li>
+//   @endforeach
+//   <script>window.boot = @json(boot)</script>
+
+const factory = new ViewFactory("./views");
+factory.use("money", { format: (n: number) => `$${n.toFixed(2)}` });
+setViewFactory(factory);
+
+const res = view("page", { title: "Team <b>", users: [{ name: "Ada", balance: 12 }], boot: { a: 1 } });
+res.headers.get("Content-Type"); // "text/html; charset=utf-8"
+await res.text();
+// <h1>Team &lt;b&gt;</h1>
+//   <li>Ada - $12.00</li>
+// <script>window.boot = {"a":1}</script>
 ```
 
-```view
-<h1>{{ title }}</h1>
-@foreach(users as user)
-  <li>{{ user.name }}</li>
-@endforeach
-```
+## Notes
 
-## Logic in templates (secure)
+- Bun-only runtime.
+- Templates have no `$` and no `@php`: script blocks and module imports are rejected. Register shared helpers with `factory.use(name, value)`, then `@use('name')`.
+- Use `{{ }}` for escaped output, `{!! !!}` for raw HTML and `@json(...)` for HTML-safe JSON inside `<script>`.
+- `render(name, data)` returns a string; `view(name, data)` returns an HTML `Response`. `createViewPlugin()` precompiles views for `@bunyad/compiler`.
 
-**There is no `@php`.** Arbitrary script blocks and filesystem/module imports from templates are rejected.
+## License
 
-| Need | Do this |
-|------|---------|
-| Shared helpers / formatters | Register in a provider: `getViewFactory().use('money', helper)` then `@use('money')` or `@import('money', 'fmt')` |
-| Local binding | `@let(total = price * qty)` — one data-scoped expression only |
-| JSON for `<script>` | `@json(payload)` — HTML-safe encoding |
-| Heavy logic | Controllers, view composers, or class Components |
-
-```ts
-// app/Providers/AppServiceProvider.ts
-getViewFactory().use("money", {
-  format(n: number) {
-    return new Intl.NumberFormat("en-PK", {
-      style: "currency",
-      currency: "PKR",
-    }).format(n);
-  },
-});
-```
-
-```view
-@use('money')
-@let(total = order.total)
-<p>{{ money.format(total) }}</p>
-<script>window.boot = @json(boot)</script>
-```
-
-Templates compile once and are cached for the request path.
+MIT

@@ -1,5 +1,6 @@
 import type { Engine, SearchableModel, SearchDocument } from "./types.ts";
 import { scoutKey, searchableIndex, toSearchDocument } from "./search.ts";
+import type { FetchLike } from "./fetch-like.ts";
 
 export type AlgoliaEngineOptions = {
   /** Application ID (`ALGOLIA_APP_ID`). */
@@ -7,7 +8,7 @@ export type AlgoliaEngineOptions = {
   /** Admin / write API key (`ALGOLIA_SECRET`). */
   secret?: string;
   /** Inject fetch (tests). */
-  fetch?: typeof fetch;
+  fetch?: FetchLike;
 };
 
 /**
@@ -16,7 +17,7 @@ export type AlgoliaEngineOptions = {
 export class AlgoliaEngine implements Engine {
   readonly #appId: string;
   readonly #apiKey: string;
-  readonly #fetch: typeof fetch;
+  readonly #fetch: FetchLike;
 
   constructor(options: AlgoliaEngineOptions = {}) {
     this.#appId =

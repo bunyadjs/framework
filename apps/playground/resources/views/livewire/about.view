@@ -5,7 +5,7 @@
   <a href="/" live:navigate>Home</a>
   <a href="/livewire" live:navigate>Demo</a>
   <a href="/livewire/about" live:navigate>About</a>
-  <a href="/pulse" live:navigate>Pulse</a>
+  <a href="/metrics" live:navigate>Metrics</a>
 </nav>
 <h1>{{ title }}</h1>
 <p>Second page for SPA navigation. Use the nav links (no full reload).</p>

@@ -58,7 +58,7 @@ export class OrmCollection<T extends Model = Model> extends Collection<T> {
     return this;
   }
 
-  /** Laravel `$collection->loadCount(...)` — batched GROUP BY per relation. */
+  /** `$collection->loadCount(...)` — batched GROUP BY per relation. */
   async loadCount(...relations: string[]): Promise<this> {
     return this.#loadAggregates(
       relations.flat().map((raw) => {

@@ -15,7 +15,7 @@ export type FeatureConnection = {
 
 export type DatabaseFeatureStoreOptions = {
   connection: FeatureConnection;
-  /** Table name (Laravel default `features`). */
+  /** Table name. */
   table?: string;
 };
 

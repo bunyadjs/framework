@@ -19,8 +19,8 @@
   },
   "scripts": {
     "bunyad": "bun packages/cli/src/bunyad.ts",
-    "test": "bun test packages apps/playground apps/my-api apps/my-app apps/my-saas apps/my-live apps/my-react apps/my-vue apps/my-svelte templates/api templates/views templates/live templates/react templates/vue templates/svelte templates/saas",
-    "typecheck": "bunx tsc -p packages/contracts --noEmit && bunx tsc -p packages/common --noEmit && bunx tsc -p packages/container --noEmit && bunx tsc -p packages/config --noEmit && bunx tsc -p packages/http --noEmit && bunx tsc -p packages/router --noEmit && bunx tsc -p packages/core --noEmit",
+    "test": "bun test packages scripts apps/playground apps/my-api apps/my-app apps/my-saas apps/my-live apps/my-react apps/my-vue apps/my-svelte templates/api templates/views templates/live templates/react templates/vue templates/svelte templates/saas",
+    "typecheck": "for p in packages/*/; do [ -f \"$p/tsconfig.json\" ] && { bunx tsc -p \"$p\" --noEmit || exit 1; }; done",
     "playground": "bun run apps/playground/server.ts",
     "serve": "bun run apps/playground/server.ts",
     "compile": "bun run apps/playground/bunyad compile",

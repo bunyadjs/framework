@@ -23,16 +23,16 @@ export type RouteRegistrar = string | ((router: Router) => void);
 
 export type RoutingOptions = {
   /**
-   * API routes — Laravel path string (`routes/api.ts`) or registrar callback.
+   * API routes — path string (`routes/api.ts`) or registrar callback.
    * Path form applies the `api` middleware group and `apiPrefix` (default `api`).
    */
   api?: RouteRegistrar;
   /**
-   * Web routes — Laravel path string (`routes/web.ts`) or registrar callback.
+   * Web routes — path string (`routes/web.ts`) or registrar callback.
    * Path form applies the `web` middleware group.
    */
   web?: RouteRegistrar;
-  /** Prefix for path-based `api` routes (Laravel default `api`). */
+  /** Prefix for path-based `api` routes (default `api`). */
   apiPrefix?: string;
   health?: string;
   then?: (app: Application) => void;
@@ -219,11 +219,11 @@ export class ApplicationBuilder {
   }
 
   /**
-   * Build the application. Async so Laravel path-string `web`/`api` route files
-   * can be loaded before `then` (same order as Laravel's booting callback).
+   * Build the application. Async so path-string `web`/`api` route files
+   * can be loaded before `then`.
    */
   async create(): Promise<Application> {
-    // Laravel order: load `config/` before provider `register()` so framework
+    // Load `config/` before provider `register()` so framework
     // providers (session, log, mail, …) see app config. `boot()` still calls
     // `loadConfiguration()` idempotently via enableLoadConfigurationOnBoot.
     this.app.enableLoadConfigurationOnBoot();

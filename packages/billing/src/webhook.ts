@@ -22,7 +22,6 @@ export type WebhookHandlerResult = {
 
 /**
  * Verify Stripe-Signature header (t=…,v1=…).
- * Laravel Billing VerifyWebhookSignature equivalent.
  */
 export function verifyStripeSignature(
   payload: string,

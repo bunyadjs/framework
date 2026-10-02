@@ -10,7 +10,7 @@ export type RedisMetricsClient = {
 };
 
 export type RedisMetricsStoreOptions = {
-  /** Key prefix (default `bunyad:pulse:`). */
+  /** Key prefix (default `bunyad:metrics:`). */
   prefix?: string;
   /** Inject a client (tests / custom). */
   client: RedisMetricsClient;
@@ -27,7 +27,7 @@ export class RedisMetricsStore implements MetricsStore {
   #ready: Promise<void>;
 
   constructor(options: RedisMetricsStoreOptions) {
-    this.#prefix = options.prefix ?? "bunyad:pulse:";
+    this.#prefix = options.prefix ?? "bunyad:metrics:";
     this.#client = options.client;
     this.#ready = this.refresh();
   }

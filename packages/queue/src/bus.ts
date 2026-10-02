@@ -176,17 +176,17 @@ export const Bus = {
     return new PendingDispatch(job);
   },
 
-  /** Run the job immediately on the sync path (Laravel `Bus::dispatchSync`). */
+  /** Run the job immediately on the sync path. */
   async dispatchSync(job: Job): Promise<void> {
     await runJob(job);
   },
 
-  /** Alias of `dispatchSync` (Laravel `dispatchNow`). */
+  /** Alias of `dispatchSync`. */
   async dispatchNow(job: Job): Promise<void> {
     return Bus.dispatchSync(job);
   },
 
-  /** Dispatch many jobs (Laravel `Bus::bulk`). */
+  /** Dispatch many jobs. */
   async bulk(jobs: Job[], queue?: string): Promise<string[]> {
     const ids: string[] = [];
     for (const job of jobs) {
@@ -196,7 +196,7 @@ export const Bus = {
     return ids;
   },
 
-  /** Dispatch after the current response turn (Laravel `Bus::dispatchAfterResponse`). */
+  /** Dispatch after the current response turn. */
   dispatchAfterResponse(job: Job): PendingDispatch {
     return new PendingDispatch(job).afterResponse();
   },

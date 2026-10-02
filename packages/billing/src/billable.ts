@@ -176,13 +176,13 @@ export class BillableConcern {
   }
 
 
-  /** Laravel `$user->invoices()`. */
+  /** List the customer's invoices. */
   async invoices(params: { limit?: number } = {}): Promise<Invoice[]> {
     const id = await this.#requireStripeId();
     return listStripeInvoices(id, params);
   }
 
-  /** Laravel `$user->findInvoice($id)`. */
+  /** Find an invoice by id. */
   async findInvoice(invoiceId: string): Promise<Invoice | null> {
     try {
       const invoice = await retrieveStripeInvoice(invoiceId);
@@ -196,7 +196,7 @@ export class BillableConcern {
   }
 
   /**
-   * Laravel `$user->downloadInvoice($id, $data, $filename)`.
+   * Download an invoice by id.
    * Returns Stripe-hosted PDF URL + filename (minimal Billing PDF path).
    */
   async downloadInvoice(
@@ -210,7 +210,7 @@ export class BillableConcern {
   }
 
   /**
-   * Laravel `$user->createTaxId($type, $value)` —
+   * Create a tax id for the customer,
    * e.g. `createTaxId('eu_vat', 'DE123')`.
    */
   async createTaxId(type: string, value: string): Promise<Record<string, unknown>> {
@@ -220,7 +220,7 @@ export class BillableConcern {
     });
   }
 
-  /** Laravel `$user->taxIds()`. */
+  /** List the customer's tax ids. */
   async taxIds(): Promise<Record<string, unknown>[]> {
     const customerId = await this.#requireStripeId();
     const res = await Billing.stripe().request<{ data: Record<string, unknown>[] }>(

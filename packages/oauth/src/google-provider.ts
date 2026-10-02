@@ -1,11 +1,12 @@
 import { AbstractProvider, type ProviderConfig } from "./abstract-provider.ts";
 import { OAuthUser } from "./user.ts";
+import type { FetchLike } from "./fetch-like.ts";
 
 /**
  * Google OAuth 2 provider.
  */
 export class GoogleProvider extends AbstractProvider {
-  constructor(config: ProviderConfig, fetchImpl: typeof fetch = fetch) {
+  constructor(config: ProviderConfig, fetchImpl: FetchLike = fetch) {
     super(config, fetchImpl);
     this.scopes(["openid", "profile", "email"]);
   }

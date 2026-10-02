@@ -4,10 +4,10 @@ import type { SessionStore } from "@bunyad/contracts";
 export type RedisSessionStoreOptions = {
   /** Redis URL, e.g. `redis://127.0.0.1:6379`. */
   url?: string;
-  /** Key prefix (Laravel session redis prefix). */
+  /** Key prefix. */
   prefix?: string;
   /**
-   * Session lifetime in minutes (Laravel `lifetime`).
+   * Session lifetime in minutes.
    * Applied as Redis key TTL on write.
    */
   lifetime?: number;
@@ -16,7 +16,7 @@ export type RedisSessionStoreOptions = {
 };
 
 /**
- * Laravel `redis` session driver via Bun's `RedisClient`.
+ * `redis` session driver via Bun's `RedisClient`.
  */
 export class RedisSessionStore implements SessionStore {
   readonly #prefix: string;

@@ -1,0 +1,4 @@
+# RFC 6238 appendix B TOTP test vector (public, not a credential)
+05d0b89df6be5aad0a0659391870f0a84ccebd96:packages/auth/src/two-factor.test.ts:generic-api-key:13
+cb86b0d2175aaab4d1966c9f18d9e031b78980cb:packages/auth/src/two-factor.test.ts:generic-api-key:13
+packages/auth/src/two-factor.test.ts:generic-api-key:13

@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { basename, relative, resolve, sep } from "node:path";
 import { writeAppKey } from "./key.ts";
 import { confirm, intro, outro, select, text } from "./prompts.ts";
+import { appNameProblem, unsupportedRuntimeMessage } from "./runtime.ts";
 
 /**
  * A published CLI runs from `dist/` and carries its own copy of the starter kits
@@ -95,6 +96,12 @@ export async function listTemplates(): Promise<string[]> {
 
 /** Scaffold a new app from `templates/<name>`. */
 export async function newProject(rawArgs: string[]): Promise<void> {
+  const runtimeProblem = unsupportedRuntimeMessage();
+  if (runtimeProblem) {
+    console.error(runtimeProblem);
+    process.exitCode = 1;
+    return;
+  }
   let args: string[];
   let options: NewOptions;
   try {
@@ -126,6 +133,7 @@ export async function newProject(rawArgs: string[]): Promise<void> {
         label: "Directory name?",
         required: "Please provide a directory.",
         placeholder: "my-app",
+        validate: (value) => appNameProblem(value) ?? undefined,
       }));
     options.database ??= await select({
       label: "Which database?",
@@ -158,9 +166,18 @@ export async function newProject(rawArgs: string[]): Promise<void> {
     return;
   }
 
+  const nameProblem = appNameProblem(targetArg);
+  if (nameProblem) {
+    console.error(nameProblem);
+    process.exitCode = 1;
+    return;
+  }
+
   const target = resolve(process.cwd(), targetArg);
-  if (existsSync(target)) {
-    console.error(`Directory already exists: ${target}`);
+  // An empty existing directory is fine (e.g. one you just created); anything else is not.
+  if (existsSync(target) && (await readdir(target).catch(() => ["?"])).length > 0) {
+    console.error(`Directory already exists and is not empty: ${target}`);
+    console.error("Choose another name, or remove it first.");
     process.exitCode = 1;
     return;
   }
@@ -196,7 +213,7 @@ export async function newProject(rawArgs: string[]): Promise<void> {
   console.log(`  cd ${targetArg}`);
   if (!installed) console.log("  bun install");
   if (existsSync(resolve(target, "database/migrations"))) {
-    console.log("  bunyad migrate");
+    console.log("  bun ./bunyad migrate");
   }
   const hint = flockServedHint(appName, target);
   if (hint) {
@@ -204,7 +221,7 @@ export async function newProject(rawArgs: string[]): Promise<void> {
     if (pkgJson.scripts?.build) console.log("  bun run build");
     console.log(`  ${hint}`);
   } else {
-    console.log(pkgJson.scripts?.dev ? "  bun run dev" : "  bunyad serve");
+    console.log(pkgJson.scripts?.dev ? "  bun run dev" : "  bun ./bunyad serve");
   }
 }
 

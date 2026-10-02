@@ -1,5 +1,5 @@
 /**
- * Laravel `Illuminate\Support\Str` — static string helpers.
+ * Static string helpers.
  */
 
 const UUID_RE =
@@ -11,7 +11,7 @@ function escapeRegExp(value: string): string {
 }
 
 export const Str = {
-  /** Laravel `Str::of` — returns a thin chainable wrapper. */
+  /** `Str::of` — returns a thin chainable wrapper. */
   of(value: string): Stringable {
     return new Stringable(String(value ?? ""));
   },
@@ -30,7 +30,7 @@ export const Str = {
       .replace(/(?:^|\s|[-_])\S/g, (c) => c.toUpperCase());
   },
 
-  /** Laravel `Str::headline` — Title Case From snake/kebab/studly. */
+  /** `Str::headline` — Title Case From snake/kebab/studly. */
   headline(value: string): string {
     const spaced = String(value)
       .replace(/([a-z])([A-Z])/g, "$1 $2")

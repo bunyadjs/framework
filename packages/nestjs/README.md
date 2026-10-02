@@ -1,6 +1,6 @@
 # `@bunyad/nestjs`
 
-Minimal NestJS module for Bunyad’s dual-runtime database layer (`@bunyad/database`) and Eloquent-style models (`@bunyad/orm`).
+Minimal NestJS module for Bunyad’s dual-runtime database layer (`@bunyad/database`) and active-record models (`@bunyad/orm`).
 
 **Non-goals:** Nest `@Entity()` fork, Nest CLI schematics, porting Bunyad HTTP into Nest.
 

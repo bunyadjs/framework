@@ -25,7 +25,7 @@ export type RateLimiterCache = {
 };
 
 /**
- * Laravel `Limit::perMinute(60)->by($key)`.
+ * `Limit::perMinute(60)->by($key)`.
  */
 export class Limit {
   key = "";
@@ -108,7 +108,7 @@ export class Limit {
 }
 
 export type NamedLimiter = (
-  /** HTTP `Request` or a queue `Job` (Laravel named limiters accept either); annotate the one you use. */
+  /** HTTP `Request` or a queue `Job`; annotate the one you use. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   context: any,
 ) => Limit | Limit[] | Promise<Limit | Limit[]>;
@@ -116,7 +116,7 @@ export type NamedLimiter = (
 const CACHE_PREFIX = "bunyad:rate:";
 
 /**
- * Fixed-window rate limiter (Laravel RateLimiter-lite).
+ * Fixed-window rate limiter.
  * Uses an in-process Map by default; call `use(cache)` to share via Cache.
  */
 export class RateLimiter {
@@ -319,7 +319,7 @@ export class RateLimiter {
     return bucket.count >= maxAttempts;
   }
 
-  /** Hits recorded for a key (Laravel `RateLimiter::attempts`). */
+  /** Hits recorded for a key. */
   attempts(key: string): number | Promise<number> {
     if (this.#cache) {
       return this.#cache.get<Bucket>(`${CACHE_PREFIX}${key}`).then((bucket) => {
@@ -332,7 +332,7 @@ export class RateLimiter {
     return bucket.count;
   }
 
-  /** Remaining attempts (Laravel `RateLimiter::remaining` / `retriesLeft`). */
+  /** Remaining attempts. */
   remaining(
     key: string,
     maxAttempts: number,
@@ -351,7 +351,7 @@ export class RateLimiter {
     return this.remaining(key, maxAttempts);
   }
 
-  /** Unix timestamp when the lockout ends (Laravel `availableAt`). */
+  /** Unix timestamp when the lockout ends. */
   availableAt(key: string): number | Promise<number> {
     if (this.#cache) {
       return this.#cache.get<Bucket>(`${CACHE_PREFIX}${key}`).then((bucket) => {
@@ -368,7 +368,7 @@ export class RateLimiter {
     return Math.ceil(bucket.resetAt / 1000);
   }
 
-  /** Seconds until available (Laravel `availableIn`). */
+  /** Seconds until available. */
   availableIn(key: string): number | Promise<number> {
     if (this.#cache) {
       return this.#cache.get<Bucket>(`${CACHE_PREFIX}${key}`).then((bucket) => {
@@ -381,7 +381,7 @@ export class RateLimiter {
     return Math.max(0, Math.ceil((bucket.resetAt - Date.now()) / 1000));
   }
 
-  /** Record a hit and return the new attempt count (Laravel `RateLimiter::hit`). */
+  /** Record a hit and return the new attempt count. */
   hit(
     key: string,
     decaySeconds = 60,
@@ -393,7 +393,7 @@ export class RateLimiter {
     return this.attempts(key) as number;
   }
 
-  /** Increment hit count (Laravel `increment`). */
+  /** Increment hit count. */
   increment(
     key: string,
     decaySeconds = 60,
@@ -415,7 +415,7 @@ export class RateLimiter {
     return last;
   }
 
-  /** Decrement hit count (Laravel `decrement`). */
+  /** Decrement hit count. */
   decrement(
     key: string,
     amount = 1,
@@ -440,7 +440,7 @@ export class RateLimiter {
     return bucket.count;
   }
 
-  /** Reset attempts for a key (Laravel `resetAttempts` / `clear`). */
+  /** Reset attempts for a key. */
   resetAttempts(key: string): void | Promise<void> {
     return this.clear(key);
   }
@@ -477,7 +477,7 @@ export function getRateLimiter(): RateLimiter {
   return defaultLimiter ?? (defaultLimiter = new RateLimiter());
 }
 
-/** Register Laravel-style named limiters (`api`, `auth`, `tokens`). */
+/** Register named limiters (`api`, `auth`, `tokens`). */
 export function registerRateLimitPresets(limiter: RateLimiter): void {
   limiter.for("api", (ctx) => Limit.api(ctx as Request));
   limiter.for("auth", (ctx) => Limit.auth(ctx as Request));

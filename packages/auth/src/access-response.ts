@@ -1,7 +1,7 @@
 import { abort } from "@bunyad/http";
 
 /**
- * Authorization result (Laravel `Illuminate\Auth\Access\Response`).
+ * Authorization result.
  */
 export class AccessResponse {
   readonly #allowed: boolean;

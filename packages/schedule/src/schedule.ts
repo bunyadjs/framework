@@ -812,7 +812,7 @@ export class ScheduledEvent {
       : this.#emailOutputTo;
     if (addresses.length === 0) return;
     const body = this.#lastOutput;
-    // Skip empty success emails (Laravel 12+ / emailWrittenOutputTo semantics).
+    // Skip empty success emails.
     if (!failed && !body.trim()) return;
     const label = this.getSummaryForDisplay();
     const subject = failed

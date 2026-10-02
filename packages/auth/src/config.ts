@@ -27,7 +27,7 @@ export type AuthPasswordBrokerConfig = {
 };
 
 /**
- * Laravel-shaped `config/auth.ts` payload.
+ * `config/auth.ts` payload.
  */
 export type AuthConfig = {
   defaults?: {

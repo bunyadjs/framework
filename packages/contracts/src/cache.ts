@@ -1,5 +1,5 @@
 /**
- * Cache store contract (Laravel CacheStore analogue).
+ * Cache store contract.
  */
 export interface CacheStore {
   get<T = unknown>(key: string): Promise<T | undefined>;
@@ -12,4 +12,6 @@ export interface CacheStore {
   increment(key: string, value?: number): Promise<number>;
   /** Atomically lower a numeric value; creates the key at `-value` when missing. */
   decrement(key: string, value?: number): Promise<number>;
+  /** Store a value only when the key is missing. Optional: stores without it fall back to has + put. */
+  add?(key: string, value: unknown, seconds?: number): Promise<boolean>;
 }

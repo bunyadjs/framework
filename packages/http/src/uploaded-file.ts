@@ -54,7 +54,7 @@ export class UploadedFile {
     return this.size;
   }
 
-  /** Extension of the client filename (Laravel `extension` / `clientExtension`). */
+  /** Extension of the client filename. */
   extension(): string {
     return this.getClientOriginalExtension();
   }
@@ -71,7 +71,7 @@ export class UploadedFile {
     return this.#clientOriginalName;
   }
 
-  /** Generated hash filename (Laravel `hashName`). */
+  /** Generated hash filename. */
   hashName(path = ""): string {
     const bytes = crypto.getRandomValues(new Uint8Array(20));
     const hash = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join(
@@ -192,7 +192,7 @@ export class UploadedFile {
     return path;
   }
 
-  /** Store on the public disk (Laravel `storePublicly`). */
+  /** Store on the public disk. */
   async storePublicly(
     directory = "",
     options: { disk?: string } = {},
@@ -200,7 +200,7 @@ export class UploadedFile {
     return this.store(directory, { disk: options.disk ?? "public" });
   }
 
-  /** Store on the public disk with a fixed name (Laravel `storePubliclyAs`). */
+  /** Store on the public disk with a fixed name. */
   async storePubliclyAs(
     directory: string,
     name: string,
@@ -214,7 +214,7 @@ export class UploadedFile {
     return new UploadedFile(file, file.name);
   }
 
-  /** Create a fake upload for tests (Laravel `UploadedFile::fake`). */
+  /** Create a fake upload for tests. */
   static fake(): {
     create(name: string, content?: string | Uint8Array, mime?: string): UploadedFile;
     image(name: string, width?: number, height?: number): UploadedFile;

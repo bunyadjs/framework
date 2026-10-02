@@ -92,7 +92,7 @@ export function toDate(value: DateInput): Date {
   return new Date(NaN);
 }
 
-/** Calendar date `YYYY-MM-DD` (Laravel date cast storage shape). */
+/** Calendar date `YYYY-MM-DD` (date cast storage shape). */
 export function formatDateYmd(value: DateInput): string {
   const { y, m, day } = utcParts(toDate(value));
   return `${y}-${pad2(m)}-${pad2(day)}`;

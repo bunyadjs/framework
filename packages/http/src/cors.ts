@@ -123,7 +123,7 @@ function applyCorsHeaders(
 }
 
 /**
- * Global CORS middleware (Laravel `HandleCors`).
+ * Global CORS middleware.
  * Answers OPTIONS preflight when the path matches `config/cors.ts` paths.
  */
 export function handleCors(config?: CorsConfig): Middleware {

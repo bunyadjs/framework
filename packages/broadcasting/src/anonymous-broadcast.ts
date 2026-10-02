@@ -15,7 +15,7 @@ function prefixChannels(
 }
 
 /**
- * Fluent anonymous broadcast (Laravel `Broadcast::on()` / `private()` / `presence()`).
+ * Fluent anonymous broadcast.
  */
 export class AnonymousBroadcast {
   #channels: string[];

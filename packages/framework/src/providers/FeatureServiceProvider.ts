@@ -12,11 +12,8 @@ export type FeatureConfig = {
  */
 export class FeatureServiceProvider extends ServiceProvider {
   register(): void {
-    const config =
-      this.app.config.get<FeatureConfig>("features") ??
-      this.app.config.get<FeatureConfig>("pennant");
-    const driver =
-      config?.default ?? process.env.FEATURES_STORE ?? process.env.PENNANT_STORE;
+    const config = this.app.config.get<FeatureConfig>("features");
+    const driver = config?.default ?? process.env.FEATURES_STORE;
     if (driver !== "database") return;
 
     const connection = this.app.make<Connection>("db");

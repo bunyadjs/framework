@@ -252,6 +252,7 @@ function createMysqlPool(
       uri: options.url,
       connectionLimit,
       waitForConnections: true,
+      ...(options.tls ? { ssl: options.tls === true ? {} : options.tls } : {}),
     });
   }
   return mysql.createPool({
@@ -262,6 +263,7 @@ function createMysqlPool(
     password: options.password ?? "",
     connectionLimit,
     waitForConnections: true,
+    ...(options.tls ? { ssl: options.tls === true ? {} : options.tls } : {}),
   });
 }
 

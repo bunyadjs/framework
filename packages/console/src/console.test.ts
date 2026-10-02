@@ -5,7 +5,7 @@ import { applyContext, startConsole, wrapEvalSource } from "./console.ts";
 test("wrapEvalSource treats expressions as awaited values", () => {
   expect(wrapEvalSource("1 + 1")).toContain("return await (1 + 1)");
   expect(wrapEvalSource("const x = 1")).toContain("{ const x = 1 }");
-  expect(wrapEvalSource("await Contact.find(1)")).toContain("{ await Contact.find(1) }");
+  expect(wrapEvalSource("await Contact.find(1)")).toContain("return await (await Contact.find(1))");
 });
 
 test("applyContext writes keys onto globalThis", () => {

@@ -5,7 +5,7 @@ import { counterBase } from "./counter.ts";
 export type RedisCacheStoreOptions = {
   /** Redis URL, e.g. `redis://127.0.0.1:6379`. */
   url?: string;
-  /** Key prefix (Laravel `cache` prefix). */
+  /** Key prefix. */
   prefix?: string;
   /** Inject a client (tests / custom). */
   client?: RedisClient;

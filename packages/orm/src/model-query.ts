@@ -304,7 +304,7 @@ export class ModelQuery<
     return this as unknown as ModelQuery<T, "row">;
   }
 
-  /** Laravel `withoutGlobalScopes`. */
+  /** `withoutGlobalScopes`. */
   withoutGlobalScopes(names?: string[]): this {
     if (!names) this.#withoutGlobalScopes = true;
     else {
@@ -318,26 +318,26 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel `withoutGlobalScope`. */
+  /** `withoutGlobalScope`. */
   withoutGlobalScope(name: string): this {
     return this.withoutGlobalScopes([name]);
   }
 
-  /** Laravel `withTrashed()`. */
+  /** `withTrashed()`. */
   withTrashed(): this {
     this.#withTrashed = true;
     this.#onlyTrashed = false;
     return this;
   }
 
-  /** Laravel `onlyTrashed()`. */
+  /** `onlyTrashed()`. */
   onlyTrashed(): this {
     this.#onlyTrashed = true;
     this.#withTrashed = false;
     return this;
   }
 
-  /** Laravel `withoutTrashed()`. */
+  /** `withoutTrashed()`. */
   withoutTrashed(): this {
     this.#withTrashed = false;
     this.#onlyTrashed = false;
@@ -345,7 +345,7 @@ export class ModelQuery<
   }
 
   /**
-   * Laravel `Builder::withAttributes` — pending attrs for `create()`, and
+   * `Builder::withAttributes` — pending attrs for `create()`, and
    * matching `where` conditions when `asConditions` is true (default).
    */
   withAttributes(
@@ -374,7 +374,7 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel `withCasts` — merge query-time casts for hydration. */
+  /** `withCasts` — merge query-time casts for hydration. */
   withCasts(casts: Record<string, CastDefinition>): this {
     this.#casts = mqMutObj(this.#casts);
     Object.assign(this.#casts, casts);
@@ -385,17 +385,17 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel `has`. */
+  /** `has`. */
   has(relation: string): this {
     return this.whereHas(relation);
   }
 
-  /** Laravel `doesntHave`. */
+  /** `doesntHave`. */
   doesntHave(relation: string): this {
     return this.whereDoesntHave(relation);
   }
 
-  /** Laravel `whereHas`. */
+  /** `whereHas`. */
   whereHas(
     relation: string,
     callback?: (query: ModelQuery) => void,
@@ -412,7 +412,7 @@ export class ModelQuery<
     return this.#pushHasConstraint(relation, false, false, callback, meta);
   }
 
-  /** Laravel `orWhereHas`. */
+  /** `orWhereHas`. */
   orWhereHas(
     relation: string,
     callback?: (query: ModelQuery) => void,
@@ -421,7 +421,7 @@ export class ModelQuery<
     return this.#pushHasConstraint(relation, false, true, callback);
   }
 
-  /** Laravel `whereDoesntHave`. */
+  /** `whereDoesntHave`. */
   whereDoesntHave(
     relation: string,
     callback?: (query: ModelQuery) => void,
@@ -430,7 +430,7 @@ export class ModelQuery<
     return this.#pushHasConstraint(relation, true, false, callback);
   }
 
-  /** Laravel `orWhereDoesntHave`. */
+  /** `orWhereDoesntHave`. */
   orWhereDoesntHave(
     relation: string,
     callback?: (query: ModelQuery) => void,
@@ -440,7 +440,7 @@ export class ModelQuery<
   }
 
   /**
-   * Laravel `whereRelation($relation, $column, $operator = null, $value = null)`.
+   * `whereRelation($relation, $column, $operator = null, $value = null)`.
    * Convenience wrapper around `whereHas` with a column constraint.
    */
   whereRelation(
@@ -485,7 +485,7 @@ export class ModelQuery<
     });
   }
 
-  /** Laravel `orWhereRelation`. */
+  /** `orWhereRelation`. */
   orWhereRelation(
     relation: string,
     column: string,
@@ -518,25 +518,25 @@ export class ModelQuery<
     });
   }
 
-  /** Laravel `orHas`. */
+  /** `orHas`. */
   orHas(relation: string): this {
     return this.orWhereHas(relation);
   }
 
-  /** Laravel `orDoesntHave`. */
+  /** `orDoesntHave`. */
   orDoesntHave(relation: string): this {
     return this.orWhereDoesntHave(relation);
   }
 
   /**
-   * Laravel `whereBelongsTo($model, $relationshipName = null)`.
+   * `whereBelongsTo($model, $relationshipName = null)`.
    * Constrains by the foreign key of a belongsTo relation.
    */
   whereBelongsTo(related: Model, relationName?: string): this {
     return this.#belongsToConstraint(related, relationName, false);
   }
 
-  /** Laravel `orWhereBelongsTo`. */
+  /** `orWhereBelongsTo`. */
   orWhereBelongsTo(related: Model, relationName?: string): this {
     return this.#belongsToConstraint(related, relationName, true);
   }
@@ -561,7 +561,7 @@ export class ModelQuery<
   }
 
   /**
-   * Laravel `whereMorphedTo($relation, $model)`.
+   * `whereMorphedTo($relation, $model)`.
    */
   whereMorphedTo(relation: string, model: Model): this {
     return this.#morphToConstraint(relation, model, false, false);
@@ -623,7 +623,7 @@ export class ModelQuery<
   }
 
   /**
-   * Laravel `whereMorphRelation($relation, $types, $column, …)` — simplified:
+   * `whereMorphRelation($relation, $types, $column, …)` — simplified:
    * `whereMorphRelation('commentable', TypeModel, column, op?, value?)`.
    */
   whereMorphRelation(
@@ -653,7 +653,7 @@ export class ModelQuery<
   }
 
   /**
-   * Laravel `whereHasMorph($relation, $types, $callback?)`.
+   * `whereHasMorph($relation, $types, $callback?)`.
    * `$types` may be a single model class or an array.
    */
   whereHasMorph(
@@ -733,7 +733,7 @@ export class ModelQuery<
   }
 
   /**
-   * Laravel `withWhereHas($relation, $callback?)` — whereHas + eager with same constraint.
+   * `withWhereHas($relation, $callback?)` — whereHas + eager with same constraint.
    */
   withWhereHas(
     relation: string,
@@ -744,7 +744,7 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel `whereAny` (forwarded to query builder). */
+  /** `whereAny` (forwarded to query builder). */
   whereAny(columns: string[], opOrValue: unknown, value?: unknown): this {
     this.#simple = false;
     (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => q.whereAny(columns, opOrValue, value));
@@ -781,31 +781,31 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel `whereKey($id)` / `whereKey([$ids])`. */
+  /** `whereKey($id)` / `whereKey([$ids])`. */
   whereKey(id: string | number | Array<string | number>): this {
     const key = this.model.primaryKey;
     if (Array.isArray(id)) return this.whereIn(key, id);
     return this.where(key, id);
   }
 
-  /** Laravel `whereKeyNot`. */
+  /** `whereKeyNot`. */
   whereKeyNot(id: string | number | Array<string | number>): this {
     const key = this.model.primaryKey;
     if (Array.isArray(id)) return this.whereNotIn(key, id);
     return this.where(key, "!=", id);
   }
 
-  /** Laravel `whereUuid($column, $uuid)`. */
+  /** `whereUuid($column, $uuid)`. */
   whereUuid(column: string, value: string): this {
     return this.where(column, value);
   }
 
-  /** Laravel `whereUlid($column, $ulid)`. */
+  /** `whereUlid($column, $ulid)`. */
   whereUlid(column: string, value: string): this {
     return this.where(column, value);
   }
 
-  /** Laravel `whereNot(closure)` nested group. */
+  /** `whereNot(closure)` nested group. */
   whereNot(callback: (query: ModelQuery<T>) => void): this {
     this.#simple = false;
     (this.#nestedGroups = mqMut(this.#nestedGroups)).push({ boolean: "and", not: true, callback });
@@ -818,7 +818,7 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel `firstWhere`. */
+  /** `firstWhere`. */
   firstWhere(column: string, value: unknown): T | null | Promise<T | null>;
   firstWhere(
     column: string,
@@ -835,12 +835,12 @@ export class ModelQuery<
     return this.first();
   }
 
-  /** Laravel `findMany`. */
+  /** `findMany`. */
   findMany(ids: Array<string | number>): OrmCollection<T> | Promise<OrmCollection<T>> {
     return this.whereIn(this.model.primaryKey, ids).#fetchModels();
   }
 
-  /** Laravel `findOr($id, $callback)`. */
+  /** `findOr($id, $callback)`. */
   async findOr(
     id: string | number,
     callback: () => T | Promise<T>,
@@ -850,7 +850,7 @@ export class ModelQuery<
     return callback();
   }
 
-  /** Laravel `findOrNew`. */
+  /** `findOrNew`. */
   async findOrNew(id: string | number): Promise<T> {
     const model = await this.where(this.model.primaryKey, id).first();
     if (model) return model;
@@ -859,20 +859,20 @@ export class ModelQuery<
     return fresh;
   }
 
-  /** Laravel `firstOr($callback)`. */
+  /** `firstOr($callback)`. */
   async firstOr(callback: () => T | Promise<T>): Promise<T> {
     const model = await this.first();
     if (model) return model;
     return callback();
   }
 
-  /** Laravel `valueOrFail`. */
+  /** `valueOrFail`. */
   async valueOrFail(column: string): Promise<unknown> {
     const model = await this.firstOrFail();
     return (model as unknown as Record<string, unknown>)[column];
   }
 
-  /** Laravel `soleValue`. */
+  /** `soleValue`. */
   async soleValue(column: string): Promise<unknown> {
     const model = await this.sole();
     return (model as unknown as Record<string, unknown>)[column];
@@ -927,7 +927,7 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel `withSum($relation, $column)`. */
+  /** `withSum($relation, $column)`. */
   withSum(relation: string, column: string): this {
     const parsed = parseRelationAlias(relation);
     const base = parsed.relation;
@@ -980,7 +980,7 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel `withExists($relation)`. */
+  /** `withExists($relation)`. */
   withExists(...relations: string[]): this {
     for (const raw of relations.flat()) {
       const parsed = parseRelationAlias(raw);
@@ -994,7 +994,7 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel `withAggregate($relation, $column, $function)`. */
+  /** `withAggregate($relation, $column, $function)`. */
   withAggregate(
     relation: string,
     column: string,
@@ -1012,21 +1012,21 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel Eloquent `join` (hydrated models still from the base table). */
+  /** `join` (hydrated models still from the base table). */
   join(table: string, first: string, op: string, second: string): this {
     this.#simple = false;
     (this.#joins = mqMut(this.#joins)).push({ type: "inner", table, first, op, second });
     return this;
   }
 
-  /** Laravel `leftJoin`. */
+  /** `leftJoin`. */
   leftJoin(table: string, first: string, op: string, second: string): this {
     this.#simple = false;
     (this.#joins = mqMut(this.#joins)).push({ type: "left", table, first, op, second });
     return this;
   }
 
-  /** Laravel `rightJoin`. */
+  /** `rightJoin`. */
   rightJoin(table: string, first: string, op: string, second: string): this {
     this.#simple = false;
     (this.#joins = mqMut(this.#joins)).push({ type: "right", table, first, op, second });
@@ -1349,7 +1349,7 @@ export class ModelQuery<
     return this;
   }
 
-  /** Laravel `whereDate` — same on SQLite / Postgres / MySQL. */
+  /** `whereDate` — same on SQLite / Postgres / MySQL. */
   whereDate(column: string, value: DateInput): this;
   whereDate(column: string, op: string, value: DateInput): this;
   whereDate(
@@ -3164,7 +3164,7 @@ export class ModelQuery<
     })();
   }
 
-  /** Laravel `firstOrFail`. */
+  /** `firstOrFail`. */
   async firstOrFail(): Promise<T> {
     const model = await this.first();
     if (!model) throw new ModelNotFoundException();
@@ -3474,7 +3474,7 @@ export class ModelQuery<
     return models;
   }
 
-  /** Laravel `Builder::create` — insert on this query's connection. */
+  /** `Builder::create` — insert on this query's connection. */
   async create(attributes: Record<string, unknown>): Promise<T> {
     const merged = { ...this.#pendingAttributes, ...attributes };
     const useAttrs = filterFillable(this.model, merged);
@@ -3527,7 +3527,7 @@ export class ModelQuery<
     return new Paginator(items, size, currentPage, options);
   }
 
-  /** Laravel `chunk($count, $callback)`. */
+  /** `chunk($count, $callback)`. */
   async chunk(
     count: number,
     callback: (models: OrmCollection<T>) => void | Promise<void>,
@@ -3550,7 +3550,7 @@ export class ModelQuery<
     }
   }
 
-  /** Laravel `lazy($chunkSize)`. */
+  /** `lazy($chunkSize)`. */
   async *lazy(chunkSize = 1000): AsyncGenerator<T, void, unknown> {
     let page = 1;
     const fireRetrieved = hasModelEventListeners(this.model, "retrieved");
@@ -3576,7 +3576,7 @@ export class ModelQuery<
     }
   }
 
-  /** Laravel `chunkById`. */
+  /** `chunkById`. */
   async chunkById(
     count: number,
     callback: (models: OrmCollection<T>) => void | boolean | Promise<void | boolean>,
@@ -3615,7 +3615,7 @@ export class ModelQuery<
     }
   }
 
-  /** Laravel `lazyById`. */
+  /** `lazyById`. */
   async *lazyById(
     chunkSize = 1000,
     column?: string,
@@ -3660,7 +3660,7 @@ export class ModelQuery<
     await this.#buildQuery().decrement(column, amount);
   }
 
-  /** Laravel `cursorPaginate`. */
+  /** `cursorPaginate`. */
   async cursorPaginate(
     perPage = 15,
     cursor: string | null = null,
@@ -3678,7 +3678,7 @@ export class ModelQuery<
     return new CursorPaginator(items, page.perPage, page.options);
   }
 
-  /** Laravel `Builder::count($columns = '*')` — honors `distinct()` for non-`*`. */
+  /** `Builder::count($columns = '*')` — honors `distinct()` for non-`*`. */
   async count(column = "*"): Promise<number> {
     let countQ = this.#countQuery();
     if (this.#distinct) {
@@ -3751,9 +3751,9 @@ export class ModelQuery<
   }
 
   /**
-   * Laravel `Builder::pluck($column, $key = null)`.
+   * `Builder::pluck($column, $key = null)`.
    * One column → list {@link Collection}. With `key`, selects both columns and
-   * returns a keyed plain object via {@link Collection.pluck} (Laravel assoc map).
+   * returns a keyed plain object via {@link Collection.pluck}.
    */
   async pluck(column: string): Promise<Collection<unknown>>;
   async pluck(column: string, key: string): Promise<Record<string, unknown>>;
@@ -3808,8 +3808,8 @@ export class ModelQuery<
   }
 
   /**
-   * Laravel `Builder::upsert` — insert or update on unique conflict.
-   * When the model uses timestamps, stamps `created_at`/`updated_at` like Eloquent
+   * `Builder::upsert` — insert or update on unique conflict.
+   * When the model uses timestamps, stamps `created_at`/`updated_at`
    * (row values win; `updated_at` is always included in the update column list).
    */
   async upsert(

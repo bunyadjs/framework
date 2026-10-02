@@ -76,7 +76,7 @@ test("pulse dashboard shows recorded livewire hits", async () => {
   );
 
   const page = await fetch(
-    new Request("http://localhost/pulse", { headers: { cookie } }),
+    new Request("http://localhost/metrics", { headers: { cookie } }),
   );
   expect(page.status).toBe(200);
   const html = await page.text();
@@ -85,7 +85,7 @@ test("pulse dashboard shows recorded livewire hits", async () => {
   expect(html).toContain("/livewire");
 
   const json = await fetch(
-    new Request("http://localhost/pulse/aggregates", {
+    new Request("http://localhost/metrics/aggregates", {
       headers: { cookie, accept: "application/json" },
     }),
   );

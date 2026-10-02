@@ -1,5 +1,5 @@
 /**
- * Laravel `config/queue.php` analogue.
+ * Queue configuration.
  */
 export default {
   default: process.env.QUEUE_CONNECTION ?? "memory",

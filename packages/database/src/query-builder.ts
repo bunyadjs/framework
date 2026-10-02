@@ -55,7 +55,7 @@ type Join = {
   bindings?: unknown[];
 };
 
-/** Laravel-shaped join callback builder (`on` / `orOn` / `where` / `orWhere`). */
+/** Chainable join callback builder (`on` / `orOn` / `where` / `orWhere`). */
 export class JoinClause {
   constructor(readonly clauses: JoinCondition[] = []) {}
 
@@ -195,26 +195,26 @@ export class QueryBuilder {
     return query;
   }
 
-  /** Laravel `select(...$columns)`. */
+  /** `select(...$columns)`. */
   select(...columns: string[]): this {
     this.#columns = columns.length > 0 ? columns : ["*"];
     return this;
   }
 
-  /** Laravel `addSelect(...$columns)`. */
+  /** `addSelect(...$columns)`. */
   addSelect(...columns: string[]): this {
     this.#columns =
       this.#columns === null ? [...columns] : [...this.#columns, ...columns];
     return this;
   }
 
-  /** Laravel `distinct()`. */
+  /** `distinct()`. */
   distinct(value = true): this {
     this.#distinct = value;
     return this;
   }
 
-  /** Laravel `selectRaw($expression, $bindings)`. */
+  /** `selectRaw($expression, $bindings)`. */
   selectRaw(expression: string, bindings: unknown[] = []): this {
     this.#columns = this.#columns ?? [];
     this.#columns.push(expression);
@@ -254,7 +254,7 @@ export class QueryBuilder {
     return this;
   }
 
-  /** Laravel `orWhere`. */
+  /** `orWhere`. */
   orWhere(callback: (query: QueryBuilder) => void): this;
   orWhere(column: string, value: unknown): this;
   orWhere(column: string, op: string, value: unknown): this;
@@ -304,40 +304,40 @@ export class QueryBuilder {
   }
 
   /**
-   * Laravel `whereAny($columns, $operator, $value)` —
+   * `whereAny($columns, $operator, $value)` —
    * `(col1 = ? OR col2 = ? OR …)`.
    */
   whereAny(columns: string[], opOrValue: unknown, value?: unknown): this {
     return this.#whereColumnGroup(columns, opOrValue, value, "and", "or", false);
   }
 
-  /** Laravel `orWhereAny`. */
+  /** `orWhereAny`. */
   orWhereAny(columns: string[], opOrValue: unknown, value?: unknown): this {
     return this.#whereColumnGroup(columns, opOrValue, value, "or", "or", false);
   }
 
   /**
-   * Laravel `whereAll($columns, $operator, $value)` —
+   * `whereAll($columns, $operator, $value)` —
    * `(col1 = ? AND col2 = ? AND …)`.
    */
   whereAll(columns: string[], opOrValue: unknown, value?: unknown): this {
     return this.#whereColumnGroup(columns, opOrValue, value, "and", "and", false);
   }
 
-  /** Laravel `orWhereAll`. */
+  /** `orWhereAll`. */
   orWhereAll(columns: string[], opOrValue: unknown, value?: unknown): this {
     return this.#whereColumnGroup(columns, opOrValue, value, "or", "and", false);
   }
 
   /**
-   * Laravel `whereNone($columns, $operator, $value)` —
+   * `whereNone($columns, $operator, $value)` —
    * `NOT (col1 = ? OR col2 = ? OR …)`.
    */
   whereNone(columns: string[], opOrValue: unknown, value?: unknown): this {
     return this.#whereColumnGroup(columns, opOrValue, value, "and", "or", true);
   }
 
-  /** Laravel `orWhereNone`. */
+  /** `orWhereNone`. */
   orWhereNone(columns: string[], opOrValue: unknown, value?: unknown): this {
     return this.#whereColumnGroup(columns, opOrValue, value, "or", "or", true);
   }
@@ -564,7 +564,7 @@ export class QueryBuilder {
     return this.#addNested(callback, "and", false);
   }
 
-  /** Laravel-style `orWhere(function (q) { ... })`. */
+  /** `orWhere(function (q) { ... })`. */
   orWhereNested(callback: (query: QueryBuilder) => void): this {
     return this.#addNested(callback, "or", false);
   }
@@ -638,12 +638,12 @@ export class QueryBuilder {
     return this;
   }
 
-  /** Laravel `whereUuid($column, $uuid)` — equality filter. */
+  /** `whereUuid($column, $uuid)` — equality filter. */
   whereUuid(column: string, value: string): this {
     return this.where(column, value);
   }
 
-  /** Laravel `whereUlid($column, $ulid)` — equality filter. */
+  /** `whereUlid($column, $ulid)` — equality filter. */
   whereUlid(column: string, value: string): this {
     return this.where(column, value);
   }
@@ -1018,32 +1018,32 @@ export class QueryBuilder {
     return this;
   }
 
-  /** Laravel `union`. */
+  /** `union`. */
   union(query: QueryBuilder | ((query: QueryBuilder) => void)): this {
     this.#unions.push({ query: this.#resolveSub(query).clone(), all: false });
     return this;
   }
 
-  /** Laravel `unionAll`. */
+  /** `unionAll`. */
   unionAll(query: QueryBuilder | ((query: QueryBuilder) => void)): this {
     this.#unions.push({ query: this.#resolveSub(query).clone(), all: true });
     return this;
   }
 
-  /** Laravel `lockForUpdate`. */
+  /** `lockForUpdate`. */
   lockForUpdate(): this {
     this.#lock = "update";
     return this;
   }
 
-  /** Laravel `sharedLock`. */
+  /** `sharedLock`. */
   sharedLock(): this {
     this.#lock = "shared";
     return this;
   }
 
   /**
-   * Laravel `lock($value)`.
+   * `lock($value)`.
    * Pass `false` to clear, `true` for for-update, or a raw lock string.
    */
   lock(value: boolean | string = true): this {
@@ -1322,7 +1322,7 @@ export class QueryBuilder {
     return this;
   }
 
-  /** Laravel `take` — alias of `limit`. */
+  /** `take` — alias of `limit`. */
   take(value: number): this {
     return this.limit(value);
   }
@@ -1332,12 +1332,12 @@ export class QueryBuilder {
     return this;
   }
 
-  /** Laravel `skip` — alias of `offset`. */
+  /** `skip` — alias of `offset`. */
   skip(value: number): this {
     return this.offset(value);
   }
 
-  /** Laravel `forPage($page, $perPage)`. */
+  /** `forPage($page, $perPage)`. */
   forPage(page: number, perPage = 15): this {
     const current = Math.max(1, Math.floor(page) || 1);
     const size = Math.max(1, Math.floor(perPage) || 15);
@@ -1345,7 +1345,7 @@ export class QueryBuilder {
   }
 
   /**
-   * Laravel `when($value, $callback, $default)`.
+   * `when($value, $callback, $default)`.
    * Runs `callback` when value is truthy; otherwise optional `defaultCallback`.
    */
   when(
@@ -1358,7 +1358,7 @@ export class QueryBuilder {
     return this;
   }
 
-  /** Laravel `unless($value, $callback, $default)`. */
+  /** `unless($value, $callback, $default)`. */
   unless(
     value: unknown,
     callback: (query: this, value: unknown) => void,
@@ -1369,7 +1369,7 @@ export class QueryBuilder {
     return this;
   }
 
-  /** Laravel `tap($callback)`. */
+  /** `tap($callback)`. */
   tap(callback: (query: this) => void): this {
     callback(this);
     return this;
@@ -1587,7 +1587,7 @@ export class QueryBuilder {
   }
 
   /**
-   * Laravel `count($columns = '*')` with current wheres (ignores limit/offset).
+   * `count($columns = '*')` with current wheres (ignores limit/offset).
    * With `distinct()` and a non-`*` column → `COUNT(DISTINCT col)`.
    */
   count(column = "*"): number | Promise<number> {
@@ -1598,7 +1598,7 @@ export class QueryBuilder {
     return Number(value);
   }
 
-  /** Laravel `avg` / `average`. */
+  /** `avg` / `average`. */
   avg(column: string): number | null | Promise<number | null> {
     const value = this.#aggregate("avg", column);
     if (value instanceof Promise) {
@@ -1612,17 +1612,17 @@ export class QueryBuilder {
     return this.avg(column);
   }
 
-  /** Laravel `sum`. */
+  /** `sum`. */
   async sum(column: string): Promise<number> {
     return Number((await this.#aggregate("sum", column)) ?? 0);
   }
 
-  /** Laravel `min`. */
+  /** `min`. */
   async min(column: string): Promise<unknown> {
     return this.#aggregate("min", column);
   }
 
-  /** Laravel `max`. */
+  /** `max`. */
   async max(column: string): Promise<unknown> {
     return this.#aggregate("max", column);
   }
@@ -1854,7 +1854,7 @@ export class QueryBuilder {
     }
   }
 
-  /** Laravel `paginate($perPage, $columns, $pageName, $page)`. */
+  /** `paginate($perPage, $columns, $pageName, $page)`. */
   async paginate(
     perPage?: number,
     columns?: string[],
@@ -1901,7 +1901,7 @@ export class QueryBuilder {
     });
   }
 
-  /** Laravel `simplePaginate($perPage, $columns, $pageName, $page)`. */
+  /** `simplePaginate($perPage, $columns, $pageName, $page)`. */
   async simplePaginate(
     perPage?: number,
     columns?: string[],
@@ -1945,7 +1945,7 @@ export class QueryBuilder {
     });
   }
 
-  /** Laravel `cursorPaginate($perPage, $columns, $cursorName, $cursor)`. */
+  /** `cursorPaginate($perPage, $columns, $cursorName, $cursor)`. */
   async cursorPaginate(
     perPage?: number,
     columns?: string[],
@@ -2213,7 +2213,7 @@ export class QueryBuilder {
     await this.incrementEach(negated);
   }
 
-  /** Laravel `updateOrInsert`. */
+  /** `updateOrInsert`. */
   async updateOrInsert(
     attributes: Record<string, unknown>,
     values:
@@ -2234,7 +2234,7 @@ export class QueryBuilder {
     return true;
   }
 
-  /** Laravel `upsert` — insert or update on conflict (SQLite/Postgres/MySQL). */
+  /** `upsert` — insert or update on conflict (SQLite/Postgres/MySQL). */
   async upsert(
     values: Record<string, unknown> | Record<string, unknown>[],
     uniqueBy: string | string[],
@@ -2298,7 +2298,7 @@ export class QueryBuilder {
     return affected;
   }
 
-  /** Laravel `truncate`. */
+  /** `truncate`. */
   async truncate(): Promise<void> {
     if (this.#connection.driver === "sqlite") {
       await this.#connection.exec(`DELETE FROM ${this.#table}`);

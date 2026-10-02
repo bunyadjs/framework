@@ -72,7 +72,7 @@ export class Batch {
     return this.record.cancelledAt !== null;
   }
 
-  /** Laravel `canceled` spelling alias. */
+  /** Alias spelled `canceled`. */
   canceled(): boolean {
     return this.cancelled();
   }
@@ -122,7 +122,7 @@ export class Batch {
     return Boolean(getBatchCallbacks(this.id)?.allowFailures);
   }
 
-  /** Cancel remaining jobs (Laravel `Batch::cancel`). */
+  /** Cancel remaining jobs. */
   async cancel(): Promise<void> {
     const { getBatchRepository } = await import("./bus.ts");
     await getBatchRepository().update(this.id, {
@@ -131,7 +131,7 @@ export class Batch {
     this.record.cancelledAt = Math.floor(Date.now() / 1000);
   }
 
-  /** Delete the batch record (Laravel `Batch::delete`). */
+  /** Delete the batch record. */
   async delete(): Promise<void> {
     const { getBatchRepository } = await import("./bus.ts");
     const repo = getBatchRepository();
@@ -140,14 +140,14 @@ export class Batch {
     }
   }
 
-  /** Reload batch state from the repository (Laravel `fresh`). */
+  /** Reload batch state from the repository. */
   async fresh(): Promise<Batch | null> {
     const { getBatchRepository } = await import("./bus.ts");
     const record = await getBatchRepository().find(this.id);
     return record ? new Batch(record) : null;
   }
 
-  /** Add jobs to a running batch (Laravel `Batch::add`). */
+  /** Add jobs to a running batch. */
   async add(jobs: Job | Job[]): Promise<this> {
     const list = Array.isArray(jobs) ? jobs : [jobs];
     const { getBatchRepository } = await import("./bus.ts");

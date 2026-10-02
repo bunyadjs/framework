@@ -310,7 +310,7 @@ test("Collection where sort partition join toJson", () => {
   // One-arg pluck → list Collection of values
   expect(users.pluck("name")).toBeInstanceOf(Collection);
   expect(users.pluck("name").all()).toEqual(["a", "b", "c"]);
-  // Two-arg pluck → keyed plain object (Laravel assoc array / Arr.pluck parity)
+  // Two-arg pluck → keyed plain object (Arr.pluck keyed form)
   const products = collect([
     { product_id: "prod-100", name: "Desk" },
     { product_id: "prod-200", name: "Chair" },
@@ -319,7 +319,7 @@ test("Collection where sort partition join toJson", () => {
     "prod-100": "Desk",
     "prod-200": "Chair",
   });
-  // Duplicate keys keep last value (Laravel)
+  // Duplicate keys keep last value
   expect(
     collect([
       { brand: "Tesla", color: "red" },
@@ -491,4 +491,16 @@ test("Arr get set only except wrap flatten dot", () => {
   });
   expect(Arr.join(["a", "b", "c"], ", ", " and ")).toBe("a, b and c");
   expect(Arr.has(data, "a.b")).toBe(true);
+});
+
+test("dataSet refuses paths that reach Object.prototype", () => {
+  try {
+    const target: Record<string, unknown> = {};
+    dataSet(target, "__proto__.polluted", true);
+    dataSet(target, "a.constructor.prototype.polluted", true);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(target).toEqual({});
+  } finally {
+    delete (Object.prototype as Record<string, unknown>).polluted;
+  }
 });

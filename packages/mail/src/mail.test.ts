@@ -558,7 +558,7 @@ test("FailoverMailer and RoundRobinMailer", async () => {
   expect(b.messages.length).toBe(1);
 });
 
-test("renderNotificationMailHtml builds Laravel-style card", async () => {
+test("renderNotificationMailHtml builds card layout", async () => {
   const { renderNotificationMailHtml, setMailMarkdownDefaults } = await import(
     "../src/theme.ts"
   );

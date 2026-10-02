@@ -6,7 +6,7 @@ export type MetricsIngestBatch = {
   values: MetricsValueRecord[];
 };
 
-/** Optional ingest buffer (Laravel Redis ingest). */
+/** Optional ingest buffer. */
 export type MetricsIngest = {
   push(batch: MetricsIngestBatch): void | Promise<void>;
   /** Pop one batch, or `null` when empty. */
@@ -31,7 +31,7 @@ export class RedisMetricsIngest implements MetricsIngest {
 
   constructor(options: RedisMetricsIngestOptions) {
     this.#client = options.client;
-    const prefix = options.prefix ?? "bunyad:pulse:";
+    const prefix = options.prefix ?? "bunyad:metrics:";
     this.#key = `${prefix}${options.key ?? "ingest"}`;
   }
 

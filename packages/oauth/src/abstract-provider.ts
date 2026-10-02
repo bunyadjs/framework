@@ -1,6 +1,7 @@
 import { redirect } from "@bunyad/http";
 import type { Request } from "@bunyad/http";
 import { OAuthUser } from "./user.ts";
+import type { FetchLike } from "./fetch-like.ts";
 
 export type ProviderConfig = {
   clientId: string;
@@ -19,7 +20,7 @@ export type TokenResponse = {
 };
 
 /**
- * Base OAuth 2 provider (Laravel OAuth-style).
+ * Base OAuth 2 provider.
  */
 export abstract class AbstractProvider {
   #scopes: string[] = [];
@@ -27,11 +28,11 @@ export abstract class AbstractProvider {
   protected parameters: Record<string, string> = {};
   #stateless = false;
   #request: Request | undefined;
-  #fetch: typeof fetch;
+  #fetch: FetchLike;
 
   constructor(
     protected config: ProviderConfig,
-    fetchImpl: typeof fetch = fetch,
+    fetchImpl: FetchLike = fetch,
   ) {
     this.#fetch = fetchImpl;
   }
@@ -42,7 +43,7 @@ export abstract class AbstractProvider {
   abstract mapUserToObject(user: Record<string, unknown>): OAuthUser;
 
   /**
-   * Merge additional OAuth scopes (Laravel OAuth `scopes()`).
+   * Merge additional OAuth scopes.
    * Use `setScopes()` to replace.
    */
   scopes(scopes: string[]): this {
@@ -52,7 +53,7 @@ export abstract class AbstractProvider {
     return this;
   }
 
-  /** Replace OAuth scopes entirely (Laravel OAuth `setScopes()`). */
+  /** Replace OAuth scopes entirely. */
   setScopes(scopes: string[]): this {
     this.#scopes = [...scopes];
     return this;
@@ -158,7 +159,7 @@ export abstract class AbstractProvider {
     return u.toString();
   }
 
-  protected getHttpClient(): typeof fetch {
+  protected getHttpClient(): FetchLike {
     return this.#fetch;
   }
 
@@ -194,5 +195,5 @@ export abstract class AbstractProvider {
 
 export type ProviderFactory = (
   config: ProviderConfig,
-  fetchImpl?: typeof fetch,
+  fetchImpl?: FetchLike,
 ) => AbstractProvider;

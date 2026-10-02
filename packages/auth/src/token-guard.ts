@@ -144,7 +144,7 @@ export class TokenGuard {
     return (await Hash.check(String(password), hashed)) ? user : null;
   }
 
-  /** Extract bearer token from the request (Laravel `getTokenForRequest`). */
+  /** Extract bearer token from the request. */
   getTokenForRequest(request: Request): string | null {
     const bearer = request.bearerToken();
     if (bearer) return bearer;
@@ -208,18 +208,18 @@ export class TokenGuard {
     return (await this.user(request))?.id ?? null;
   }
 
-  /** Whether a user was already resolved (Laravel `hasUser`). */
+  /** Whether a user was already resolved. */
   hasUser(request?: Request): boolean {
     return Boolean(request?.user);
   }
 
-  /** Set the user for this request (Laravel `setUser`). */
+  /** Set the user for this request. */
   setUser(request: Request, user: Authenticatable): this {
     request.user = user;
     return this;
   }
 
-  /** Forget the cached user (Laravel `forgetUser`). */
+  /** Forget the cached user. */
   forgetUser(request?: Request): this {
     if (request) {
       this.#accessTokens.delete(request);
@@ -229,7 +229,7 @@ export class TokenGuard {
     return this;
   }
 
-  /** Ensure authenticated or throw 401 (Laravel `authenticate`). */
+  /** Ensure authenticated or throw 401. */
   async authenticate(request: Request): Promise<Authenticatable> {
     const user = await this.user(request);
     if (!user) abort(401, "Unauthenticated.");
@@ -237,7 +237,7 @@ export class TokenGuard {
   }
 
   /**
-   * Validate a bearer token string (Laravel `TokenGuard::validate`).
+   * Validate a bearer token string.
    * Accepts `{ token: "id|secret" }` or a plain token string via `api_token`.
    */
   async validate(credentials: {
@@ -324,7 +324,7 @@ export type HasApiTokensOptions = {
 
 /**
  * Adds `createToken` / `currentAccessToken` / `tokenCan` / `tokenCant` to a user model,
- * delegating to the token guard (Laravel `HasApiTokens`).
+ * delegating to the token guard.
  *
  * As a decorator (declare the types with `interface User extends ApiTokenMethods {}`):
  *

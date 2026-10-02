@@ -5,7 +5,7 @@ export type PusherBroadcasterOptions = {
   key: string;
   secret: string;
   cluster?: string;
-  /** Override host (Pusher Channels / Soketi / Laravel WebSockets). */
+  /** Override host (Pusher Channels / Soketi). */
   host?: string;
   useTLS?: boolean;
   fetch?: typeof fetch;

@@ -15,7 +15,7 @@ export type SearchableModel = {
 };
 
 export type SearchableModelClass = {
-  new (...args: any[]): SearchableModel;
+  new (...args: any[]): object;
   table?: string;
   searchableAs?: () => string;
   /** Optional — used by `makeAllSearchable()`. */

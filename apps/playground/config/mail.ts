@@ -1,5 +1,5 @@
 /**
- * Laravel `config/mail.php` analogue.
+ * mail config.
  * Set `MAIL_MAILER` / mailer credentials via env or override mailers below.
  */
 export default {

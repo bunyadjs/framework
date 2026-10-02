@@ -1,5 +1,5 @@
 /**
- * Karobar / Laravel readiness suite — existence + behavior for ORM APIs
+ * Karobar readiness suite — existence + behavior for ORM APIs
  * we need before wiring Bunyad into Nest (see docs/KAROBAR_STRANGLER_MIGRATION_PLAN.md).
  */
 import { expect, test } from "bun:test";
@@ -85,7 +85,7 @@ test("Gate A: whereRelation / whereHas / with / join / withCount exist", () => {
   expect(typeof q.rightJoin).toBe("function");
 });
 
-test("get() returns OrmCollection (Laravel Collection)", async () => {
+test("get() returns OrmCollection", async () => {
   const { connection, Brand, Product } = await productCatalogSchema();
   await Brand.create({ name: "Acme" });
   const brand = await Brand.where("name", "Acme").first();

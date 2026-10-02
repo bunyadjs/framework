@@ -7,13 +7,13 @@ import {
 import { getMetrics } from "./manager.ts";
 
 export type MetricsRoutesOptions = {
-  /** Dashboard path (default `/pulse`). */
+  /** Dashboard path (default `/metrics`). */
   path?: string;
   title?: string;
 };
 
 let dashboardTitle = "Metrics";
-let dashboardPath = "/pulse";
+let dashboardPath = "/metrics";
 
 export function configureMetricsHttp(options: MetricsRoutesOptions = {}): void {
   if (options.title) dashboardTitle = options.title;
@@ -47,17 +47,17 @@ export default class MetricsController {
   }
 }
 
-/** Register `/pulse` (HTML) + `/pulse/aggregates` (JSON). */
+/** Register `/metrics` (HTML) + `/metrics/aggregates` (JSON). */
 export function registerMetricsRoutes(
   router: Router,
   options: MetricsRoutesOptions = {},
 ): void {
   configureMetricsHttp(options);
   const path = options.path ?? dashboardPath;
-  router.get(path, [MetricsController, "dashboard"]).name("pulse.dashboard");
+  router.get(path, [MetricsController, "dashboard"]).name("metrics.dashboard");
   router
     .get(`${path}/aggregates`, [MetricsController, "aggregates"])
-    .name("pulse.aggregates");
+    .name("metrics.aggregates");
 }
 
 export { MetricsController as MetricsControllerClass };

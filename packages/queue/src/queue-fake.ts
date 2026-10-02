@@ -207,7 +207,7 @@ export const Queue = {
   },
 
   /**
-   * Laravel `Queue::route` — default connection/queue by job class, parent, or marker.
+   * Default connection/queue by job class, parent, or marker.
    *
    * ```ts
    * Queue.route(ProcessPodcast, { connection: "redis", queue: "podcasts" });

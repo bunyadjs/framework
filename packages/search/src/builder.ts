@@ -27,7 +27,7 @@ export class Builder {
     return this;
   }
 
-  /** Constrain field to one of the given values (Laravel Search `whereIn`). */
+  /** Constrain field to one of the given values. */
   whereIn(field: string, values: unknown[]): this {
     this.#whereIns[field] = [...values];
     return this;

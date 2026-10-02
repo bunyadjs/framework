@@ -152,7 +152,7 @@ export class TestClient {
    * Authenticate as `user` for subsequent requests.
    *
    * With a session store this signs the user into the session. Pass `"token"` or a list
-   * of abilities (Sanctum `actingAs($user, ['*'])`), or configure `auth.defaults.guard` as `token`, and
+   * of abilities (e.g. `['*']`), or configure `auth.defaults.guard` as `token`, and
    * it issues a bearer token instead.
    */
   async actingAs(

@@ -81,7 +81,7 @@ export default class BroadcastingController {
   }
 
   /**
-   * Laravel-style channel auth.
+   * channel auth.
    * `POST /api/broadcasting/auth` body: `{ channel_name, socket_id? }`
    */
   async auth(request: Request) {

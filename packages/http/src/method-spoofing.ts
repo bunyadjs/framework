@@ -1,7 +1,7 @@
 const SPOOFABLE = new Set(["PUT", "PATCH", "DELETE"]);
 
 /**
- * Resolve the effective HTTP method for routing (Laravel `_method` spoofing).
+ * Resolve the effective HTTP method for routing.
  * Only POST may be rewritten. Prefer header, then query, then body field.
  */
 export async function resolveRequestMethod(

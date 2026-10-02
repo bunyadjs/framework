@@ -284,7 +284,7 @@ test("validate sets error bag on failure", async () => {
   expect(result.effects.errors?.email?.length).toBeGreaterThan(0);
 });
 
-test("nested livewire embeds child with own snapshot", async () => {
+test("nested live component embeds child with own snapshot", async () => {
   Live.component("counter", Counter);
 
   class Dashboard extends LiveComponent {
@@ -513,7 +513,7 @@ test("a ValidationException thrown by an action reaches the error bag", async ()
     calls: [{ method: "login", params: [] }],
   });
   expect(failed.html).toContain("These credentials do not match our records.");
-  expect(failed.effects.errors.email).toEqual(["These credentials do not match our records."]);
+  expect(failed.effects.errors?.email).toEqual(["These credentials do not match our records."]);
 
   const reminded = await Live.update({
     name: "login",

@@ -19,6 +19,12 @@ function appLauncher(command: string | undefined): string | null {
 }
 
 const args = process.argv.slice(2);
+const { unsupportedRuntimeMessage } = await import("./runtime.ts");
+const runtimeProblem = unsupportedRuntimeMessage();
+if (runtimeProblem) {
+  console.error(runtimeProblem);
+  process.exit(1);
+}
 const launcher = appLauncher(args[0]);
 if (launcher) {
   const proc = Bun.spawn(["bun", launcher, ...args], {

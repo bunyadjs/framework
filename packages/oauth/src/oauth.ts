@@ -8,6 +8,7 @@ import { DiscordProvider } from "./discord-provider.ts";
 import { GithubProvider } from "./github-provider.ts";
 import { GitlabProvider } from "./gitlab-provider.ts";
 import { GoogleProvider } from "./google-provider.ts";
+import type { FetchLike } from "./fetch-like.ts";
 
 export type OAuthServices = {
   github?: ProviderConfig;
@@ -19,7 +20,7 @@ export type OAuthServices = {
 
 const customCreators = new Map<string, ProviderFactory>();
 let services: OAuthServices = {};
-let fetchImpl: typeof fetch = fetch;
+let fetchImpl: FetchLike = fetch;
 let currentRequest: Request | undefined;
 
 function envConfig(name: string): ProviderConfig | undefined {
@@ -68,7 +69,7 @@ function createBuiltIn(name: string, config: ProviderConfig): AbstractProvider {
 }
 
 /**
- * Laravel OAuth-style facade (GitHub, Google, Discord, GitLab).
+ * OAuth facade (GitHub, Google, Discord, GitLab).
  */
 export const OAuth = {
   /** Configure providers (`services.github` / … shape). */
@@ -77,7 +78,7 @@ export const OAuth = {
   },
 
   /** Override fetch (tests). */
-  setFetch(next: typeof fetch): void {
+  setFetch(next: FetchLike): void {
     fetchImpl = next;
   },
 

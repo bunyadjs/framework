@@ -77,7 +77,7 @@ export type SessionBag = {
   flash(key: string, value: unknown): void;
   has(key: string): boolean;
   forget(key: string): void;
-  /** Get and remove (Laravel `Session::pull`). */
+  /** Get and remove. */
   pull?<T = unknown>(key: string, defaultValue?: T): T;
   /** Rotate session id (session fixation protection). */
   regenerate?(destroy?: boolean): boolean;
@@ -90,11 +90,11 @@ export type SessionBag = {
 };
 
 /**
- * Laravel-like request wrapper over the Fetch Request.
+ * Request wrapper over the Fetch Request.
  */
 
 /**
- * Trusted proxy configuration (Laravel TrustProxies).
+ * Trusted proxy configuration.
  * Default: trust none — `X-Forwarded-For` / `X-Real-IP` are ignored unless
  * the connection remote address is in this list (or `*` trusts all).
  */
@@ -114,7 +114,7 @@ const remoteAddressByRaw = new WeakMap<globalThis.Request, string>();
 
 /**
  * Bind the connection remote address onto a Fetch Request so Bunyad `Request`
- * constructed from it picks it up in the constructor (Laravel-like `ip()`).
+ * constructed from it picks it up in the constructor.
  * Called from the serve adapter via `server.requestIP(request)?.address`.
  */
 export function bindRemoteAddress(
@@ -271,7 +271,7 @@ export class Request implements RequestContract {
           } else {
             files[key] = uploaded;
           }
-          // Also expose in input bag like Laravel (file objects in all())
+          // Also expose in input bag in the input bag (file objects in all())
           out[key] = files[key];
         } else {
           if (key in out && !isUploadedFileValue(out[key])) {
@@ -291,7 +291,7 @@ export class Request implements RequestContract {
 
   input(key: string, defaultValue?: unknown): unknown {
     // Match `all()` precedence: route params > body > query.
-    // Dot keys use Arr.get (Laravel `data_get` on the merged bag).
+    // Dot keys use Arr.get.
     if (key.includes(".")) {
       return Arr.get(this.all(), key, defaultValue);
     }
@@ -306,7 +306,7 @@ export class Request implements RequestContract {
     return { ...this.query(), ...this.#json, ...this.#params };
   }
 
-  /** Laravel `request->only([...])`. */
+  /** `only([...])`. */
   only(keys: string[]): Record<string, unknown> {
     const all = this.all();
     const out: Record<string, unknown> = {};
@@ -316,7 +316,7 @@ export class Request implements RequestContract {
     return out;
   }
 
-  /** Laravel `request->except([...])`. */
+  /** `except([...])`. */
   except(keys: string[]): Record<string, unknown> {
     const skip = new Set(keys);
     const out: Record<string, unknown> = {};
@@ -326,7 +326,7 @@ export class Request implements RequestContract {
     return out;
   }
 
-  /** Laravel `request->boolean($key)`. */
+  /** `boolean($key)`. */
   boolean(key: string, defaultValue = false): boolean {
     const value = this.input(key);
     if (value === undefined || value === null || value === "") return defaultValue;
@@ -340,13 +340,13 @@ export class Request implements RequestContract {
     );
   }
 
-  /** Laravel `request->filled($key)`. */
+  /** `filled($key)`. */
   filled(key: string): boolean {
     const value = this.input(key);
     return value !== undefined && value !== null && value !== "";
   }
 
-  /** Laravel `request->has($keys)` — all keys present (not missing). */
+  /** `has($keys)` — all keys present (not missing). */
   has(...keys: string[] | [string[]]): boolean {
     const list = flattenKeys(keys);
     const bag = this.all();
@@ -355,7 +355,7 @@ export class Request implements RequestContract {
     );
   }
 
-  /** Laravel `request->hasAny($keys)`. */
+  /** `hasAny($keys)`. */
   hasAny(...keys: string[] | [string[]]): boolean {
     const list = flattenKeys(keys);
     const bag = this.all();
@@ -364,12 +364,12 @@ export class Request implements RequestContract {
     );
   }
 
-  /** Laravel `request->missing($key)`. */
+  /** `missing($key)`. */
   missing(key: string): boolean {
     return !this.has(key);
   }
 
-  /** Laravel `request->integer($key, $default)`. */
+  /** `integer($key, $default)`. */
   integer(key: string, defaultValue = 0): number {
     const value = this.input(key);
     if (value === undefined || value === null || value === "") return defaultValue;
@@ -377,7 +377,7 @@ export class Request implements RequestContract {
     return Number.isFinite(n) ? n : defaultValue;
   }
 
-  /** Laravel `request->float($key, $default)`. */
+  /** `float($key, $default)`. */
   float(key: string, defaultValue = 0): number {
     const value = this.input(key);
     if (value === undefined || value === null || value === "") return defaultValue;
@@ -385,14 +385,14 @@ export class Request implements RequestContract {
     return Number.isFinite(n) ? n : defaultValue;
   }
 
-  /** Laravel `request->string($key, $default)` — returns a plain string. */
+  /** `string($key, $default)` — returns a plain string. */
   string(key: string, defaultValue = ""): string {
     const value = this.input(key);
     if (value === undefined || value === null) return defaultValue;
     return String(value);
   }
 
-  /** Laravel `request->collect($key?)`. */
+  /** `collect($key?)`. */
   collect(key?: string): Collection<unknown> {
     if (key === undefined) return collect(Object.values(this.all()));
     const value = this.input(key);
@@ -403,13 +403,13 @@ export class Request implements RequestContract {
     return collect<unknown>(value === undefined ? [] : [value]);
   }
 
-  /** Merge values into the request input bag (Laravel `request->merge`). */
+  /** Merge values into the request input bag. */
   merge(input: Record<string, unknown>): this {
     this.#json = { ...(this.#json ?? {}), ...input };
     return this;
   }
 
-  /** Merge only keys that are missing (Laravel `request->mergeIfMissing`). */
+  /** Merge only keys that are missing. */
   mergeIfMissing(input: Record<string, unknown>): this {
     const bag = this.all();
     const next: Record<string, unknown> = {};
@@ -419,7 +419,7 @@ export class Request implements RequestContract {
     return this.merge(next);
   }
 
-  /** Laravel `request->isMethod($method)`. */
+  /** `isMethod($method)`. */
   isMethod(method: string): boolean {
     return this.method.toUpperCase() === method.toUpperCase();
   }
@@ -442,30 +442,30 @@ export class Request implements RequestContract {
     );
   }
 
-  /** Laravel `request->ajax()`. */
+  /** `ajax()`. */
   ajax(): boolean {
     return (this.header("x-requested-with") ?? "").toLowerCase() === "xmlhttprequest";
   }
 
-  /** Pathname without query (Laravel `request->path()`). */
+  /** Pathname without query. */
   path(): string {
     const full = pathnameFromUrl(this.url);
     return full === "/" ? "/" : full.replace(/^\//, "");
   }
 
-  /** Full URL including query (Laravel `request->fullUrl()`). */
+  /** Full URL including query. */
   fullUrl(): string {
     return this.url;
   }
 
-  /** Host header / URL host (Laravel `request->host()`). */
+  /** Host header / URL host. */
   host(): string {
     const header = this.header("host");
     if (header) return header;
     return hostFromUrl(this.url);
   }
 
-  /** URL scheme (Laravel `request->getScheme()` / `scheme()`). */
+  /** URL scheme. */
   scheme(): string {
     const remote = this.#remoteAddress ?? "127.0.0.1";
     if (isTrustedProxy(remote)) {
@@ -475,22 +475,22 @@ export class Request implements RequestContract {
     return schemeFromUrl(this.url);
   }
 
-  /** Laravel `request->secure()`. */
+  /** `secure()`. */
   secure(): boolean {
     return this.scheme() === "https";
   }
 
-  /** Laravel `request->exists($keys)` — alias of `has`. */
+  /** `exists($keys)` — alias of `has`. */
   exists(...keys: string[] | [string[]]): boolean {
     return this.has(...keys);
   }
 
-  /** Laravel `request->anyFilled($keys)`. */
+  /** `anyFilled($keys)`. */
   anyFilled(...keys: string[] | [string[]]): boolean {
     return flattenKeys(keys).some((key) => this.filled(key));
   }
 
-  /** Laravel `request->array($key)` — value as array. */
+  /** `array($key)` — value as array. */
   array(key?: string): unknown[] {
     if (key === undefined) return Object.values(this.all());
     const value = this.input(key);
@@ -498,7 +498,7 @@ export class Request implements RequestContract {
     return Array.isArray(value) ? value : [value];
   }
 
-  /** Laravel `request->date($key)` — parse as Date or null. */
+  /** `date($key)` — parse as Date or null. */
   date(key: string, format?: string): Date | null {
     const value = this.input(key);
     if (value === undefined || value === null || value === "") return null;
@@ -512,7 +512,7 @@ export class Request implements RequestContract {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
-  /** Laravel `request->enum($key, Enum)`. */
+  /** `enum($key, Enum)`. */
   enum<T extends Record<string, string | number>>(
     key: string,
     enumType: T,
@@ -523,7 +523,7 @@ export class Request implements RequestContract {
     return values.includes(value as T[keyof T]) ? (value as T[keyof T]) : null;
   }
 
-  /** Laravel `request->enums($key, Enum)` for array inputs. */
+  /** `enums($key, Enum)` for array inputs. */
   enums<T extends Record<string, string | number>>(
     key: string,
     enumType: T,
@@ -534,7 +534,7 @@ export class Request implements RequestContract {
     );
   }
 
-  /** Cookie value (Laravel `request->cookie($key)`). */
+  /** Cookie value. */
   cookie(key: string, defaultValue: string | null = null): string | null {
     return this.cookies()[key] ?? defaultValue;
   }
@@ -560,35 +560,35 @@ export class Request implements RequestContract {
     return out;
   }
 
-  /** Laravel `request->keys()`. */
+  /** `keys()`. */
   keys(): string[] {
     return Object.keys(this.all());
   }
 
-  /** Replace the entire input bag (Laravel `request->replace`). */
+  /** Replace the entire input bag. */
   replace(input: Record<string, unknown>): this {
     this.#json = { ...input };
     return this;
   }
 
-  /** Alias for `input` (Laravel `request->get`). */
+  /** Alias for `input`. */
   get(key: string, defaultValue?: unknown): unknown {
     return this.input(key, defaultValue);
   }
 
-  /** Laravel `request->json($key?)` — JSON body value. */
+  /** `json($key?)` — JSON body value. */
   json(key?: string, defaultValue?: unknown): unknown {
     if (key === undefined) return this.#json ?? {};
     if (this.#json && key in this.#json) return this.#json[key];
     return defaultValue;
   }
 
-  /** Laravel `request->toArray()`. */
+  /** `toArray()`. */
   toArray(): Record<string, unknown> {
     return this.all();
   }
 
-  /** Laravel `request->accepts($contentTypes)`. */
+  /** `accepts($contentTypes)`. */
   accepts(contentTypes: string | string[]): boolean {
     const list = Array.isArray(contentTypes) ? contentTypes : [contentTypes];
     const accept = (this.header("accept") ?? "*/*").toLowerCase();
@@ -618,7 +618,7 @@ export class Request implements RequestContract {
     return this.accepts(["text/markdown", "text/x-markdown"]);
   }
 
-  /** Laravel `request->prefers($contentTypes)`. */
+  /** `prefers($contentTypes)`. */
   prefers(contentTypes: string[]): string | null {
     const accept = (this.header("accept") ?? "").toLowerCase();
     for (const type of contentTypes) {
@@ -632,7 +632,7 @@ export class Request implements RequestContract {
     return type.includes("/json") || type.includes("+json");
   }
 
-  /** Alias of `ajax` (Laravel `isXmlHttpRequest`). */
+  /** Alias of `ajax`. */
   isXmlHttpRequest(): boolean {
     return this.ajax();
   }
@@ -649,7 +649,7 @@ export class Request implements RequestContract {
     );
   }
 
-  /** Pathname without leading slash trim issues (Laravel `decodedPath`). */
+  /** Pathname without leading slash trim issues. */
   decodedPath(): string {
     try {
       return decodeURIComponent(this.path());
@@ -659,7 +659,7 @@ export class Request implements RequestContract {
   }
 
   /**
-   * URL without query string (Laravel `request->url()`).
+   * URL without query string.
    * Note: the `url` property remains the full Fetch URL (with query).
    */
   urlWithoutQuery(): string {
@@ -667,7 +667,7 @@ export class Request implements RequestContract {
     return `${u.origin}${u.pathname}`;
   }
 
-  /** Root URL (Laravel `request->root()`). */
+  /** Root URL. */
   root(): string {
     return new URL(this.url).origin;
   }
@@ -715,7 +715,7 @@ export class Request implements RequestContract {
     return `${this.scheme()}://${this.host()}`;
   }
 
-  /** Path segments (Laravel `request->segments()`). */
+  /** Path segments. */
   segments(): string[] {
     const p = this.path();
     if (p === "/" || p === "") return [];
@@ -726,7 +726,7 @@ export class Request implements RequestContract {
     return this.segments()[index - 1] ?? defaultValue;
   }
 
-  /** Laravel `request->is(...patterns)` — path match (`*` wildcards). */
+  /** `is(...patterns)` — path match (`*` wildcards). */
   is(...patterns: string[]): boolean {
     const path = this.path().replace(/^\//, "");
     return patterns.some((pattern) => matchPathPattern(path, pattern.replace(/^\//, "")));
@@ -744,7 +744,7 @@ export class Request implements RequestContract {
   }
 
   /**
-   * Client IP chain (Laravel `request->ips()`).
+   * Client IP chain.
    * Only reads `X-Forwarded-For` when the connection remote address is trusted;
    * otherwise returns `[ip()]` so spoofed headers cannot invent a chain.
    */
@@ -771,13 +771,13 @@ export class Request implements RequestContract {
     );
   }
 
-  /** Clamp a numeric input (Laravel `request->clamp`). */
+  /** Clamp a numeric input. */
   clamp(key: string, min: number, max: number, defaultValue = 0): number {
     const n = this.float(key, defaultValue);
     return Math.min(max, Math.max(min, n));
   }
 
-  /** Run callback when key is filled (Laravel `whenFilled`). */
+  /** Run callback when key is filled. */
   whenFilled<T>(
     key: string,
     callback: (value: unknown) => T,
@@ -790,7 +790,7 @@ export class Request implements RequestContract {
       : defaultValue;
   }
 
-  /** Run callback when key exists (Laravel `whenHas`). */
+  /** Run callback when key exists. */
   whenHas<T>(
     key: string,
     callback: (value: unknown) => T,
@@ -803,7 +803,7 @@ export class Request implements RequestContract {
       : defaultValue;
   }
 
-  /** Run callback when key is missing (Laravel `whenMissing`). */
+  /** Run callback when key is missing. */
   whenMissing<T>(
     key: string,
     callback: () => T,
@@ -816,7 +816,7 @@ export class Request implements RequestContract {
       : defaultValue;
   }
 
-  /** Run callback when input matches an enum value (Laravel `whenEnum`). */
+  /** Run callback when input matches an enum value. */
   whenEnum<T extends Record<string, string | number>, R>(
     key: string,
     enumType: T,
@@ -831,7 +831,7 @@ export class Request implements RequestContract {
       : defaultValue;
   }
 
-  /** Conditional helper (Laravel `when`). */
+  /** Conditional helper. */
   when<T>(
     condition: boolean | (() => boolean),
     callback: (request: this) => T,
@@ -845,7 +845,7 @@ export class Request implements RequestContract {
       : defaultValue;
   }
 
-  /** Inverse of `when` (Laravel `unless`). */
+  /** Inverse of `when`. */
   unless<T>(
     condition: boolean | (() => boolean),
     callback: (request: this) => T,
@@ -855,7 +855,7 @@ export class Request implements RequestContract {
     return this.when(!ok, callback, defaultValue);
   }
 
-  /** Whether the key is present but empty (Laravel `isNotFilled`). */
+  /** Whether the key is present but empty. */
   isNotFilled(key: string): boolean {
     return this.has(key) && !this.filled(key);
   }
@@ -883,27 +883,27 @@ export class Request implements RequestContract {
     return this.session;
   }
 
-  /** Flash input into the session (Laravel `flash`). */
+  /** Flash input into the session. */
   flash(): this {
     this.session?.flash("_old_input", this.all());
     return this;
   }
 
-  /** Flash only the given keys (Laravel `flashOnly`). */
+  /** Flash only the given keys. */
   flashOnly(keys: string | string[]): this {
     const list = Array.isArray(keys) ? keys : [keys];
     this.session?.flash("_old_input", this.only(list));
     return this;
   }
 
-  /** Flash all keys except the given ones (Laravel `flashExcept`). */
+  /** Flash all keys except the given ones. */
   flashExcept(keys: string | string[]): this {
     const list = Array.isArray(keys) ? keys : [keys];
     this.session?.flash("_old_input", this.except(list));
     return this;
   }
 
-  /** Previously flashed input (Laravel `old`). */
+  /** Previously flashed input. */
   old(key?: string, defaultValue: unknown = null): unknown {
     const bag =
       (this.session?.get("_old_input") as Record<string, unknown> | undefined) ??
@@ -912,13 +912,13 @@ export class Request implements RequestContract {
     return key in bag ? bag[key] : defaultValue;
   }
 
-  /** POST/body input (Laravel `post`). */
+  /** POST/body input. */
   post(key?: string, defaultValue?: unknown): unknown {
     if (key === undefined) return this.#json ?? {};
     return this.input(key, defaultValue);
   }
 
-  /** Server/environment-style bag (Laravel `server`). */
+  /** Server/environment-style bag. */
   server(key?: string, defaultValue: unknown = null): unknown {
     const bag: Record<string, unknown> = {
       REQUEST_METHOD: this.method,
@@ -932,29 +932,29 @@ export class Request implements RequestContract {
     return key in bag ? bag[key] : defaultValue;
   }
 
-  /** Input data bag (Laravel `data`). */
+  /** Input data bag. */
   data(): Record<string, unknown> {
     return this.all();
   }
 
-  /** Path + query string (Laravel `uri`). */
+  /** Path + query string. */
   uri(): string {
     const u = new URL(this.url);
     return `${u.pathname}${u.search}`;
   }
 
-  /** Scheme and HTTP host (Laravel `schemeAndHttpHost`). */
+  /** Scheme and HTTP host. */
   schemeAndHttpHost(): string {
     return this.getSchemeAndHttpHost();
   }
 
-  /** Whether the full URL matches a pattern (Laravel `fullUrlIs`). */
+  /** Whether the full URL matches a pattern. */
   fullUrlIs(...patterns: string[]): boolean {
     const full = this.fullUrl();
     return patterns.some((pattern) => matchPathPattern(full, pattern));
   }
 
-  /** Preferred format from Accept (Laravel `format`). */
+  /** Preferred format from Accept. */
   format(defaultFormat = "html"): string {
     const accept = this.header("accept") ?? "";
     if (accept.includes("application/json") || accept.includes("+json")) {
@@ -988,7 +988,7 @@ export class Request implements RequestContract {
     return this.#acceptableContentTypes;
   }
 
-  /** Whether Accept matches a type (Laravel `matchesType`). */
+  /** Whether Accept matches a type. */
   matchesType(actual: string, type: string): boolean {
     const a = actual.toLowerCase();
     const t = type.toLowerCase();
@@ -1006,7 +1006,7 @@ export class Request implements RequestContract {
     return this.acceptsMarkdown() || this.format() === "markdown";
   }
 
-  /** Input as a Fluent bag (Laravel `fluent`). */
+  /** Input as a Fluent bag. */
   fluent(key?: string): Fluent {
     if (key === undefined) return Fluent.make(this.all());
     const value = this.input(key);
@@ -1016,35 +1016,35 @@ export class Request implements RequestContract {
     return Fluent.make({});
   }
 
-  /** String input helper (Laravel `str` — returns the string value). */
+  /** String input helper. */
   str(key: string, defaultValue = ""): string {
     return this.string(key, defaultValue);
   }
 
-  /** Seconds for Retry-After / interval hints (Laravel `interval`). */
+  /** Seconds for Retry-After / interval hints. */
   interval(seconds: number): number {
     return Math.max(0, Math.floor(seconds));
   }
 
-  /** This request instance (Laravel `instance`). */
+  /** This request instance. */
   instance(): this {
     return this;
   }
 
-  /** Dump request data to the console (Laravel `dump`). */
+  /** Dump request data to the console. */
   dump(...keys: string[]): this {
     const payload = keys.length > 0 ? this.only(keys) : this.all();
     console.log(payload);
     return this;
   }
 
-  /** Dump and stop (Laravel `dd`). */
+  /** Dump and stop. */
   dd(...keys: string[]): never {
     this.dump(...keys);
     throw new Error("dd()");
   }
 
-  /** Stable fingerprint of method + path + IP (Laravel `fingerprint`). */
+  /** Stable fingerprint of method + path + IP. */
   fingerprint(): string {
     return `${this.method}|${this.path()}|${this.ip()}`;
   }
@@ -1053,13 +1053,13 @@ export class Request implements RequestContract {
     return this.header("content-type");
   }
 
-  /** Laravel `request->hasFile($key)`. */
+  /** `hasFile($key)`. */
   hasFile(key: string): boolean {
     return this.#files != null && key in this.#files;
   }
 
   /**
-   * Laravel `request->file($key)`.
+   * `file($key)`.
    * Returns a single UploadedFile, an array, or undefined.
    */
   file(key: string): UploadedFile | UploadedFile[] | undefined {
@@ -1077,7 +1077,7 @@ export class Request implements RequestContract {
     return Image.fromUpload(file);
   }
 
-  /** Laravel `request->allFiles()`. */
+  /** `allFiles()`. */
   allFiles(): Record<string, UploadedFile | UploadedFile[]> {
     return this.#files ? { ...this.#files } : {};
   }
@@ -1102,7 +1102,7 @@ export class Request implements RequestContract {
   }
 
   /**
-   * Client IP (Laravel-style trusted proxies).
+   * Client IP.
    * Default trusts no proxies — spoofed `X-Forwarded-For` / `X-Real-IP` are ignored.
    * Call `setTrustedProxies([...])` (or `"*"`) so only connections from those
    * addresses may supply forwarded client IPs. Otherwise returns the connection
@@ -1220,7 +1220,7 @@ function flattenKeys(keys: string[] | [string[]]): string[] {
   return keys as string[];
 }
 
-/** Match a path against a Laravel-style pattern (`foo/*`, `*`). */
+/** Match a path against a pattern (`foo/*`, `*`). */
 function matchPathPattern(path: string, pattern: string): boolean {
   if (pattern === "*" || pattern === path) return true;
   const escaped = pattern

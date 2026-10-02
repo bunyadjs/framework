@@ -557,7 +557,7 @@ export class Model {
   /** When false, `save()` skips `created_at` / `updated_at`. */
   static timestamps = true;
   /**
-   * Laravel `$casts` property — prefer `static casts()` when adding enums / Attribute.
+   * `$casts` property — prefer `static casts()` when adding enums / Attribute.
    * May be a plain object or a method returning the map.
    */
   static casts: Record<string, CastDefinition> | (() => Record<string, CastDefinition>) =
@@ -569,19 +569,19 @@ export class Model {
    */
   static relations: RelationsMap = {};
   /**
-   * Laravel `$touches` — relation names whose related models get `touch()` after
+   * `$touches` — relation names whose related models get `touch()` after
    * this model is saved (or soft-deleted). Honor `withoutTouching`.
    */
   static touches: string[] = [];
-  /** Laravel `$hidden`. */
+  /** `$hidden`. */
   static hidden: string[] = [];
-  /** Laravel `$visible` allow-list (empty = all non-hidden). */
+  /** `$visible` allow-list (empty = all non-hidden). */
   static visible: string[] = [];
-  /** Laravel `$appends` — accessors included in `toArray()`. */
+  /** `$appends` — accessors included in `toArray()`. */
   static appends: string[] = [];
-  /** Laravel `$fillable`. */
+  /** `$fillable`. */
   static fillable: readonly string[] | string[] = [];
-  /** Laravel `$guarded` — default guard all until fillable is set. */
+  /** `$guarded` — default guard all until fillable is set. */
   static guarded: readonly string[] | string[] = ["*"];
 
   declare id: string | number;
@@ -602,7 +602,7 @@ export class Model {
   /** Per-instance connection override (`$model->setConnection()`). */
   #connection: string | Connection | undefined;
 
-  /** Laravel `$exists` — true after retrieve / successful insert. */
+  /** `$exists` — true after retrieve / successful insert. */
   get exists(): boolean {
     return this.#exists;
   }
@@ -661,7 +661,7 @@ export class Model {
   }
 
   /**
-   * Laravel `getAttribute` — throws when `preventAccessingMissingAttributes` is on
+   * `getAttribute` — throws when `preventAccessingMissingAttributes` is on
    * and the key was not retrieved / does not exist (relations exempt).
    */
   getAttribute(key: string): unknown {
@@ -699,7 +699,7 @@ export class Model {
     return undefined;
   }
 
-  /** Laravel `isDirty`. */
+  /** `isDirty`. */
   isDirty(...attributes: string[]): boolean {
     const dirty = this.getDirty();
     if (attributes.length === 0) return Object.keys(dirty).length > 0;
@@ -708,12 +708,12 @@ export class Model {
     );
   }
 
-  /** Laravel `isClean`. */
+  /** `isClean`. */
   isClean(...attributes: string[]): boolean {
     return !this.isDirty(...attributes);
   }
 
-  /** Laravel `getDirty`. */
+  /** `getDirty`. */
   getDirty(): Record<string, unknown> {
     const dirty: Record<string, unknown> = {};
     const original = this.#original ?? {};
@@ -723,7 +723,7 @@ export class Model {
     return dirty;
   }
 
-  /** Laravel `getOriginal`. */
+  /** `getOriginal`. */
   getOriginal(): Record<string, unknown>;
   getOriginal(key: string): unknown;
   getOriginal(key?: string): unknown {
@@ -732,12 +732,12 @@ export class Model {
     return original[key];
   }
 
-  /** Laravel `getChanges` — attributes changed by the last save. */
+  /** `getChanges` — attributes changed by the last save. */
   getChanges(): Record<string, unknown> {
     return this.#changes ? { ...this.#changes } : {};
   }
 
-  /** Laravel `wasChanged`. */
+  /** `wasChanged`. */
   wasChanged(...attributes: string[]): boolean {
     const changes = this.#changes;
     if (!changes) return false;
@@ -747,55 +747,55 @@ export class Model {
     );
   }
 
-  /** Laravel `wasRecentlyCreated`. */
+  /** `wasRecentlyCreated`. */
   wasRecentlyCreated(): boolean {
     return this.#wasRecentlyCreated;
   }
 
-  /** Laravel `append`. */
+  /** `append`. */
   append(...attributes: string[]): this {
     const current = this.getAppends();
     this.#appends = [...new Set([...current, ...attributes.flat()])];
     return this;
   }
 
-  /** Laravel `setAppends`. */
+  /** `setAppends`. */
   setAppends(attributes: string[]): this {
     this.#appends = [...attributes];
     return this;
   }
 
-  /** Laravel `getAppends`. */
+  /** `getAppends`. */
   getAppends(): string[] {
     if (this.#appends) return [...this.#appends];
     return [...((this.constructor as ModelClass).appends ?? [])];
   }
 
-  /** Laravel `getHidden`. */
+  /** `getHidden`. */
   getHidden(): string[] {
     if (this.#hidden) return [...this.#hidden];
     return [...((this.constructor as ModelClass).hidden ?? [])];
   }
 
-  /** Laravel `getVisible`. */
+  /** `getVisible`. */
   getVisible(): string[] {
     if (this.#visible) return [...this.#visible];
     return [...((this.constructor as ModelClass).visible ?? [])];
   }
 
-  /** Laravel `setHidden`. */
+  /** `setHidden`. */
   setHidden(attributes: string[]): this {
     this.#hidden = [...attributes];
     return this;
   }
 
-  /** Laravel `setVisible`. */
+  /** `setVisible`. */
   setVisible(attributes: string[]): this {
     this.#visible = [...attributes];
     return this;
   }
 
-  /** Laravel `makeVisible` — show attributes for this instance. */
+  /** `makeVisible` — show attributes for this instance. */
   makeVisible(...attributes: string[]): this {
     const attrs = attributes.flat();
     const hidden = new Set(this.getHidden());
@@ -808,7 +808,7 @@ export class Model {
     return this;
   }
 
-  /** Laravel `makeHidden` — hide attributes for this instance. */
+  /** `makeHidden` — hide attributes for this instance. */
   makeHidden(...attributes: string[]): this {
     const attrs = attributes.flat();
     this.#hidden = [...new Set([...this.getHidden(), ...attrs])];
@@ -821,7 +821,7 @@ export class Model {
   }
 
   /**
-   * Run a callback without touching timestamps (Laravel `Model::withoutTimestamps`).
+   * Run a callback without touching timestamps (`Model::withoutTimestamps`).
    */
   static async withoutTimestamps<T>(
     this: typeof Model,
@@ -837,7 +837,7 @@ export class Model {
   }
 
   /**
-   * Laravel `Model::withoutTouching` — skip parent `touch()` while callback runs.
+   * `Model::withoutTouching` — skip parent `touch()` while callback runs.
    * Pass model classes to limit which models ignore touch; omit for all.
    */
   static withoutTouching<T>(
@@ -862,27 +862,27 @@ export class Model {
     return isIgnoringTouch(this);
   }
 
-  /** Laravel `Model::preventLazyLoading`. */
+  /** `Model::preventLazyLoading`. */
   static preventLazyLoading(prevent = true): void {
     setPreventLazyLoading(prevent);
   }
 
-  /** Laravel `Model::preventSilentlyDiscardingAttributes`. */
+  /** `Model::preventSilentlyDiscardingAttributes`. */
   static preventSilentlyDiscardingAttributes(prevent = true): void {
     setPreventSilentlyDiscardingAttributes(prevent);
   }
 
-  /** Laravel `Model::preventAccessingMissingAttributes`. */
+  /** `Model::preventAccessingMissingAttributes`. */
   static preventAccessingMissingAttributes(prevent = true): void {
     setPreventAccessingMissingAttributes(prevent);
   }
 
-  /** Laravel `Model::shouldBeStrict` — enable/disable the strictness trio. */
+  /** `Model::shouldBeStrict` — enable/disable the strictness trio. */
   static shouldBeStrict(should = true): void {
     setShouldBeStrict(should);
   }
 
-  /** Laravel `Model::addGlobalScope`. */
+  /** `Model::addGlobalScope`. */
   static addGlobalScope(
     this: typeof Model,
     nameOrScope: string | GlobalScopeCallback,
@@ -896,19 +896,19 @@ export class Model {
     registerGlobalScope(this, nameOrScope, scope);
   }
 
-  /** Laravel `Model::addGlobalScope` removal helper. */
+  /** `Model::addGlobalScope` removal helper. */
   static removeGlobalScope(this: typeof Model, name: string): void {
     unregisterGlobalScope(this, name);
   }
 
   /**
-   * Laravel `boot` — runs once per model class before first use.
+   * `boot` — runs once per model class before first use.
    * Prefer registering listeners in `booted()`.
    */
   static boot(): void {}
 
   /**
-   * Laravel `booted` — runs once after `boot`. Typical place for `static::created(...)`.
+   * `booted` — runs once after `boot`. Typical place for `static::created(...)`.
    */
   static booted(): void {}
 
@@ -917,7 +917,7 @@ export class Model {
     bootIfNotBooted(this);
   }
 
-  /** Laravel `Model::observe`. */
+  /** `Model::observe`. */
   static observe<T extends Model>(
     this: abstract new (...args: never[]) => T,
     observer:
@@ -928,7 +928,7 @@ export class Model {
     observeModel(this, observer);
   }
 
-  /** Laravel `Model::withoutEvents`. */
+  /** `Model::withoutEvents`. */
   static withoutEvents<T>(
     this: typeof Model,
     callback: () => T | Promise<T>,
@@ -1071,7 +1071,7 @@ export class Model {
     return resolveConnection(this.connection);
   }
 
-  /** Laravel `$model->setConnection($name)`. */
+  /** `$model->setConnection($name)`. */
   setConnection(connection: string | Connection): this {
     this.#connection = connection;
     return this;
@@ -1094,7 +1094,7 @@ export class Model {
   }
 
   /**
-   * Laravel `Model::on($connection)` — same model, different named connection.
+   * `Model::on($connection)` — same model, different named connection.
    */
   static on<T extends typeof Model>(
     this: T,
@@ -1121,7 +1121,7 @@ export class Model {
     return withLocalScopeProxy(query);
   }
 
-  /** Laravel `withoutGlobalScopes()`. */
+  /** `withoutGlobalScopes()`. */
   static withoutGlobalScopes<T extends typeof Model>(
     this: T,
     names?: string[],
@@ -1131,7 +1131,7 @@ export class Model {
     });
   }
 
-  /** Laravel `withoutGlobalScope($name)`. */
+  /** `withoutGlobalScope($name)`. */
   static withoutGlobalScope<T extends typeof Model>(
     this: T,
     name: string,
@@ -1139,7 +1139,7 @@ export class Model {
     return this.newQuery({ withoutGlobalScopes: [name] });
   }
 
-  /** Laravel `Model::query()` — scoped `ModelQuery` (not a raw table builder). */
+  /** `Model::query()` — scoped `ModelQuery` (not a raw table builder). */
   static query<T extends typeof Model>(
     this: T,
     options?: ModelQueryOptions,
@@ -1147,7 +1147,7 @@ export class Model {
     return this.newQuery(options);
   }
 
-  /** Laravel `Model::find`. */
+  /** `Model::find`. */
   static find<T extends typeof Model>(
     this: T,
     id: string | number,
@@ -1162,13 +1162,13 @@ export class Model {
       .first();
   }
 
-  /** Laravel `getRouteKeyName()` — column used for implicit route binding. */
+  /** `getRouteKeyName()` — column used for implicit route binding. */
   static getRouteKeyName(): string {
     return this.primaryKey;
   }
 
   /**
-   * Laravel `resolveRouteBinding` — find by PK or custom `{param:column}` field.
+   * `resolveRouteBinding` — find by PK or custom `{param:column}` field.
    */
   static resolveRouteBinding<T extends typeof Model>(
     this: T,
@@ -1184,7 +1184,7 @@ export class Model {
   }
 
   /**
-   * Laravel SoftDeletes `resolveSoftDeletableRouteBinding` — same as
+   * `resolveSoftDeletableRouteBinding` — same as
    * `resolveRouteBinding` but includes soft-deleted rows (`withTrashed()`).
    * Used by the router when the route opts in via `withTrashed()`.
    */
@@ -1222,7 +1222,7 @@ export class Model {
     return model;
   }
 
-  /** Laravel `Model::findOrFail`. */
+  /** `Model::findOrFail`. */
   static async findOrFail<T extends typeof Model>(
     this: T,
     id: string | number,
@@ -1232,7 +1232,7 @@ export class Model {
     return model;
   }
 
-  /** Laravel `Model::all`. */
+  /** `Model::all`. */
   static async all<T extends typeof Model>(
     this: T,
   ): Promise<OrmCollection<InstanceType<T>>> {
@@ -1241,7 +1241,7 @@ export class Model {
   }
 
   /**
-   * Laravel `Model::get` — same as `query().get()` / `all()`.
+   * `Model::get` — same as `query().get()` / `all()`.
    * Typed helper for autocomplete; Proxy also forwards other terminals.
    */
   static get<T extends typeof Model>(
@@ -1252,7 +1252,7 @@ export class Model {
   }
 
   /**
-   * Laravel `Model::pluck($column, $key = null)`.
+   * `Model::pluck($column, $key = null)`.
    * One column → list Collection; with `key` → keyed Record (see Collection.pluck).
    */
   static pluck<T extends typeof Model>(
@@ -1291,7 +1291,7 @@ export class Model {
     return this.newQuery().findSync(id);
   }
 
-  /** Laravel `Model::where`. */
+  /** `Model::where`. */
   static where<T extends typeof Model>(
     this: T,
     callback: (query: ModelQuery<InstanceType<T>>) => void,
@@ -1331,7 +1331,7 @@ export class Model {
     return this.newQuery().search(columns, term);
   }
 
-  /** Start a new query and forward common builder methods (Laravel `__callStatic`). */
+  /** Start a new query and forward common builder methods (`__callStatic`). */
   static orWhere<T extends typeof Model>(
     this: T,
     column: string,
@@ -1451,7 +1451,7 @@ export class Model {
     return this.newQuery().select(...columns);
   }
 
-  /** Laravel `Model::whereDate`. */
+  /** `Model::whereDate`. */
   static whereDate<T extends typeof Model>(
     this: T,
     column: string,
@@ -1475,7 +1475,7 @@ export class Model {
     return q.whereDate(column, String(opOrValue), value);
   }
 
-  /** Laravel `Model::whereNot(closure)`. */
+  /** `Model::whereNot(closure)`. */
   static whereNot<T extends typeof Model>(
     this: T,
     callback: (query: ModelQuery<InstanceType<T>>) => void,
@@ -1484,7 +1484,7 @@ export class Model {
     return this.newQuery().whereNot(callback);
   }
 
-  /** Laravel `Model::orWhereNot(closure)`. */
+  /** `Model::orWhereNot(closure)`. */
   static orWhereNot<T extends typeof Model>(
     this: T,
     callback: (query: ModelQuery<InstanceType<T>>) => void,
@@ -1493,7 +1493,7 @@ export class Model {
     return this.newQuery().orWhereNot(callback);
   }
 
-  /** Laravel `withTrashed()`. */
+  /** `withTrashed()`. */
   static withTrashed<T extends typeof Model>(
     this: T,
   ): ModelQuery<InstanceType<T>> {
@@ -1503,7 +1503,7 @@ export class Model {
     });
   }
 
-  /** Laravel `onlyTrashed()`. */
+  /** `onlyTrashed()`. */
   static onlyTrashed<T extends typeof Model>(
     this: T,
   ): ModelQuery<InstanceType<T>> {
@@ -1512,7 +1512,7 @@ export class Model {
     });
   }
 
-  /** Laravel `withoutTrashed()`. */
+  /** `withoutTrashed()`. */
   static withoutTrashed<T extends typeof Model>(
     this: T,
   ): ModelQuery<InstanceType<T>> {
@@ -1539,7 +1539,7 @@ export class Model {
     });
   }
 
-  /** Laravel `Model::whereHas`. */
+  /** `Model::whereHas`. */
   static whereHas<T extends typeof Model>(
     this: T,
     relation: string,
@@ -1549,7 +1549,7 @@ export class Model {
     return this.newQuery().whereHas(relation, callback);
   }
 
-  /** Laravel `Model::whereDoesntHave`. */
+  /** `Model::whereDoesntHave`. */
   static whereDoesntHave<T extends typeof Model>(
     this: T,
     relation: string,
@@ -1559,7 +1559,7 @@ export class Model {
     return this.newQuery().whereDoesntHave(relation, callback);
   }
 
-  /** Laravel `Model::orWhereHas`. */
+  /** `Model::orWhereHas`. */
   static orWhereHas<T extends typeof Model>(
     this: T,
     relation: string,
@@ -1569,7 +1569,7 @@ export class Model {
     return this.newQuery().orWhereHas(relation, callback);
   }
 
-  /** Laravel `Model::whereRelation`. */
+  /** `Model::whereRelation`. */
   static whereRelation<T extends typeof Model>(
     this: T,
     relation: string,
@@ -1581,7 +1581,7 @@ export class Model {
     return this.newQuery().whereRelation(relation, column, opOrValue, value);
   }
 
-  /** Laravel `Model::orWhereRelation`. */
+  /** `Model::orWhereRelation`. */
   static orWhereRelation<T extends typeof Model>(
     this: T,
     relation: string,
@@ -1608,7 +1608,7 @@ export class Model {
     );
   }
 
-  /** Laravel `Model::withSum`. */
+  /** `Model::withSum`. */
   static withSum<T extends typeof Model>(
     this: T,
     relation: string,
@@ -1709,7 +1709,7 @@ export class Model {
     return this.newQuery().whereKey(id);
   }
 
-  /** Laravel `Model::whereUuid`. */
+  /** `Model::whereUuid`. */
   static whereUuid<T extends typeof Model>(
     this: T,
     column: string,
@@ -1719,7 +1719,7 @@ export class Model {
     return this.newQuery().whereUuid(column, value);
   }
 
-  /** Laravel `Model::whereUlid`. */
+  /** `Model::whereUlid`. */
   static whereUlid<T extends typeof Model>(
     this: T,
     column: string,
@@ -1729,7 +1729,7 @@ export class Model {
     return this.newQuery().whereUlid(column, value);
   }
 
-  /** Laravel `Model::join`. */
+  /** `Model::join`. */
   static join<T extends typeof Model>(
     this: T,
     table: string,
@@ -1741,7 +1741,7 @@ export class Model {
     return this.newQuery().join(table, first, op, second);
   }
 
-  /** Laravel `Model::leftJoin`. */
+  /** `Model::leftJoin`. */
   static leftJoin<T extends typeof Model>(
     this: T,
     table: string,
@@ -1753,7 +1753,7 @@ export class Model {
     return this.newQuery().leftJoin(table, first, op, second);
   }
 
-  /** Laravel `Model::paginate`. */
+  /** `Model::paginate`. */
   static async paginate<T extends typeof Model>(
     this: T,
     perPage = 15,
@@ -1767,7 +1767,7 @@ export class Model {
     );
   }
 
-  /** Laravel `Model::cursorPaginate`. */
+  /** `Model::cursorPaginate`. */
   static async cursorPaginate<T extends typeof Model>(
     this: T,
     perPage = 15,
@@ -1781,7 +1781,7 @@ export class Model {
     );
   }
 
-  /** Laravel `Model::create` (respects `$fillable` / `$guarded`). */
+  /** `Model::create` (respects `$fillable` / `$guarded`). */
   static create<T extends typeof Model>(
     this: T,
     attributes: Record<string, unknown>,
@@ -1790,7 +1790,7 @@ export class Model {
     return this.forceCreate(filterFillable(this as ModelClass, attributes));
   }
 
-  /** Laravel `Model::forceCreate` — insert every given attribute, ignoring `$fillable`. */
+  /** `Model::forceCreate` — insert every given attribute, ignoring `$fillable`. */
   static forceCreate<T extends typeof Model>(
     this: T,
     useAttrs: Record<string, unknown>,
@@ -1831,7 +1831,7 @@ export class Model {
     return after(saved);
   }
 
-  /** Laravel `firstOrNew`. */
+  /** `firstOrNew`. */
   static async firstOrNew<T extends typeof Model>(
     this: T,
     attributes: Record<string, unknown>,
@@ -1846,7 +1846,7 @@ export class Model {
     return new this({ ...attributes, ...values }) as InstanceType<T>;
   }
 
-  /** Laravel `firstOrCreate`. */
+  /** `firstOrCreate`. */
   static async firstOrCreate<T extends typeof Model>(
     this: T,
     attributes: Record<string, unknown>,
@@ -1861,7 +1861,7 @@ export class Model {
     return this.create({ ...attributes, ...values });
   }
 
-  /** Laravel `updateOrCreate`. */
+  /** `updateOrCreate`. */
   static async updateOrCreate<T extends typeof Model>(
     this: T,
     attributes: Record<string, unknown>,
@@ -1892,7 +1892,7 @@ export class Model {
   }
 
   /**
-   * Laravel `Model::upsert` — bulk insert-or-update on unique conflict.
+   * `Model::upsert` — bulk insert-or-update on unique conflict.
    * Delegates to `ModelQuery.upsert` (timestamps stamped when enabled).
    */
   static async upsert<T extends typeof Model>(
@@ -1905,7 +1905,7 @@ export class Model {
     return this.newQuery().upsert(values, uniqueBy, update);
   }
 
-  /** Laravel `$model->fill($attributes)`. */
+  /** `$model->fill($attributes)`. */
   fill(attributes: Record<string, unknown>): this {
     const ctor = this.constructor as ModelClass;
     const finalAttrs = filterFillable(ctor, attributes);
@@ -1916,7 +1916,7 @@ export class Model {
     return this;
   }
 
-  /** Laravel `$model->update($attributes)`. */
+  /** `$model->update($attributes)`. */
   async update(attributes: Record<string, unknown>): Promise<this> {
     this.fill(attributes);
     await this.save();
@@ -2160,18 +2160,18 @@ export class Model {
     }
     this.syncOriginal();
     await fireModelEvent(this, "saved");
-    // Laravel finishSave → touchOwners (Relation.touch honors withoutTouching on related).
+    // finishSave → touchOwners (Relation.touch honors withoutTouching on related).
     await this.touchOwners();
     return this;
   }
 
-  /** Laravel `$model->saveQuietly()`. */
+  /** `$model->saveQuietly()`. */
   async saveQuietly(): Promise<this> {
     const ctor = this.constructor as typeof Model;
     return ctor.withoutEvents(() => this.save());
   }
 
-  /** Laravel `$model->refresh()`. */
+  /** `$model->refresh()`. */
   async refresh(): Promise<this> {
     const ctor = this.constructor as ModelClass;
     const key = ctor.primaryKey;
@@ -2186,7 +2186,7 @@ export class Model {
   }
 
   /**
-   * Laravel-style refresh under row lock (`lockForUpdate`).
+   * Refresh under row lock (`lockForUpdate`).
    * Reloads this instance from a locked select of the same primary key.
    */
   async refreshForUpdate(): Promise<this> {
@@ -2205,7 +2205,7 @@ export class Model {
     return this;
   }
 
-  /** Laravel `$model->fresh()`. */
+  /** `$model->fresh()`. */
   async fresh(): Promise<this | null> {
     const ctor = this.constructor as ModelClass;
     const key = ctor.primaryKey;
@@ -2231,7 +2231,7 @@ export class Model {
     return this;
   }
 
-  /** Laravel `$model->relationLoaded($key)`. */
+  /** `$model->relationLoaded($key)`. */
   relationLoaded(key: string): boolean {
     return Object.prototype.hasOwnProperty.call(this, key);
   }
@@ -2259,7 +2259,7 @@ export class Model {
   }
 
   /**
-   * Laravel `$model->touches($relation)` — whether `$touches` lists this relation.
+   * `$model->touches($relation)` — whether `$touches` lists this relation.
    */
   touches(relation: string): boolean {
     const ctor = this.constructor as typeof Model;
@@ -2267,7 +2267,7 @@ export class Model {
   }
 
   /**
-   * Laravel `$model->touchOwners()` — touch each relation in `$touches`.
+   * `$model->touchOwners()` — touch each relation in `$touches`.
    * Uses `relation.touch()` when available (BelongsTo / HasOne / HasMany);
    * otherwise loads the related model and calls `touch()` on it.
    */
@@ -2292,7 +2292,7 @@ export class Model {
   }
 
   /**
-   * Laravel `$model->touch()` — bump `updated_at` (no-op while `withoutTouching`).
+   * `$model->touch()` — bump `updated_at` (no-op while `withoutTouching`).
    * Saving also runs `$touches` / `touchOwners()` for listed relations.
    */
   async touch(): Promise<boolean> {
@@ -2308,7 +2308,7 @@ export class Model {
   }
 
   /**
-   * Relation query builder (`$model->product()` in Laravel).
+   * Relation query builder (`$model->product()`).
    *
    * Define relations on `static relations` and declare the loaded property:
    * `declare product: Product | null` — then use `model.product` after `with('product')`,
@@ -2347,7 +2347,7 @@ export class Model {
     );
   }
 
-  /** Laravel `$model->replicate()`. */
+  /** `$model->replicate()`. */
   replicate(except: string[] = []): this {
     const ctor = this.constructor as typeof Model;
     ctor.bootIfNotBooted();
@@ -2361,7 +2361,7 @@ export class Model {
       attrs[k] = v;
     }
     const copy = new ctor(attrs) as this;
-    // Fire sync-style; listeners may be async but replicate is sync in Laravel.
+    // Fire sync-style; listeners may be async but replicate is sync.
     void fireModelEvent(copy, "replicating");
     return copy;
   }
@@ -2378,7 +2378,7 @@ export class Model {
       return;
     }
 
-    // Laravel delete(): touchOwners before performDeleteOnModel.
+    // delete(): touchOwners before performDeleteOnModel.
     await this.touchOwners();
     await this.#performForceDelete();
     await fireModelEvent(this, "deleted");
@@ -2410,7 +2410,7 @@ export class Model {
     await fireModelEvent(this, "deleted");
   }
 
-  /** Laravel `$model->deleteQuietly()`. */
+  /** `$model->deleteQuietly()`. */
   async deleteQuietly(): Promise<void> {
     const ctor = this.constructor as typeof Model;
     await ctor.withoutEvents(() => this.delete());
@@ -2458,7 +2458,7 @@ export class Model {
     return value != null && value !== "";
   }
 
-  /** Laravel `$model->toArray()`. */
+  /** `$model->toArray()`. */
   toArray(): Record<string, unknown> {
     const ctor = this.constructor as ModelClass;
     const hiddenList = this.getHidden();
@@ -2497,7 +2497,7 @@ export class Model {
     return (this as unknown as Record<string, unknown>)[key];
   }
 
-  /** Laravel `$model->loadCount(...$relations)`. */
+  /** `$model->loadCount(...$relations)`. */
   async loadCount(...relations: string[]): Promise<this> {
     const names = relations.flat();
     if (names.length === 0) return this;
@@ -2511,7 +2511,7 @@ export class Model {
     return this;
   }
 
-  /** Laravel `$model->loadSum($relation, $column)`. */
+  /** `$model->loadSum($relation, $column)`. */
   async loadSum(relation: string, column: string): Promise<this> {
     const parsed = parseRelationAlias(relation);
     const value = await aggregateRelation(this, parsed.relation, "sum", column);
@@ -2548,7 +2548,7 @@ export class Model {
     return this;
   }
 
-  /** Laravel `$model->loadExists(...$relations)`. */
+  /** `$model->loadExists(...$relations)`. */
   async loadExists(...relations: string[]): Promise<this> {
     for (const relation of relations.flat()) {
       const parsed = parseRelationAlias(relation);
@@ -2569,7 +2569,7 @@ export class Model {
     return this.toJSON();
   }
 
-  /** Laravel `$model->increment($column, $amount)`. */
+  /** `$model->increment($column, $amount)`. */
   async increment(column: string, amount = 1): Promise<this> {
     const row = this as unknown as Record<string, unknown>;
     const current = Number(row[column] ?? 0);
@@ -2578,12 +2578,12 @@ export class Model {
     return this;
   }
 
-  /** Laravel `$model->decrement($column, $amount)`. */
+  /** `$model->decrement($column, $amount)`. */
   async decrement(column: string, amount = 1): Promise<this> {
     return this.increment(column, -amount);
   }
 
-  /** Laravel `Model::destroy($ids)`. */
+  /** `Model::destroy($ids)`. */
   static async destroy<T extends typeof Model>(
     this: T,
     ids: Array<string | number> | string | number,
@@ -2600,7 +2600,7 @@ export class Model {
   }
 
   /**
-   * Laravel `Model::forceDestroy($ids)` — permanent delete by key(s).
+   * `Model::forceDestroy($ids)` — permanent delete by key(s).
    * Soft-delete models are found via `withTrashed()` so trashed rows are included.
    */
   static async forceDestroy<T extends typeof Model>(
@@ -2620,7 +2620,7 @@ export class Model {
     return n;
   }
 
-  /** Laravel `$this->hasMany(Related::class)`. */
+  /** `$this->hasMany(Related::class)`. */
   hasMany<R extends ModelClass>(
     related: R,
     foreignKey?: string,
@@ -2631,7 +2631,7 @@ export class Model {
     return new HasMany(this, related, key, localKey);
   }
 
-  /** Laravel `$this->hasOne(Related::class)`. */
+  /** `$this->hasOne(Related::class)`. */
   hasOne<R extends ModelClass>(
     related: R,
     foreignKey?: string,
@@ -2643,7 +2643,7 @@ export class Model {
   }
 
   /**
-   * Laravel `$this->hasManyThrough(Related::class, Through::class)`.
+   * `$this->hasManyThrough(Related::class, Through::class)`.
    * Parent → Through (firstKey) → Related (secondKey).
    */
   hasManyThrough<R extends ModelClass, TThrough extends ModelClass>(
@@ -2667,7 +2667,7 @@ export class Model {
   }
 
   /**
-   * Laravel `$this->hasOneThrough(Related::class, Through::class)`.
+   * `$this->hasOneThrough(Related::class, Through::class)`.
    */
   hasOneThrough<R extends ModelClass, TThrough extends ModelClass>(
     related: R,
@@ -2689,7 +2689,7 @@ export class Model {
     );
   }
 
-  /** Laravel `$this->belongsTo(Related::class)`. */
+  /** `$this->belongsTo(Related::class)`. */
   belongsTo<R extends ModelClass>(
     related: R,
     foreignKey?: string,
@@ -2699,7 +2699,7 @@ export class Model {
     return new BelongsTo(this, related, key, ownerKey);
   }
 
-  /** Laravel `$this->belongsToMany(Related::class, pivot)`. */
+  /** `$this->belongsToMany(Related::class, pivot)`. */
   belongsToMany<R extends ModelClass>(
     related: R,
     table?: string,
@@ -2761,7 +2761,7 @@ export class Model {
     );
   }
 
-  /** Laravel `$this->morphMany(Related::class, name)`. */
+  /** `$this->morphMany(Related::class, name)`. */
   morphMany<R extends ModelClass>(
     related: R,
     name: string,
@@ -2779,7 +2779,7 @@ export class Model {
     );
   }
 
-  /** Laravel `$this->morphOne(Related::class, name)`. */
+  /** `$this->morphOne(Related::class, name)`. */
   morphOne<R extends ModelClass>(
     related: R,
     name: string,
@@ -2797,7 +2797,7 @@ export class Model {
     );
   }
 
-  /** Laravel `$this->morphTo($name)`. */
+  /** `$this->morphTo($name)`. */
   morphTo(
     name: string,
     type?: string,

@@ -12,11 +12,11 @@ type JobCtor = Function & {
   [SERIALIZES_MODELS]?: boolean;
 };
 
-/** Duck-typed Eloquent model class used when restoring job payloads. */
+/** Duck-typed ORM model class used when restoring job payloads. */
 export type SerializableModelClass = {
   name: string;
   primaryKey: string;
-  find(id: string | number): Promise<object | null>;
+  find(id: string | number): Promise<object | null> | object | null;
 };
 
 type ModelLike = {
@@ -38,7 +38,7 @@ export function clearSerializableModels(): void {
 }
 
 /**
- * When the queue driver serializes job payloads, Eloquent models become
+ * When the queue driver serializes job payloads, ORM models become
  * `{ class, key }` and are re-fetched when the job runs.
  *
  * @example

@@ -1,7 +1,7 @@
 import type { Broadcaster } from "./broadcaster.ts";
 
 /**
- * No-op broadcaster (Laravel `null` driver).
+ * No-op broadcaster.
  */
 export class NullBroadcaster implements Broadcaster {
   async broadcast(

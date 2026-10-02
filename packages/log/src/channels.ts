@@ -53,7 +53,7 @@ function dateStamp(d = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Write every message to one file (Laravel `single` driver). */
+/** Write every message to one file. */
 export class SingleChannel implements LogChannel {
   readonly #path: string;
   readonly #level: LogLevel;
@@ -84,7 +84,7 @@ export class SingleChannel implements LogChannel {
 }
 
 /**
- * Laravel-style daily file channel (`stem-YYYY-MM-DD.log`).
+ * Daily file channel (`stem-YYYY-MM-DD.log`).
  * Prunes dated files older than `days` (best-effort, once per calendar day).
  */
 export class DailyChannel implements LogChannel {
@@ -157,7 +157,7 @@ export class DailyChannel implements LogChannel {
   }
 }
 
-/** Fan out to several channels (Laravel `stack` driver). */
+/** Fan out to several channels. */
 export class StackChannel implements LogChannel {
   readonly #channels: LogChannel[];
   readonly #level: LogLevel;

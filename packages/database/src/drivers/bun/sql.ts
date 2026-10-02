@@ -184,7 +184,9 @@ export function connectPostgres(options: PostgresOptions = {}): Connection {
  */
 export function connectMysql(options: MysqlOptions = {}): Connection {
   const client = options.url
-    ? new SQL(options.url)
+    ? options.tls
+      ? new SQL({ url: options.url, adapter: "mysql", tls: options.tls, max: options.max ?? 10 })
+      : new SQL(options.url)
     : new SQL({
         adapter: "mysql",
         hostname: options.hostname ?? "127.0.0.1",
@@ -193,6 +195,7 @@ export function connectMysql(options: MysqlOptions = {}): Connection {
         username: options.username ?? "root",
         password: options.password ?? "",
         max: options.max ?? 10,
+        ...(options.tls ? { tls: options.tls } : {}),
       });
   return createBunSqlConnection("mysql", client, {
     database: databaseNameFromOptions(options, "bunyad"),

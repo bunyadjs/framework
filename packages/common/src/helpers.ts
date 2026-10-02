@@ -191,7 +191,7 @@ export function dd(...values: unknown[]): never {
 }
 
 /**
- * Laravel `tap` — run callback with value, return value.
+ * `tap` — run callback with value, return value.
  */
 export function tap<T>(value: T, callback?: (value: T) => void): T {
   callback?.(value);
@@ -199,14 +199,14 @@ export function tap<T>(value: T, callback?: (value: T) => void): T {
 }
 
 /**
- * Laravel `value` — invoke if Closure/function, otherwise return as-is.
+ * `value` — invoke if Closure/function, otherwise return as-is.
  */
 export function value<T>(val: T | (() => T)): T {
   return typeof val === "function" ? (val as () => T)() : val;
 }
 
 /**
- * Laravel `with` — pass value to callback and return its result (or value).
+ * `with` — pass value to callback and return its result (or value).
  */
 export function withValue<T, R = T>(
   val: T,
@@ -216,7 +216,7 @@ export function withValue<T, R = T>(
 }
 
 /**
- * Laravel `when` — if condition is truthy return `$value`, else `$default`.
+ * `when` — if condition is truthy return `$value`, else `$default`.
  * Closures are invoked.
  */
 export function when<T, D = undefined>(
@@ -230,7 +230,7 @@ export function when<T, D = undefined>(
 }
 
 /**
- * Laravel `optional` — null-safe access.
+ * `optional` — null-safe access.
  * With callback: invoke only when value is present.
  * Without: return value or a null-returning proxy.
  */
@@ -267,7 +267,7 @@ function createOptionalProxy(): OptionalProxy {
   return new Proxy({}, handler);
 }
 
-/** Laravel `throw_if`. */
+/** `throw_if`. */
 export function throw_if(
   condition: unknown,
   error: string | Error | (new (...args: never[]) => Error) = Error,
@@ -277,7 +277,7 @@ export function throw_if(
   throw resolveThrowable(error, args);
 }
 
-/** Laravel `throw_unless`. */
+/** `throw_unless`. */
 export function throw_unless(
   condition: unknown,
   error: string | Error | (new (...args: never[]) => Error) = Error,
@@ -301,7 +301,7 @@ function resolveThrowable(
 }
 
 /**
- * Laravel `retry` — retry a callback on failure.
+ * `retry` — retry a callback on failure.
  */
 export async function retry<T>(
   times: number,
@@ -334,7 +334,7 @@ const onceByKey = new Map<string, unknown>();
 const onceByFn = new WeakMap<(...args: never[]) => unknown, unknown>();
 
 /**
- * Laravel `once` — memoize a callback result.
+ * `once` — memoize a callback result.
  *
  * - `once(key, fn)` — stable across calls (preferred on Bun; call-site stacks are unreliable)
  * - `once(fn)` — memoizes by function identity (hoist the closure to reuse)
@@ -361,7 +361,7 @@ export function once<T>(
   return result;
 }
 
-/** Clear keyed `once()` memoization (Laravel `Once::flush()`). */
+/** Clear keyed `once()` memoization (`Once::flush()`). */
 export function flushOnce(): void {
   onceByKey.clear();
 }
@@ -374,7 +374,7 @@ type DeferredJob = {
 const deferredJobs: DeferredJob[] = [];
 
 /**
- * Laravel `defer` — queue work to run after the current turn / response.
+ * `defer` — queue work to run after the current turn / response.
  * Call `flushDeferred()` from the HTTP kernel (or manually in CLI/tests).
  */
 export function defer(
@@ -407,12 +407,12 @@ async function flushDeferredAsync(failed: boolean): Promise<void> {
   }
 }
 
-/** Laravel `now` — current `Date`. */
+/** `now` — current `Date`. */
 export function now(): Date {
   return new Date();
 }
 
-/** Laravel `today` — start of today (local midnight). */
+/** `today` — start of today (local midnight). */
 export function today(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -420,7 +420,7 @@ export function today(): Date {
 }
 
 /**
- * Laravel `env` — read environment variable with optional default.
+ * `env` — read environment variable with optional default.
  * Uses `Bun.env` when available, else `process.env`.
  */
 export function env(key: string, defaultValue?: string): string | undefined {
@@ -435,7 +435,7 @@ export function env(key: string, defaultValue?: string): string | undefined {
   return raw;
 }
 
-/** Laravel `report` — log an exception (no custom handler wired yet). */
+/** `report` — log an exception (no custom handler wired yet). */
 export function report(error: unknown): void {
   if (error instanceof Error) {
     console.error(error);
@@ -445,7 +445,7 @@ export function report(error: unknown): void {
 }
 
 /**
- * Laravel `rescue` — run callback, return rescue value on failure.
+ * `rescue` — run callback, return rescue value on failure.
  */
 export function rescue<T, R = null>(
   callback: () => T,

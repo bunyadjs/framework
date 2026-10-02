@@ -1,7 +1,7 @@
 import { MemoryCacheStore } from "./memory-store.ts";
 
 /**
- * In-memory cache for tests (Laravel `Cache::fake()`).
+ * In-memory cache for tests.
  */
 export class CacheFake extends MemoryCacheStore {
   async assertHas(key: string): Promise<void> {

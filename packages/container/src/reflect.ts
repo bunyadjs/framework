@@ -76,6 +76,54 @@ if (typeof R.defineMetadata !== "function") {
   };
 }
 
+// reflect-metadata (e.g. loaded by NestJS) treats an existing `Reflect.defineMetadata`
+// as a metadata provider and calls the rest of the API on it, so the shim must be complete.
+const keyFor = (key: string | symbol, propertyKey?: string | symbol) =>
+  propertyKey === undefined ? key : `${String(key)}:${String(propertyKey)}`;
+
+const extra = Reflect as unknown as Record<string, unknown>;
+
+if (typeof extra.hasOwnMetadata !== "function") {
+  extra.hasOwnMetadata = (
+    key: string | symbol,
+    target: object,
+    propertyKey?: string | symbol,
+  ) => storeFor(target).has(keyFor(key, propertyKey));
+}
+
+if (typeof extra.hasMetadata !== "function") {
+  extra.hasMetadata = extra.hasOwnMetadata;
+}
+
+if (typeof extra.getOwnMetadata !== "function") {
+  extra.getOwnMetadata = (
+    key: string | symbol,
+    target: object,
+    propertyKey?: string | symbol,
+  ) => storeFor(target).get(keyFor(key, propertyKey));
+}
+
+if (typeof extra.getOwnMetadataKeys !== "function") {
+  extra.getOwnMetadataKeys = (target: object, propertyKey?: string | symbol) => {
+    const suffix = propertyKey === undefined ? undefined : `:${String(propertyKey)}`;
+    return [...storeFor(target).keys()].filter((k) =>
+      suffix === undefined ? !String(k).includes(":") : String(k).endsWith(suffix),
+    );
+  };
+}
+
+if (typeof extra.getMetadataKeys !== "function") {
+  extra.getMetadataKeys = extra.getOwnMetadataKeys;
+}
+
+if (typeof extra.deleteMetadata !== "function") {
+  extra.deleteMetadata = (
+    key: string | symbol,
+    target: object,
+    propertyKey?: string | symbol,
+  ) => storeFor(target).delete(keyFor(key, propertyKey));
+}
+
 /**
  * Captured before the `typeof R.decorate !== "function"` narrowing below —
  * a type query on `R.decorate` taken *inside* that branch resolves to

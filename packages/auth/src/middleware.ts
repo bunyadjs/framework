@@ -78,7 +78,7 @@ function resolveGuard(guard: AuthenticateOptions["guard"]): AuthGuard {
   return guard;
 }
 
-/** Laravel `auth` / `auth:token` middleware. */
+/** `auth` / `auth:token` middleware. */
 export function auth(options: AuthenticateOptions = {}) {
   const alias =
     typeof options.guard === "string" ? `auth:${options.guard}` : "auth";
@@ -143,17 +143,17 @@ function tokenAbilities(mode: "all" | "any", abilities: string[]) {
   });
 }
 
-/** Sanctum `abilities:a,b` — the token must carry every listed ability. */
+/** `abilities:a,b` — the token must carry every listed ability. */
 export function abilities(...list: string[]) {
   return tokenAbilities("all", list);
 }
 
-/** Sanctum `ability:a,b` — the token must carry at least one listed ability. */
+/** `ability:a,b` — the token must carry at least one listed ability. */
 export function ability(...list: string[]) {
   return tokenAbilities("any", list);
 }
 
-/** Laravel `guest` middleware. */
+/** `guest` middleware. */
 export function guest(options: AuthenticateOptions = {}) {
   return taggedMiddleware("guest", {
     async handle(request: Request, next: Next) {
@@ -171,7 +171,7 @@ export type CanMiddlewareOptions = {
 };
 
 /**
- * Laravel `can:update,post` middleware.
+ * `can:update,post` middleware.
  * Pass a route param name (`can("delete", "post")`) or options with resolve.
  */
 export function can(

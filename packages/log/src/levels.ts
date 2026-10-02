@@ -26,7 +26,7 @@ export function levelWeight(level: LogLevel): number {
 export function parseLevel(value: string | undefined, fallback: LogLevel): LogLevel {
   if (!value) return fallback;
   const key = value.toLowerCase() as LogLevel;
-  return key in LEVEL_WEIGHT ? key : fallback;
+  return Object.hasOwn(LEVEL_WEIGHT, key) ? key : fallback;
 }
 
 export function shouldLog(messageLevel: LogLevel, channelLevel: LogLevel): boolean {

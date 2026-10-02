@@ -74,7 +74,7 @@ export function searchable(model: SearchableModel): SearchableConcern {
   return new SearchableConcern(model);
 }
 
-type Constructor = new (...args: any[]) => SearchableModel;
+type Constructor = new (...args: any[]) => object;
 
 /**
  * Mixin — `class Post extends Searchable(Model) { ... }`.
@@ -112,7 +112,7 @@ export function Searchable<TBase extends Constructor>(Base: TBase) {
     }
 
     getSearchKey(): string | number {
-      const self = this as SearchableModel;
+      const self = this as unknown as SearchableModel;
       if (self.id === undefined || self.id === null) {
         throw new Error("Searchable model must have an id.");
       }
@@ -120,7 +120,7 @@ export function Searchable<TBase extends Constructor>(Base: TBase) {
     }
 
     toSearchableArray(): Record<string, unknown> {
-      const self = this as SearchableModel;
+      const self = this as unknown as SearchableModel;
       if (typeof self.toArray === "function") return self.toArray();
       return Object.fromEntries(
         Object.entries(self).filter(([, v]) => typeof v !== "function"),

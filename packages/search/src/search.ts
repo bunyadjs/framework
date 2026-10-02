@@ -7,17 +7,17 @@ import type {
 import { CollectionEngine } from "./collection-engine.ts";
 import { AlgoliaEngine } from "./algolia-engine.ts";
 import { MeilisearchEngine } from "./meilisearch-engine.ts";
+import type { FetchLike } from "./fetch-like.ts";
 
 let config: SearchConfig = {
-  driver: "collection",
   prefix: "",
 };
 const customEngines = new Map<string, () => Engine>();
 let engineInstance: Engine | undefined;
-let fetchImpl: typeof fetch | undefined;
+let fetchImpl: FetchLike | undefined;
 
 function resolveDriverName(): string {
-  return config.driver ?? process.env.SEARCH_DRIVER ?? process.env.SEARCH_DRIVER ?? "collection";
+  return config.driver ?? process.env.SEARCH_DRIVER ?? "collection";
 }
 
 function createEngine(name: string): Engine {
@@ -56,7 +56,7 @@ export const Search = {
   },
 
   /** Override fetch used by HTTP engines (tests). */
-  setFetch(next: typeof fetch | undefined): void {
+  setFetch(next: FetchLike | undefined): void {
     fetchImpl = next;
     engineInstance = undefined;
   },
@@ -87,7 +87,7 @@ export const Search = {
 
   /** Reset engines/config (tests). */
   flush(): void {
-    config = { driver: "collection", prefix: "" };
+    config = { prefix: "" };
     customEngines.clear();
     engineInstance = undefined;
     fetchImpl = undefined;

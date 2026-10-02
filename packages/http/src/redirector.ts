@@ -86,7 +86,7 @@ export function getRedirectFlashAccessor(): [
 const SECRET_KEYS = new Set(["password", "password_confirmation", "_token"]);
 
 /**
- * Redirect Response with Laravel-style flash helpers.
+ * Redirect Response with flash helpers.
  * Flash runs immediately while the request session is still live.
  */
 export class RedirectResponse extends Response {

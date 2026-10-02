@@ -16,7 +16,7 @@ export type CacheConnection = {
 
 export type DatabaseCacheStoreOptions = {
   connection: CacheConnection;
-  /** Table name (Laravel default `cache`). */
+  /** Table name (default `cache`). */
   table?: string;
   /** Key prefix. */
   prefix?: string;
@@ -36,9 +36,9 @@ function assertTable(table: string): string {
 }
 
 /**
- * Laravel `database` cache driver — JSON values in a `cache` table.
+ * `database` cache driver — JSON values in a `cache` table.
  *
- * Expected schema (Laravel-compatible subset):
+ * Expected schema:
  * ```sql
  * CREATE TABLE cache (
  *   key TEXT PRIMARY KEY,

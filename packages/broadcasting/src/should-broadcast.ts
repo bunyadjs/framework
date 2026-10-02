@@ -2,7 +2,6 @@ import { Event } from "@bunyad/events";
 
 /**
  * Marker for events that should be broadcast when dispatched via `broadcast()`.
- * Laravel `ShouldBroadcast` / `Illuminate\Contracts\Broadcasting\ShouldBroadcast`.
  */
 export abstract class ShouldBroadcast extends Event {
   /** Channel name(s) — `private-user.1`, `orders`, etc. */
@@ -22,12 +21,12 @@ export abstract class ShouldBroadcast extends Event {
     return out;
   }
 
-  /** Laravel `broadcastWhen()` — return false to skip broadcasting. */
+  /** `broadcastWhen()` — return false to skip broadcasting. */
   broadcastWhen(): boolean {
     return true;
   }
 
-  /** Laravel `broadcastConnection()` — named driver, or null for default. */
+  /** `broadcastConnection()` — named driver, or null for default. */
   broadcastConnection(): string | null {
     return null;
   }
@@ -39,7 +38,7 @@ export abstract class ShouldBroadcast extends Event {
 }
 
 /**
- * Broadcast immediately (Laravel `ShouldBroadcastNow`).
+ * Broadcast immediately.
  * Without a queue binding, `Broadcast.queue` already sends now — this marker
  * documents intent for app code / future queue wiring.
  */

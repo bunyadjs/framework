@@ -3,7 +3,7 @@ import { TokenGuard } from "@bunyad/auth";
 import type { Model } from "@bunyad/orm";
 
 /**
- * Live `TokenGuard` to Eloquent-style token + user models (dialect-safe).
+ * Live `TokenGuard` to token + user models (dialect-safe).
  * Avoids raw SQL such as SQLite-only `last_insert_rowid()`.
  */
 export function tokenGuardUsing(options: {

@@ -8,7 +8,13 @@ import {
   FeatureManager,
   ensureFeaturesAreActive,
   setFeatures,
+  type FeatureConnection,
 } from "./index.ts";
+
+type TestMiddleware = (
+  request: never,
+  next: () => Promise<Response>,
+) => Promise<Response>;
 
 afterEach(() => {
   Feature.restore();
@@ -22,7 +28,7 @@ describe("Feature define / active / value", () => {
   });
 
   test("resolver receives scope", async () => {
-    Feature.define("beta", (scope) => {
+    Feature.define("beta", (scope: unknown) => {
       const user = scope as { id: number } | null;
       return user?.id === 1;
     });
@@ -147,9 +153,9 @@ describe("DatabaseFeatureStore", () => {
       ) => sqlite.query(sql).all(...(params as never[])) as T[],
     };
 
-    const store = new DatabaseFeatureStore({ connection });
+    const store = new DatabaseFeatureStore({ connection: connection as unknown as FeatureConnection });
     const a = new FeatureManager(store);
-    a.define("db-flag", (scope) => (scope as { id: number }).id > 0);
+    a.define("db-flag", (scope: unknown) => (scope as { id: number }).id > 0);
     setFeatures(a);
 
     expect(await Feature.for({ id: 7 }).active("db-flag")).toBe(true);
@@ -179,7 +185,7 @@ describe("ArrayFeatureStore", () => {
 describe("ensureFeaturesAreActive middleware", () => {
   test("passes when features active", async () => {
     Feature.define("dash", true);
-    const mw = ensureFeaturesAreActive("dash");
+    const mw = ensureFeaturesAreActive("dash") as unknown as TestMiddleware;
     let called = false;
     const res = await mw({} as never, async () => {
       called = true;
@@ -191,7 +197,7 @@ describe("ensureFeaturesAreActive middleware", () => {
 
   test("throws 400 when feature inactive", async () => {
     Feature.define("off", false);
-    const mw = ensureFeaturesAreActive("off");
+    const mw = ensureFeaturesAreActive("off") as unknown as TestMiddleware;
     await expect(
       mw({} as never, async () => new Response("ok")),
     ).rejects.toBeInstanceOf(HttpException);

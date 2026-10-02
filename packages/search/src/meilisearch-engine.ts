@@ -1,5 +1,6 @@
 import type { Engine, SearchableModel, SearchDocument } from "./types.ts";
 import { scoutKey, searchableIndex, toSearchDocument } from "./search.ts";
+import type { FetchLike } from "./fetch-like.ts";
 
 export type MeilisearchEngineOptions = {
   /** Host URL (`MEILISEARCH_HOST`), e.g. `http://127.0.0.1:7700`. */
@@ -7,7 +8,7 @@ export type MeilisearchEngineOptions = {
   /** API key (`MEILISEARCH_KEY`). */
   key?: string;
   /** Inject fetch (tests). */
-  fetch?: typeof fetch;
+  fetch?: FetchLike;
 };
 
 /**
@@ -16,7 +17,7 @@ export type MeilisearchEngineOptions = {
 export class MeilisearchEngine implements Engine {
   readonly #host: string;
   readonly #key: string;
-  readonly #fetch: typeof fetch;
+  readonly #fetch: FetchLike;
 
   constructor(options: MeilisearchEngineOptions = {}) {
     this.#host = (
@@ -94,8 +95,8 @@ export class MeilisearchEngine implements Engine {
     whereIns: Record<string, unknown[]>;
     limit: number | null;
   }): Promise<{ ids: string[]; hits: SearchDocument[] }> {
-    const formatEq = (k: string, v: unknown) =>
-      typeof v === "string" ? `${k} = "${v}"` : `${k} = ${JSON.stringify(v)}`;
+    // JSON quoting escapes quotes and backslashes, so a value cannot end its string and add filters.
+    const formatEq = (k: string, v: unknown) => `${k} = ${JSON.stringify(v)}`;
     const whereParts = Object.entries(builder.wheres).map(([k, v]) =>
       formatEq(k, v),
     );

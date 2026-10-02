@@ -2,10 +2,10 @@
 
 Active-record models on top of [`@bunyad/database`](https://www.npmjs.com/package/@bunyad/database): relations, casts, scopes, events, soft deletes and factories. The same model code runs on Node and Bun.
 
-> **Alpha.** APIs may change between `0.x` releases.
+> **Beta.** Public APIs change only in minor releases, with a changelog entry and migration note. See the [stability policy](https://github.com/bunyadjs/framework/blob/main/docs/STABILITY.md).
 
 ```bash
-npm install @bunyad/orm@alpha @bunyad/database@alpha better-sqlite3
+npm install @bunyad/orm@beta @bunyad/database@beta better-sqlite3
 ```
 
 ## Quick start
@@ -63,7 +63,7 @@ Pick one and install it next to `@bunyad/database`: `better-sqlite3`, `pg` or `m
 
 ## Status
 
-Alpha. SQLite is the most tested driver; PostgreSQL and MySQL tests need a live database and are skipped by default. Aggregate helpers such as `sumCase`/`countCase` are not implemented yet.
+Beta scope: SQLite, PostgreSQL and MySQL are tested on Bun and Node 20+ (the PostgreSQL and MySQL suites run when `BUNYAD_TEST_POSTGRES_URL` / `BUNYAD_TEST_MYSQL_URL` are set). SQL Server is experimental and needs `mssql` installed. Conditional aggregate helpers (`sumCase`, `countCase`) are not available yet.
 
 ## License
 

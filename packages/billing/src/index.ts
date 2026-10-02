@@ -30,4 +30,4 @@ export {
   type InvoiceDownloadOptions,
 } from "./invoice.ts";
 export type { FindBillable } from "./types.ts";
-
+export type { FetchLike } from "./fetch-like.ts";

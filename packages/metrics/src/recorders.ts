@@ -1,13 +1,13 @@
 import { Metrics } from "./metrics.ts";
 
 /**
- * Built-in Metrics recorders — call from middleware / workers (Laravel-style).
+ * Built-in Metrics recorders — call from middleware / workers.
  */
 
 export type RequestsRecorderOptions = {
   /** Slow request threshold in ms (default 1000). */
   slowThresholdMs?: number;
-  /** Paths to ignore (e.g. `/pulse`). */
+  /** Paths to ignore (e.g. `/metrics`). */
   ignore?: Array<string | RegExp>;
 };
 
@@ -25,7 +25,7 @@ export class RequestsRecorder {
 
   constructor(options: RequestsRecorderOptions = {}) {
     this.#slowThresholdMs = options.slowThresholdMs ?? 1000;
-    this.#ignore = options.ignore ?? [/^\/pulse/];
+    this.#ignore = options.ignore ?? [/^\/metrics/];
   }
 
   record(sample: RequestSample): void {

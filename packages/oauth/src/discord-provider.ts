@@ -1,11 +1,12 @@
 import { AbstractProvider, type ProviderConfig } from "./abstract-provider.ts";
 import { OAuthUser } from "./user.ts";
+import type { FetchLike } from "./fetch-like.ts";
 
 /**
  * Discord OAuth 2 provider.
  */
 export class DiscordProvider extends AbstractProvider {
-  constructor(config: ProviderConfig, fetchImpl: typeof fetch = fetch) {
+  constructor(config: ProviderConfig, fetchImpl: FetchLike = fetch) {
     super(config, fetchImpl);
     this.scopes(["identify", "email"]);
   }

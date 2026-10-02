@@ -31,8 +31,15 @@ import {
 export const FLASH_KEY = "_inertia_flash";
 
 export type SharedPropValue =
-  | unknown
-  | ((request: Request) => unknown | Promise<unknown>);
+  | ((request: Request) => unknown | Promise<unknown>)
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | object
+  | null
+  | undefined;
 
 export type VersionValue = string | number | null | (() => string | number | null);
 

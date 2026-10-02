@@ -1,5 +1,5 @@
 /**
- * Laravel newer Eloquent / query APIs — existence + behavior.
+ * Newer model / query APIs — existence + behavior.
  */
 import { expect, test } from "bun:test";
 import {

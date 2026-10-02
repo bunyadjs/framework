@@ -66,7 +66,6 @@ type CallStaticModel = {
  * Model statics, and arbitrary junk. Own Model / subclass statics always win
  * over this Proxy. Local `scopeFoo` still wins when present.
  *
- * @see https://laravel.com/docs/eloquent#retrieving-models
  */
 export const MODEL_STATIC_BUILDER_TERMINALS: ReadonlySet<string> = new Set([
   "get",
@@ -95,7 +94,7 @@ export const MODEL_STATIC_BUILDER_TERMINALS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Laravel `__callStatic`:
+ * `__callStatic`:
  * - Local scopes: `Model.foo()` → `Model.query().foo()` when `scopeFoo` exists
  * - Builder terminals: `Model.get()` / `pluck` / `count` / … → `Model.query()[method](…)`
  *

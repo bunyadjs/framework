@@ -377,7 +377,7 @@ function brandMarkHtml(): string {
 }
 
 /**
- * Laravel Ignition-style HTML exception page (debug).
+ * HTML exception page (debug).
  */
 export function renderExceptionHtml(
   error: unknown,

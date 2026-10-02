@@ -372,7 +372,7 @@ export class MorphOne<T extends Model = Model> {
   }
 }
 
-/** Laravel MorphTo relation. */
+/** MorphTo relation. */
 export class MorphTo {
   constructor(
     private parent: Model,
@@ -409,7 +409,7 @@ export class MorphTo {
     return Related.find(id as string | number);
   }
 
-  /** Laravel `associate` for morphTo. */
+  /** `associate` for morphTo. */
   associate(model: Model): this {
     const row = this.parent as unknown as Record<string, unknown>;
     const Related = model.constructor as ModelClass;
@@ -419,7 +419,7 @@ export class MorphTo {
     return this;
   }
 
-  /** Laravel `dissociate` for morphTo. */
+  /** `dissociate` for morphTo. */
   dissociate(): this {
     const row = this.parent as unknown as Record<string, unknown>;
     row[this.typeColumn] = null;
@@ -1047,7 +1047,7 @@ export class BelongsToMany<T extends Model = Model> {
   }
 }
 
-/** Options for `morphToMany` beyond the Laravel positional args. */
+/** Options for `morphToMany` beyond the positional args. */
 export type MorphToManyOptions = {
   table?: string;
   foreignPivotKey?: string;

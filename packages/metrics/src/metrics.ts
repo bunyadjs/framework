@@ -18,7 +18,7 @@ import type { MetricsIngest } from "./redis-ingest.ts";
 import type { MetricsFilter, MetricsStore } from "./types.ts";
 
 /**
- * `Metrics` facade — Laravel Metrics recording API + optional dashboard.
+ * `Metrics` facade — recording API + optional dashboard.
  */
 export const Metrics = {
   record(
@@ -50,7 +50,7 @@ export const Metrics = {
     return getMetrics().ingest();
   },
 
-  /** Drain Redis (or other) ingest into the store — Laravel `pulse:work`. */
+  /** Drain Redis (or other) ingest into the store — `metrics:work`. */
   work(limit = 100): Promise<number> {
     return getMetrics().work(limit);
   },
@@ -104,7 +104,7 @@ export const Metrics = {
     });
   },
 
-  /** Register `/pulse` dashboard routes. */
+  /** Register `/metrics` dashboard routes. */
   routes(router: Router, options?: MetricsRoutesOptions): void {
     registerMetricsRoutes(router, options);
   },

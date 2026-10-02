@@ -31,7 +31,7 @@ function matchesType(
 }
 
 /**
- * Records notifications instead of sending them (Laravel `Notification::fake()`).
+ * Records notifications instead of sending them.
  */
 export class NotificationFake extends NotificationSender {
   readonly #sent: SentNotification[] = [];
@@ -117,7 +117,7 @@ export class NotificationFake extends NotificationSender {
     }
   }
 
-  /** Laravel `Notification::assertSentOnDemand` — sent via `Notification.route(...)`. */
+  /** `Notification::assertSentOnDemand` — sent via `Notification.route(...)`. */
   assertSentOnDemand(
     type: NotificationType | string,
     predicate?: SentPredicate,

@@ -19,7 +19,7 @@ export function getBroadcaster(): Broadcaster {
   return getBroadcastManager().driver();
 }
 
-/** Laravel `broadcast(new OrderShipped(...))`. */
+/** `broadcast(new OrderShipped(...))`. */
 export async function broadcast(event: ShouldBroadcast): Promise<void> {
   await getBroadcastManager().event(event);
 }

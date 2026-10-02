@@ -2,10 +2,10 @@
 
 Shared utilities for [Bunyad](https://github.com/bunyadjs/framework) packages: `Collection`, `Str`/`Arr` helpers, `dataGet`/`dataSet`, pipelines, and `BunyadError`.
 
-> **Alpha.** APIs may change between `0.x` releases.
+> **Beta.** Public APIs change only in minor releases, with a changelog entry and migration note. See the [stability policy](https://github.com/bunyadjs/framework/blob/main/docs/STABILITY.md).
 
 ```bash
-npm install @bunyad/common@alpha
+npm install @bunyad/common@beta
 ```
 
 ```ts

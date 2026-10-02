@@ -25,7 +25,7 @@ test("GET / HTML hub lists playground links", async () => {
   const html = await res.text();
   expect(html).toContain("Bunyad Playground");
   expect(html).toContain('href="/livewire"');
-  expect(html).toContain('href="/pulse"');
+  expect(html).toContain('href="/metrics"');
   expect(html).toContain('href="/inertia"');
   expect(html).toContain('href="/features"');
   expect(html).toContain('href="/databases"');

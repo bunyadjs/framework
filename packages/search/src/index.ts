@@ -25,3 +25,4 @@ export {
   removeAllFromSearch,
 } from "./builder.ts";
 export { Searchable, SearchableConcern, searchable } from "./searchable.ts";
+export type { FetchLike } from "./fetch-like.ts";

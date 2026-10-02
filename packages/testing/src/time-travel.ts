@@ -22,6 +22,7 @@ function nowMs(): number {
 }
 
 function installFakeDate(): void {
+  if (globalThis.Date !== RealDate) return;
   // eslint-disable-next-line no-global-assign
   (globalThis as { Date: typeof Date }).Date = class extends RealDate {
     constructor(...args: unknown[]) {
@@ -46,7 +47,7 @@ export function travel(
   to: number | Date | string,
 ): void {
   installFakeDate();
-  if (to instanceof Date) {
+  if (to instanceof RealDate) {
     state.frozen = true;
     state.frozenAt = to.getTime();
     state.offsetMs = 0;
@@ -54,7 +55,7 @@ export function travel(
   }
   if (typeof to === "string") {
     // "+1 hour" / "-5 minutes" style
-    const match = to.trim().match(/^([+-]?\d+)\s*(ms|s|sec|seconds|m|min|minutes|h|hours|d|days)?$/i);
+    const match = to.trim().match(/^([+-]?\d+)\s*(ms|s|secs?|seconds?|m|mins?|minutes?|h|hours?|d|days?)?$/i);
     if (match) {
       const n = Number(match[1]);
       const unit = (match[2] ?? "ms").toLowerCase();
@@ -84,7 +85,7 @@ export function freezeTime(at?: Date | number): void {
   state.frozenAt =
     at == null
       ? nowMs()
-      : at instanceof Date
+      : at instanceof RealDate
         ? at.getTime()
         : at;
   state.offsetMs = 0;

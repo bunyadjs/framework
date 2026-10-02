@@ -234,13 +234,13 @@ function slotsFromParams(
       slots.push({ kind: "model", param: routeParam });
       continue;
     }
-    // Laravel: `{id}` + `$id` → route parameter value (string), not Request.
+    // `{id}` + `$id` → route parameter value (string), not Request.
     if (routeParams.includes(param.name)) {
       usedRouteParams.add(param.name);
       slots.push({ kind: "param", param: param.name });
       continue;
     }
-    // Laravel `array_values($route->parameters())`: untyped args receive route
+    // `array_values($route->parameters())`: untyped args receive route
     // values in URI order when names do not match (e.g. `{user}` + `($id)`).
     if (!param.typeName) {
       const next = routeParams.find((name) => !usedRouteParams.has(name));
@@ -283,7 +283,7 @@ export async function applyRouteFileBindings(
       (p) => p.typeName && p.typeName !== "Request" && !isFormRequestTypeName(p.typeName),
     );
     // Include untyped `(id)` when the name matches `{id}`, or when names differ
-    // but route params exist (Laravel positional `array_values` injection).
+    // but route params exist.
     const hasRouteParamArg = params.some((p) => routeParams.includes(p.name));
     const hasPositionalScalar = params.some(
       (p) =>
@@ -355,7 +355,7 @@ function normalizeUri(uri: string): string {
 
 /**
  * Convention binders should not run for params that every planned route only
- * injects as a raw URI segment (Laravel: no type-hint → no implicit binding).
+ * injects as a raw URI segment.
  */
 function paramNeedsModelBinder(router: Router, param: string): boolean {
   for (const route of router.routes) {

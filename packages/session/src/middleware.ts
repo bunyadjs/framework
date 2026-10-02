@@ -5,7 +5,7 @@ import { Session } from "./session.ts";
 let defaultStore: SessionStore | undefined;
 let defaultOptions: StartSessionOptions = {};
 
-/** Bound by SessionServiceProvider (Laravel session manager default driver). */
+/** Bound by SessionServiceProvider. */
 export function setSessionStore(store: SessionStore | undefined): void {
   defaultStore = store;
 }
@@ -30,7 +30,7 @@ export type StartSessionOptions = {
   store?: SessionStore;
   cookie?: string;
   /**
-   * Session lifetime in minutes (Laravel `lifetime`).
+   * Session lifetime in minutes.
    * Sets cookie `Max-Age` when provided.
    */
   lifetime?: number;
@@ -69,7 +69,7 @@ function shouldSecureCookie(
   option: boolean | undefined,
   sameSite?: CookieSameSite,
 ): boolean {
-  // Browsers require Secure when SameSite=None (Laravel cookie jar parity).
+  // Browsers require Secure when SameSite=None.
   if (sameSite === "None") return true;
   if (option !== undefined) return option;
   if (typeof request.secure === "function" && request.secure()) return true;

@@ -1,6 +1,5 @@
 /**
- * Laravel Eloquent strictness + touching guards.
- * @see Illuminate\Database\Eloquent\Model::preventLazyLoading
+ * Model strictness + touching guards.
  * @see Model::preventSilentlyDiscardingAttributes
  * @see Model::preventAccessingMissingAttributes
  * @see Model::shouldBeStrict
@@ -103,7 +102,7 @@ export function isIgnoringTouch(modelClass?: object): boolean {
 }
 
 /**
- * Run without touching parent timestamps (Laravel `Model::withoutTouching`).
+ * Run without touching parent timestamps (`Model::withoutTouching`).
  * Pass model classes to limit the ignore set; omit to ignore all models.
  */
 export async function withoutTouching<T>(

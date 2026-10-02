@@ -15,7 +15,7 @@ export type CreateApplicationOptions = {
 
 /**
  * Thin bootstrap — Application shell, framework providers, then app providers.
- * Routes load Laravel-style via side-effect `Route.*` in `routes/web.ts`
+ * Routes load via side-effect `Route.*` in `routes/web.ts`
  * (Route façade forwards to this app router while loading).
  */
 export async function createApplication(

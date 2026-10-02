@@ -1,0 +1,10 @@
+[
+  "Dispatcher",
+  "Event",
+  "EventFake",
+  "ShouldDispatchAfterCommit",
+  "event",
+  "getEventDispatcher",
+  "setEventDispatcher",
+  "setShouldBroadcastHandler"
+]

@@ -2,10 +2,10 @@
 
 Query builder, schema builder, migrations and connections for [Bunyad](https://github.com/bunyadjs/framework). One API on Node and Bun.
 
-> **Alpha.** APIs may change between `0.x` releases.
+> **Beta.** Public APIs change only in minor releases, with a changelog entry and migration note. See the [stability policy](https://github.com/bunyadjs/framework/blob/main/docs/STABILITY.md).
 
 ```bash
-npm install @bunyad/database@alpha better-sqlite3   # or pg / mysql2
+npm install @bunyad/database@beta better-sqlite3   # or pg / mysql2
 ```
 
 ```ts
@@ -27,7 +27,7 @@ await schemaFor(connection).create("users", (table) => {
 | Bun (`"bun"` export condition) | `bun:sqlite`, Bun `SQL` (PostgreSQL, MySQL) |
 | Node (default) | `better-sqlite3`, `pg`, `mysql2`, `mssql` |
 
-Install the driver you need as a peer dependency: `better-sqlite3`, `pg` or `mysql2`. `bcrypt` (preferred) or `bcryptjs` is used for hashed password columns. A missing driver fails fast with an install hint.
+Install the driver you need as a peer dependency: `better-sqlite3`, `pg` or `mysql2`. `better-sqlite3` 13 needs Node 22 or newer; use version 12 on Node 20. `bcrypt` (preferred) or `bcryptjs` is used for hashed password columns. A missing driver fails fast with an install hint.
 
 ## Connecting from the environment
 

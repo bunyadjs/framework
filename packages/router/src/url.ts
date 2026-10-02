@@ -441,7 +441,7 @@ void Route;
 // Live fluent `redirect()->back()` / `redirect()->route()` to this URL generator.
 setRedirectUrlGenerator({
   to: (path) => {
-    // Path-absolute Location headers stay relative (Laravel default for `/…`).
+    // Path-absolute Location headers stay relative.
     if (/^https?:\/\//i.test(path)) return path;
     if (path.startsWith("/")) return path;
     return Url.to(path);

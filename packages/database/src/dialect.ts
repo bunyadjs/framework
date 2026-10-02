@@ -454,7 +454,7 @@ const mariadbDialect: Dialect = {
 };
 
 /**
- * Microsoft SQL Server (sqlsrv) — Laravel SQL Server grammar subset.
+ * Microsoft SQL Server (sqlsrv) — SQL Server grammar subset.
  * Connected via the `mssql` (Tedious) driver; Bun SQL has no native adapter yet.
  */
 const sqlsrvDialect: Dialect = {

@@ -13,10 +13,10 @@ export type SessionConnection = {
 
 export type DatabaseSessionStoreOptions = {
   connection: SessionConnection;
-  /** Table name (Laravel default `sessions`). */
+  /** Table name (default `sessions`). */
   table?: string;
   /**
-   * Session lifetime in minutes (Laravel `lifetime`).
+   * Session lifetime in minutes.
    * Expired rows are treated as missing on read.
    */
   lifetime?: number;
@@ -36,9 +36,9 @@ function assertTable(table: string): string {
 }
 
 /**
- * Laravel `database` session driver — JSON payload in a `sessions` table.
+ * `database` session driver — JSON payload in a `sessions` table.
  *
- * Expected schema (Laravel-compatible subset):
+ * Expected schema:
  * ```sql
  * CREATE TABLE sessions (
  *   id TEXT PRIMARY KEY,

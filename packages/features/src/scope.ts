@@ -1,6 +1,6 @@
 import type { FeatureIdentifier } from "./types.ts";
 
-/** Laravel-compatible null / global scope key. */
+/** Null / global scope key. */
 export const NULL_SCOPE = "";
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Eloquent strictness, whereUuid/Ulid, withoutTouching, refreshForUpdate.
+ * Model strictness, whereUuid/Ulid, withoutTouching, refreshForUpdate.
  */
 import { afterEach, expect, test } from "bun:test";
 import { connectSqlite, schemaFor, DB } from "@bunyad/database";

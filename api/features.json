@@ -1,0 +1,14 @@
+[
+  "ArrayFeatureStore",
+  "DatabaseFeatureStore",
+  "Feature",
+  "FeatureFake",
+  "FeatureManager",
+  "NULL_SCOPE",
+  "PendingScopedFeatures",
+  "ensureFeaturesAreActive",
+  "getFeatures",
+  "isActiveValue",
+  "scopeKey",
+  "setFeatures"
+]

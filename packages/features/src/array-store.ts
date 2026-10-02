@@ -1,7 +1,7 @@
 import type { FeatureStore } from "./types.ts";
 
 /**
- * In-memory driver (Laravel `array` driver).
+ * In-memory driver.
  */
 export class ArrayFeatureStore implements FeatureStore {
   readonly #data = new Map<string, unknown>();

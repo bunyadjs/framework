@@ -1,5 +1,5 @@
 /**
- * Laravel `config/logging.php` analogue.
+ * Logging configuration.
  */
 export default {
   default: process.env.LOG_CHANNEL ?? "stack",

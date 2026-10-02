@@ -27,7 +27,7 @@ export type LoggingConfig = {
 
 /**
  * Build log channels from `config/logging.ts` and register the `Log` façade.
- * Supports Laravel-ish drivers: `single`, `daily`, `stack`, `console`.
+ * Supports drivers: `single`, `daily`, `stack`, `console`.
  *
  * Channels are wired in `boot()` so `Application.configure().create()` apps
  * (config loads at the start of `boot()`) see `config/logging.ts`. Apps that

@@ -104,7 +104,7 @@ describe("Inertia SSR gateway", () => {
       async fetch(request) {
         expect(request.method).toBe("POST");
         expect(new URL(request.url).pathname).toBe("/render");
-        const page = await request.json();
+        const page = (await request.json()) as any;
         expect(page.component).toBe("Welcome");
         expect(page.props.title).toBe("Hello");
         return Response.json({

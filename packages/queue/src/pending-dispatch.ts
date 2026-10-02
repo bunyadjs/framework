@@ -49,7 +49,7 @@ export class PendingDispatch implements PromiseLike<string> {
     return this;
   }
 
-  /** Set the queue connection (Laravel `onConnection`). */
+  /** Set the queue connection. */
   onConnection(connection: string): this {
     this.#job.connection = connection;
     markExplicitConnection(this.#job);
@@ -63,7 +63,7 @@ export class PendingDispatch implements PromiseLike<string> {
   }
 
   /**
-   * Dispatch after the current turn (Laravel `afterResponse`).
+   * Dispatch after the current turn.
    * Uses a macrotask so the HTTP response can finish first.
    */
   afterResponse(): this {
@@ -75,7 +75,7 @@ export class PendingDispatch implements PromiseLike<string> {
   }
 
   /**
-   * Dispatch after the outermost DB transaction commits (Laravel `afterCommit`).
+   * Dispatch after the outermost DB transaction commits.
    * Runs immediately when no transaction is active.
    */
   afterCommit(): this {

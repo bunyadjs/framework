@@ -121,6 +121,8 @@ async function loadConsoleSchedule() {
 
 const commands: Record<string, (args: string[]) => Promise<void>> = {
   async list() {
+    console.log("Usage: bunyad <command> [options]   (bunyad <command> --help for one command)");
+    console.log("");
     console.log("Available commands:");
     console.log("  serve          Start the HTTP server (dev)");
     console.log("                 --hot    Soft-reload with bun --hot");
@@ -163,7 +165,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     console.log("  config:clear   Clear the config cache");
     console.log("  optimize       Cache config + routes and compile views");
     console.log("  optimize:clear Clear config/route/view caches (+ flush app cache)");
-    console.log("  view:cache     Compile Blade-like views to .build/views");
+    console.log("  view:cache     Compile views to .build/views");
     console.log("  view:clear     Clear compiled views");
     console.log("  event:list     List registered event listeners");
     console.log("  publish       Publish provider assets/config into the app");
@@ -792,7 +794,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     };
 
     const formatMiddleware = (route: (typeof Route.routes)[number]): string => {
-      // Prefer string aliases (Laravel-shaped). Tagged factories without alias are omitted.
+      // Prefer string aliases. Tagged factories without alias are omitted.
       return route.middleware
         .filter((mw): mw is string => typeof mw === "string")
         .join(",");
@@ -1250,6 +1252,37 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
   },
 };
 
+/** `bunyad <command> --help`: show that command's lines from the command list. */
+async function printCommandHelp(
+  name: string,
+  handlers: Record<string, (args: string[]) => Promise<void>>,
+): Promise<void> {
+  const lines: string[] = [];
+  const original = console.log;
+  console.log = (...parts: unknown[]) => {
+    lines.push(parts.join(" "));
+  };
+  try {
+    await handlers.list!([]);
+  } finally {
+    console.log = original;
+  }
+  const out: string[] = [];
+  let inBlock = false;
+  for (const line of lines) {
+    const head = /^  (\S+)/.exec(line);
+    const continuation = /^ {17}/.test(line);
+    if (head && !continuation) inBlock = head[1] === name || (name.startsWith("make:") && head[1] === "make:*");
+    if (inBlock && (head || continuation)) out.push(line);
+  }
+  if (out.length === 0) {
+    console.log(`bunyad ${name}: no extra help. Run \`bunyad list\` to see every command.`);
+    return;
+  }
+  console.log(`Usage: bunyad ${name} [options]\n`);
+  for (const line of out) console.log(line);
+}
+
 export async function run(argv = process.argv.slice(2)): Promise<void> {
   // Load routes/console.ts closures before merging handlers
   try {
@@ -1279,6 +1312,14 @@ export async function run(argv = process.argv.slice(2)): Promise<void> {
     process.exitCode = prev;
     return code;
   });
+
+  const wantsHelp = (a: string) => a === "--help" || a === "-h";
+  if (argv[0] === "help" || wantsHelp(argv[0] ?? "")) {
+    argv = ["list"];
+  } else if (argv.slice(1).some(wantsHelp) && merged[argv[0] ?? ""]) {
+    await printCommandHelp(argv[0]!, merged);
+    return;
+  }
 
   const command = argv[0] ?? "list";
   const handler = merged[command];

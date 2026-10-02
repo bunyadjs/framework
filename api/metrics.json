@@ -1,0 +1,18 @@
+[
+  "Entry",
+  "ExceptionsRecorder",
+  "MemoryMetricsStore",
+  "Metrics",
+  "MetricsController",
+  "MetricsManager",
+  "RedisMetricsIngest",
+  "RedisMetricsStore",
+  "RequestsRecorder",
+  "ServersRecorder",
+  "aggregateEntries",
+  "configureMetricsHttp",
+  "getMetrics",
+  "registerMetricsRoutes",
+  "renderMetricsDashboard",
+  "setMetrics"
+]

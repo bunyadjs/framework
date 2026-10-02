@@ -1,5 +1,6 @@
 import { AbstractProvider, type ProviderConfig } from "./abstract-provider.ts";
 import { OAuthUser } from "./user.ts";
+import type { FetchLike } from "./fetch-like.ts";
 
 /**
  * GitLab OAuth 2 provider.
@@ -9,7 +10,7 @@ export class GitlabProvider extends AbstractProvider {
 
   constructor(
     config: ProviderConfig & { host?: string },
-    fetchImpl: typeof fetch = fetch,
+    fetchImpl: FetchLike = fetch,
   ) {
     super(config, fetchImpl);
     this.#host = (config.host ?? "https://gitlab.com").replace(/\/$/, "");

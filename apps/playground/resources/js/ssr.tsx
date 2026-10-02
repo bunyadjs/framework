@@ -2,7 +2,7 @@ import createServer from "@inertiajs/react/server";
 import { renderInertiaPage } from "../../bootstrap/inertia-ssr.tsx";
 
 /**
- * Optional Laravel-style HTTP SSR worker (`bunyad inertia:start-ssr`).
+ * Optional HTTP SSR worker (`bunyad inertia:start-ssr`).
  * Prefer in-process `Inertia.ssr({ mode: "inline", render })` on Bun.
  */
 const port = Number(

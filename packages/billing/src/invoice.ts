@@ -59,7 +59,7 @@ export class Invoice {
   }
 
   /**
-   * Laravel `downloadInvoice` shape — returns Stripe PDF URL + suggested filename.
+   * Returns Stripe PDF URL + suggested filename.
    * Apps can `fetch(result.url)` or redirect; no local PDF renderer required.
    */
   download(

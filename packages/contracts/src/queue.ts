@@ -8,7 +8,7 @@ export type ChainedJobPayload = {
   maxTries?: number;
   /** Delay in seconds before this chained job becomes available. */
   delay?: number;
-  /** When true, restore Eloquent models in `data` before handling. */
+  /** When true, restore ORM models in `data` before handling. */
   serializesModels?: boolean;
   timeout?: number;
   backoff?: number | number[];
@@ -27,7 +27,7 @@ export interface JobPayload {
   chain?: ChainedJobPayload[];
   /** Job batch id when dispatched via `Bus.batch`. */
   batchId?: string;
-  /** When true, restore Eloquent models in `data` before handling. */
+  /** When true, restore ORM models in `data` before handling. */
   serializesModels?: boolean;
 }
 

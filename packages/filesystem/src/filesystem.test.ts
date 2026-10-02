@@ -185,7 +185,7 @@ test("append prepend directories putFile size mimeType streams", async () => {
   expect(new TextDecoder().decode(value)).toBe("streamed");
 
   await disk.put("data.json", JSON.stringify({ ok: true }));
-  expect(await disk.json("data.json")).toEqual({ ok: true });
+  expect(await disk.json<{ ok: boolean }>("data.json")).toEqual({ ok: true });
   expect(await disk.checksum("data.json")).toHaveLength(32);
 
   const res = await disk.download("uploads/pic.png", "down.png");

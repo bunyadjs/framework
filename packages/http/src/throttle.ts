@@ -52,7 +52,7 @@ function blockedResponse(
 }
 
 /**
- * Laravel `throttle:60,1` or `throttle:api` (named limiter).
+ * `throttle:60,1` or `throttle:api` (named limiter).
  */
 export function throttle(
   maxAttemptsOrName: number | string = 60,

@@ -61,9 +61,9 @@
     <li><a href="/inertia" live:navigate>Inertia</a></li>
     <li><a href="/livewire" live:navigate>Livewire</a></li>
     <li><a href="/livewire/about" live:navigate>Livewire · About</a></li>
-    <li><a href="/features" live:navigate>Pennant features</a></li>
-    <li><a href="/pulse" live:navigate>Pulse</a></li>
-    <li><a href="/pulse/aggregates">Pulse aggregates</a> <span class="note">(JSON)</span></li>
+    <li><a href="/features" live:navigate>Features</a></li>
+    <li><a href="/metrics" live:navigate>Metrics</a></li>
+    <li><a href="/metrics/aggregates">Metrics aggregates</a> <span class="note">(JSON)</span></li>
     <li><a href="/hello/world">Hello JSON</a> <span class="note">(/hello/&#123;name&#125;)</span></li>
   </ul>
 

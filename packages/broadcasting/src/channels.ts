@@ -11,8 +11,7 @@ export type ChannelCallback = (
 ) => ChannelAuthResult | Promise<ChannelAuthResult>;
 
 /**
- * Strip Pusher-style `private-` / `presence-` / `private-encrypted-` prefixes
- * (Laravel `Broadcaster::normalizeChannelName`).
+ * Strip Pusher-style `private-` / `presence-` / `private-encrypted-` prefixes.
  */
 export function normalizeChannelName(channelName: string): string {
   if (channelName.startsWith("private-encrypted-")) {
@@ -28,9 +27,9 @@ export function normalizeChannelName(channelName: string): string {
 }
 
 /**
- * Laravel `Broadcast::channel('orders.{id}', …)` registry.
+ * `Broadcast::channel('orders.{id}', …)` registry.
  * Patterns may omit or include `private-`/`presence-` prefixes; authorize
- * matches both Laravel-normalized and full client channel names.
+ * matches both normalized and full client channel names.
  */
 export class ChannelManager {
   readonly #channels = new Map<string, ChannelCallback>();

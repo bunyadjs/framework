@@ -52,15 +52,15 @@ test("Cache.store resolves named stores registered via setCacheStore", async () 
   await fileLike.put("k", "from-file", 60);
   await Cache.put("k", "from-memory", 60);
 
-  expect(await Cache.store("file").get("k")).toBe("from-file");
-  expect(await Cache.store("memory").get("k")).toBe("from-memory");
-  expect(await Cache.store().get("k")).toBe("from-memory");
+  expect<unknown>(await Cache.store("file").get("k")).toBe("from-file");
+  expect<unknown>(await Cache.store("memory").get("k")).toBe("from-memory");
+  expect<unknown>(await Cache.store().get("k")).toBe("from-memory");
 });
 
 test("memory store put get expire forget", async () => {
   const store = new MemoryCacheStore();
   await store.put("a", 1, 60);
-  expect(await store.get("a")).toBe(1);
+  expect<unknown>(await store.get("a")).toBe(1);
   expect(await store.has("a")).toBe(true);
   await store.forget("a");
   expect(await store.get("a")).toBeUndefined();
@@ -89,7 +89,7 @@ test("repository remember", async () => {
 test("Cache facade mirrors repository", async () => {
   setCache(new CacheRepository(new MemoryCacheStore()));
   await Cache.put("name", "Ada", 60);
-  expect(await Cache.get("name")).toBe("Ada");
+  expect<unknown>(await Cache.get("name")).toBe("Ada");
   expect(await Cache.has("name")).toBe(true);
   expect(await Cache.forget("name")).toBe(true);
   expect(await Cache.get("name")).toBeUndefined();
@@ -112,7 +112,7 @@ test("repository add is set-if-absent", async () => {
   const repo = new CacheRepository(new MemoryCacheStore());
   expect(await repo.add("lock", 1, 60)).toBe(true);
   expect(await repo.add("lock", 2, 60)).toBe(false);
-  expect(await repo.get("lock")).toBe(1);
+  expect<unknown>(await repo.get("lock")).toBe(1);
 });
 
 test("file store put get forget flush", async () => {
@@ -122,7 +122,7 @@ test("file store put get forget flush", async () => {
 
   const store = new FileCacheStore({ path: dir });
   await store.put("greeting", { hello: "world" }, 60);
-  expect(await store.get("greeting")).toEqual({ hello: "world" });
+  expect<unknown>(await store.get("greeting")).toEqual({ hello: "world" });
   expect(await store.has("greeting")).toBe(true);
   await store.forget("greeting");
   expect(await store.get("greeting")).toBeUndefined();
@@ -170,7 +170,7 @@ test("redis store with mock client", async () => {
     prefix: "t:",
   });
   await store.put("x", { n: 1 }, 60);
-  expect(await store.get("x")).toEqual({ n: 1 });
+  expect<unknown>(await store.get("x")).toEqual({ n: 1 });
   expect(await store.has("x")).toBe(true);
   await store.forget("x");
   expect(await store.get("x")).toBeUndefined();
@@ -218,14 +218,14 @@ test("database store put get expire forget flush", async () => {
   };
 
   const { DatabaseCacheStore } = await import("../src/database-store.ts");
-  const store = new DatabaseCacheStore({ connection, prefix: "c:" });
+  const store = new DatabaseCacheStore({ connection: connection as never, prefix: "c:" });
 
   await store.put("greeting", { hello: "world" }, 60);
-  expect(await store.get("greeting")).toEqual({ hello: "world" });
+  expect<unknown>(await store.get("greeting")).toEqual({ hello: "world" });
   expect(await store.has("greeting")).toBe(true);
 
   await store.put("greeting", { hello: "again" }, 60);
-  expect(await store.get("greeting")).toEqual({ hello: "again" });
+  expect<unknown>(await store.get("greeting")).toEqual({ hello: "again" });
 
   await store.forget("greeting");
   expect(await store.get("greeting")).toBeUndefined();
@@ -241,7 +241,7 @@ test("Cache.tags put get flush", async () => {
   setCache(new CacheRepository(new MemoryCacheStore()));
 
   await Cache.tags(["people", "authors"]).put("ada", { name: "Ada" }, 60);
-  expect(await Cache.tags(["people", "authors"]).get("ada")).toEqual({
+  expect<unknown>(await Cache.tags(["people", "authors"]).get("ada")).toEqual({
     name: "Ada",
   });
   expect(await Cache.get("ada")).toBeUndefined();
@@ -280,7 +280,7 @@ test("pull increment decrement many putMany missing", async () => {
   setCache(new CacheRepository(new MemoryCacheStore()));
 
   await Cache.put("token", "abc", 60);
-  expect(await Cache.pull("token")).toBe("abc");
+  expect<unknown>(await Cache.pull("token")).toBe("abc");
   expect(await Cache.get("token")).toBeUndefined();
   expect(await Cache.pull("missing", "fallback")).toBe("fallback");
 
@@ -299,7 +299,7 @@ test("pull increment decrement many putMany missing", async () => {
 
   const tagged = Cache.tags("stats");
   expect(await tagged.increment("hits", 5)).toBe(5);
-  expect(await tagged.pull("hits")).toBe(5);
+  expect<unknown>(await tagged.pull("hits")).toBe(5);
   expect(await tagged.missing("hits")).toBe(true);
 });
 
@@ -307,7 +307,7 @@ test("increment preserves memory TTL", async () => {
   const store = new MemoryCacheStore();
   await store.put("n", 10, 60);
   expect(await store.increment("n", 1)).toBe(11);
-  expect(await store.get("n")).toBe(11);
+  expect<unknown>(await store.get("n")).toBe(11);
   expect(await store.has("n")).toBe(true);
 });
 
@@ -333,7 +333,7 @@ test("PSR-16 aliases and putManyForever", async () => {
   setCache(new CacheRepository(new MemoryCacheStore()));
 
   expect(await Cache.set("x", 1, 60)).toBe(true);
-  expect(await Cache.get("x")).toBe(1);
+  expect<unknown>(await Cache.get("x")).toBe(1);
   expect(await Cache.delete("x")).toBe(true);
   expect(await Cache.get("x")).toBeUndefined();
 
@@ -346,7 +346,7 @@ test("PSR-16 aliases and putManyForever", async () => {
   expect(await Cache.deleteMultiple(["a", "b"])).toBe(true);
 
   expect(await Cache.putManyForever({ forever: true })).toBe(true);
-  expect(await Cache.get("forever")).toBe(true);
+  expect<unknown>(await Cache.get("forever")).toBe(true);
   expect(await Cache.clear()).toBe(true);
   expect(await Cache.get("forever")).toBeUndefined();
 });
@@ -384,7 +384,7 @@ test("sear rememberWithWarmth touch getSeconds meta", async () => {
 
   await repo.put("ttl", "v", 60);
   expect(await repo.touch("ttl", 120)).toBe(true);
-  expect(await repo.get("ttl")).toBe("v");
+  expect<unknown>(await repo.get("ttl")).toBe("v");
   expect(await repo.touch("missing", 60)).toBe(false);
 });
 
@@ -413,7 +413,7 @@ test("flexible serves stale while refreshing", async () => {
   expect(stale).toBe("v1");
   await Bun.sleep(50);
   expect(calls).toBe(2);
-  expect(await repo.get("swr")).toBe("v2");
+  expect<unknown>(await repo.get("swr")).toBe("v2");
 });
 
 test("tagged cache inherits typed getters and getTags", async () => {
@@ -450,15 +450,15 @@ test("Cache.memo remembers get within execution and invalidates on put", async (
   await Cache.put("name", "Taylor", 60);
   hits = 0;
 
-  expect(await Cache.memo().get("name")).toBe("Taylor");
-  expect(await Cache.memo().get("name")).toBe("Taylor");
+  expect<unknown>(await Cache.memo().get("name")).toBe("Taylor");
+  expect<unknown>(await Cache.memo().get("name")).toBe("Taylor");
   expect(hits).toBe(1);
 
   await Cache.memo().put("name", "Tim", 60);
   hits = 0;
-  expect(await Cache.memo().get("name")).toBe("Tim");
+  expect<unknown>(await Cache.memo().get("name")).toBe("Tim");
   expect(hits).toBe(1);
-  expect(await Cache.memo().get("name")).toBe("Tim");
+  expect<unknown>(await Cache.memo().get("name")).toBe("Tim");
   expect(hits).toBe(1);
 
   Cache.flushMemo();
@@ -473,8 +473,8 @@ test("Cache.memo(store) uses named store", async () => {
   await redisLike.put("k", "from-redis", 60);
   await Cache.put("k", "from-default", 60);
 
-  expect(await Cache.memo("redis").get("k")).toBe("from-redis");
-  expect(await Cache.memo().get("k")).toBe("from-default");
+  expect<unknown>(await Cache.memo("redis").get("k")).toBe("from-redis");
+  expect<unknown>(await Cache.memo().get("k")).toBe("from-default");
   Cache.flushMemo();
 });
 
@@ -483,9 +483,9 @@ test("Cache.memo forget and increment drop memoized value", async () => {
   Cache.flushMemo();
   const memo = Cache.memo();
   await memo.put("n", 1, 60);
-  expect(await memo.get("n")).toBe(1);
+  expect<unknown>(await memo.get("n")).toBe(1);
   expect(await memo.increment("n")).toBe(2);
-  expect(await memo.get("n")).toBe(2);
+  expect<unknown>(await memo.get("n")).toBe(2);
   await memo.forget("n");
   expect(await memo.get("n")).toBeUndefined();
   Cache.flushMemo();
@@ -495,7 +495,7 @@ test("forever rememberForever flush on Cache facade", async () => {
   setCache(new CacheRepository(new MemoryCacheStore()));
 
   await Cache.forever("config", { theme: "dark" });
-  expect(await Cache.get("config")).toEqual({ theme: "dark" });
+  expect<unknown>(await Cache.get("config")).toEqual({ theme: "dark" });
   expect(await Cache.has("config")).toBe(true);
 
   let calls = 0;
@@ -525,7 +525,7 @@ test("memory store add is single-turn SET-if-absent under concurrency", async ()
     Array.from({ length: 40 }, (_, i) => store.add("lock", i, 60)),
   );
   expect(results.filter(Boolean)).toHaveLength(1);
-  expect(await store.get("lock")).toBe(results.findIndex(Boolean));
+  expect<unknown>(await store.get("lock")).toBe(results.findIndex(Boolean));
 });
 
 test("redis store add uses setnx when available", async () => {
@@ -568,7 +568,7 @@ test("redis store add uses setnx when available", async () => {
   });
   expect(await store.add("lock", "a", 60)).toBe(true);
   expect(await store.add("lock", "b", 60)).toBe(false);
-  expect(await store.get("lock")).toBe("a");
+  expect<unknown>(await store.get("lock")).toBe("a");
 });
 
 test("Cache.lock get block release", async () => {
@@ -592,7 +592,7 @@ test("Cache.put accepts Date TTL", async () => {
   setCache(new CacheRepository(new MemoryCacheStore()));
   const until = new Date(Date.now() + 60_000);
   await Cache.put("dated", "v", until);
-  expect(await Cache.get("dated")).toBe("v");
+  expect<unknown>(await Cache.get("dated")).toBe("v");
 });
 
 test("FailoverCacheStore tries next store on failure", async () => {
@@ -629,7 +629,7 @@ test("FailoverCacheStore tries next store on failure", async () => {
   const secondary = new MemoryCacheStore();
   const store = new FailoverCacheStore([primary, secondary]);
   await store.put("k", "ok", 60);
-  expect(await store.get("k")).toBe("ok");
+  expect<unknown>(await store.get("k")).toBe("ok");
 });
 
 test("Cache.funnel limits concurrent work", async () => {

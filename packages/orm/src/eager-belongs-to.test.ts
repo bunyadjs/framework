@@ -4,7 +4,7 @@ import { Model } from "../src/index.ts";
 
 /**
  * P0: BelongsTo eager must use a single IN (...) for PAGE-sized loads
- * (not N× Related.find), matching Laravel with().
+ * (not N× Related.find).
  */
 test("BelongsTo eager uses one IN query for PAGE=50 loads", async () => {
   const connection = connectSqlite();

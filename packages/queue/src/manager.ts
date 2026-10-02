@@ -293,7 +293,7 @@ export class QueueManager {
 
     applyQueueRoute(job, queueRoutes());
 
-    // Route to a named connection when configured (Laravel connection routing).
+    // Route to a named connection when configured.
     if (job.connection) {
       const { Queue } = await import("./queue-fake.ts");
       if (Queue.connected(job.connection) && job.connection !== Queue.getDefaultDriver()) {
@@ -313,7 +313,7 @@ export class QueueManager {
     if (jobImplementsUnique(job)) {
       const acquired = await acquireUniqueJobLock(job);
       if (!acquired) {
-        // Duplicate — do not dispatch (Laravel ShouldBeUnique).
+        // Duplicate — do not dispatch.
         return "";
       }
     }
@@ -468,7 +468,7 @@ export class QueueManager {
       await releaseUniqueJobLock(data);
     }
 
-    /** Laravel ShouldBeUnique: release after the job finishes (not on retry/release). */
+    /** ShouldBeUnique: release after the job finishes (not on retry/release). */
     const releaseUniqueAfterFinish = async (): Promise<void> => {
       if (
         isJobInstance(data) &&

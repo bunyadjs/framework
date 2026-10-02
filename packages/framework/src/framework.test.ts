@@ -31,7 +31,6 @@ test("discovery preload skips Glob when setPreloadedDiscovery is set", async () 
 
   let globConstructs = 0;
   const OrigGlob = Bun.Glob;
-  // @ts-expect-error test spy
   Bun.Glob = class extends OrigGlob {
     constructor(...args: ConstructorParameters<typeof OrigGlob>) {
       globConstructs++;
@@ -39,7 +38,7 @@ test("discovery preload skips Glob when setPreloadedDiscovery is set", async () 
     }
   };
   try {
-    setPreloadedDiscovery({ wire: [] });
+    setPreloadedDiscovery({ live: [] });
     const dir = await mkdtemp(join(tmpdir(), "bunyad-discovery-"));
     const app = new Application({ basePath: dir, config: { app: { port: 0 } } });
     await discoverLive(app);

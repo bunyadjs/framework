@@ -36,7 +36,6 @@ async function pwnedCount(password: string): Promise<number> {
 }
 
 /**
- * Laravel `Illuminate\Validation\Rules\Password`.
  *
  * Use `Password.defaults(() => Password.min(8).letters())` then `Rule.password()`.
  */
@@ -52,7 +51,7 @@ export class Password implements ValidationRule {
   #uncompromisedThreshold = 0;
   #customMessage: string | null = null;
 
-  /** Laravel `Password::defaults`. */
+  /** `Password::defaults`. */
   static defaults(callback: () => Password): void {
     Password.#defaultsFactory = callback;
   }
@@ -62,14 +61,14 @@ export class Password implements ValidationRule {
     Password.#defaultsFactory = null;
   }
 
-  /** Laravel `Password::default()` — applied defaults or `min(8)`. */
+  /** `Password::default()` — applied defaults or `min(8)`. */
   static default(): Password {
     return Password.#defaultsFactory
       ? Password.#defaultsFactory()
       : Password.min(8);
   }
 
-  /** Laravel `Password::min($size)`. */
+  /** `Password::min($size)`. */
   static min(size: number): Password {
     return new Password().min(size);
   }
@@ -100,7 +99,7 @@ export class Password implements ValidationRule {
   }
 
   /**
-   * Laravel `uncompromised($threshold = 0)` — Have I Been Pwned range API.
+   * `uncompromised($threshold = 0)` — Have I Been Pwned range API.
    * Fails when the password appears more than `threshold` times in breaches.
    */
   uncompromised(threshold = 0): this {
