@@ -106,7 +106,8 @@ jobs:
         run: |
           dir=$(dirname "$(find node_modules/.bun -path '*better-sqlite3/package.json' -not -path '*@types*' | head -1)")
           npm run install --prefix "$dir"
-      - run: bun run test:node
+      # Node 20 cannot strip types itself (needs 22.7+), so it loads the TypeScript tests through tsx.
+      - run: bun run ${{ matrix.node == 20 && 'test:node:tsx' || 'test:node' }}
         working-directory: packages/database
 
   smoke:

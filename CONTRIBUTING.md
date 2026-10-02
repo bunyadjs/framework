@@ -22,7 +22,8 @@ Those suites run only when a database is reachable. Create empty databases and s
 export BUNYAD_TEST_POSTGRES_URL=postgres://user:pass@127.0.0.1:5432/bunyad_test
 export BUNYAD_TEST_MYSQL_URL=mysql://user:pass@127.0.0.1:3306/bunyad_test
 bun test packages
-cd packages/database && bun run test:node   # same drivers on Node
+cd packages/database && bun run test:node       # same drivers on Node 22+
+cd packages/database && bun run test:node:tsx   # Node 20 (loads the TypeScript tests through tsx)
 ```
 
 CI runs them against PostgreSQL 16 and MySQL 8.4 service containers.
