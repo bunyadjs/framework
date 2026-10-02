@@ -35,6 +35,10 @@ bun scripts/release.ts pack     # builds and packs every package into .packs/
 bun scripts/smoke.ts --kit=api  # scaffolds an app from those tarballs, migrates, serves, requests /
 ```
 
+### Secret scan
+
+CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on the history and the files. To run it locally: `brew install gitleaks`, then `gitleaks git --redact .` and `gitleaks dir --redact .`. A known false positive goes in `.gitleaksignore`.
+
 ## Public API changes
 
 The runtime exports of every package are recorded in `api/*.json`, and a test fails when they change. If you add or remove an export on purpose:
