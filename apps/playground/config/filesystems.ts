@@ -1,5 +1,5 @@
 /**
- * Laravel `config/filesystems.php` analogue.
+ * filesystems config.
  * Disk roots are resolved relative to `storage/` unless absolute.
  */
 export default {

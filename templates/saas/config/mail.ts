@@ -1,5 +1,5 @@
 /**
- * Laravel `config/mail.php` analogue.
+ * Mail configuration.
  */
 export default {
   default: process.env.MAIL_MAILER ?? "array",

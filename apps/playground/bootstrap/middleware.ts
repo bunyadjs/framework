@@ -7,7 +7,7 @@ import HandleInertiaRequests from "../app/Http/Middleware/HandleInertiaRequests.
 import SetHeader from "../app/Http/Middleware/SetHeader.ts";
 
 /**
- * Laravel-style middleware registration (`withMiddleware` / Kernel groups).
+ * middleware registration (`withMiddleware` / Kernel groups).
  * - Global: runs on every request
  * - `web` / `api`: applied via `Route.middleware("web"|"api")`
  */
@@ -22,6 +22,6 @@ export function registerMiddleware(app: Application): void {
     new HandleInertiaRequests(),
   ]);
 
-  // Bindings are resolved in the HTTP kernel (Laravel SubstituteBindings analogue).
+  // Bindings are resolved in the HTTP kernel.
   app.middlewareGroup("api", []);
 }

@@ -7,7 +7,7 @@
   <a href="/inertia" live:navigate>Inertia</a>
   <a href="/livewire" live:navigate>Livewire</a>
   <a href="/features" live:navigate>Features</a>
-  <a href="/pulse" live:navigate>Pulse</a>
+  <a href="/metrics" live:navigate>Metrics</a>
   <a href="/databases" live:navigate>Databases</a>
   <a href="/login" live:navigate>Login</a>
   <a href="/dashboard" live:navigate>Dashboard</a>

@@ -5,7 +5,7 @@
   <a href="/" live:navigate>Home</a>
   <a href="/livewire" live:navigate>Demo</a>
   <a href="/livewire/about" live:navigate>About</a>
-  <a href="/pulse" live:navigate>Pulse</a>
+  <a href="/metrics" live:navigate>Metrics</a>
 </nav>
 <h1>{{ title }}</h1>
 <p>Nested Livewire dashboard — counter is a child with its own snapshot. Links use <code>live:navigate</code>.</p>

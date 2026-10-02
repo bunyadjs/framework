@@ -3,4 +3,4 @@
 Welcome, **{{ email }}**.
 
 - Build with Bun
-- Ship Laravel-like APIs
+- Ship clean APIs

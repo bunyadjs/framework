@@ -17,7 +17,7 @@ export type BootAppOptions = {
   broadcastDriver?: string;
 };
 
-/** Boot playground app and reset database (Laravel `RefreshDatabase`). */
+/** Boot playground app and reset database. */
 export async function bootApp(options: BootAppOptions = {}): Promise<{
   app: Application;
   fetch: (request: Request) => Promise<Response>;

@@ -1,5 +1,5 @@
 /**
- * Laravel `config/cors.php` analogue.
+ * cors config.
  */
 export default {
   paths: ["api/*", "auth/csrf-cookie"],

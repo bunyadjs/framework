@@ -1,5 +1,5 @@
 /**
- * Laravel `config/queue.php` analogue.
+ * queue config.
  */
 export default {
   default: process.env.QUEUE_CONNECTION ?? "sync",

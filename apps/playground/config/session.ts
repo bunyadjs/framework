@@ -1,5 +1,5 @@
 /**
- * Laravel `config/session.php` analogue.
+ * session config.
  * Driver: file | database | redis | memory | array
  */
 export default {

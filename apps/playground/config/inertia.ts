@@ -1,4 +1,4 @@
-/** Inertia adapter config (Laravel `config/inertia.php` shape). */
+/** Inertia adapter config. */
 export default {
   ssr: {
     /**

@@ -1,5 +1,5 @@
 /**
- * Laravel `config/broadcasting.php` analogue.
+ * broadcasting config.
  */
 export default {
   default: process.env.BROADCAST_DRIVER ?? "sse",

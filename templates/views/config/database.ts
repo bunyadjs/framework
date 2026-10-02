@@ -3,7 +3,7 @@ import type { DatabaseConnectionsConfig } from "@bunyad/framework";
 export type { DatabaseConnectionsConfig };
 
 /**
- * Database config — same shape as Laravel `config/database.php`.
+ * Database config.
  * Drivers: sqlite, mysql, mariadb, pgsql, sqlsrv.
  * Unused drivers stay lazy; only `default` (+ optional `migrate`) open on boot.
  */
