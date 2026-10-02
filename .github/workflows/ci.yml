@@ -98,7 +98,14 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           check-latest: true
-      - run: bun install --frozen-lockfile
+      # Bun builds native modules with `bunx node-gyp@latest`, which no longer runs on Node 20,
+      # and better-sqlite3 has no Node 20 prebuild. Skip Bun's install scripts and let npm
+      # (which bundles a compatible node-gyp) run the better-sqlite3 install step.
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Build better-sqlite3 for this Node
+        run: |
+          dir=$(dirname "$(find node_modules/.bun -path '*better-sqlite3/package.json' -not -path '*@types*' | head -1)")
+          npm run install --prefix "$dir"
       - run: bun run test:node
         working-directory: packages/database
 
