@@ -1,14 +1,38 @@
 # @bunyad/broadcasting
 
-Realtime broadcasting for Bunyad: SSE, Pusher and Ably drivers.
+Event broadcasting for Bunyad with swappable drivers: in-process sync, server-sent events, Pusher, Ably, log and null, plus channel authorization and presence.
 
-> **Alpha.** APIs may change between `0.x` releases.
+> **Beta.** Public APIs change only in minor releases, with a changelog entry and migration note. See the [stability policy](https://github.com/bunyadjs/framework/blob/main/docs/STABILITY.md).
 
 ```bash
-bun add @bunyad/broadcasting@alpha
+bun add @bunyad/broadcasting@beta   # or: npm install @bunyad/broadcasting@beta
 ```
 
-Requires Bun 1.1 or newer. Part of [Bunyad](https://github.com/bunyadjs/framework).
+## Usage
+
+```ts
+import { ShouldBroadcast, SyncBroadcaster, broadcast, setBroadcaster } from "@bunyad/broadcasting";
+
+class OrderShipped extends ShouldBroadcast {
+  constructor(readonly orderId: number) { super(); }
+  broadcastOn() { return `orders.${this.orderId}`; }
+  broadcastAs() { return "order.shipped"; }
+}
+
+const driver = new SyncBroadcaster();
+setBroadcaster(driver);
+driver.listen("orders.9", (event, payload) => console.log(event, payload));
+
+await broadcast(new OrderShipped(9));
+// order.shipped { orderId: 9 }
+```
+
+## Notes
+
+- Bun-only runtime.
+- Drivers: `SyncBroadcaster`, `SseBroadcaster` (with `SseHub`), `PusherBroadcaster`, `AblyBroadcaster`, `LogBroadcaster`, `NullBroadcaster`. Select them through `BroadcastManager`.
+- Channel authorization lives in `ChannelManager`; presence has Redis-backed stores and fan-out.
+- Queued broadcasting integrates with `@bunyad/queue` (supplied by your app); `@bunyad/events` is a regular dependency.
 
 ## License
 

@@ -2,10 +2,10 @@
 
 Query builder, schema builder, migrations and connections for [Bunyad](https://github.com/bunyadjs/framework). One API on Node and Bun.
 
-> **Alpha.** APIs may change between `0.x` releases.
+> **Beta.** Public APIs change only in minor releases, with a changelog entry and migration note. See the [stability policy](https://github.com/bunyadjs/framework/blob/main/docs/STABILITY.md).
 
 ```bash
-npm install @bunyad/database@alpha better-sqlite3   # or pg / mysql2
+npm install @bunyad/database@beta better-sqlite3   # or pg / mysql2
 ```
 
 ```ts
