@@ -16,17 +16,17 @@ test("session put get flash ages out", () => {
   const session = new Session();
   session.put("user_id", 1);
   session.flash("status", "Saved");
-  expect(session.get("status")).toBe("Saved");
+  expect<unknown>(session.get("status")).toBe("Saved");
   session.ageFlash();
-  expect(session.get("status")).toBe("Saved");
-  expect(session.get("_flash")).toEqual(["status"]);
+  expect<unknown>(session.get("status")).toBe("Saved");
+  expect<unknown>(session.get("_flash")).toEqual(["status"]);
   session.ageFlash();
   expect(session.has("status")).toBe(false);
 });
 
 test("session pull gets and forgets", () => {
   const session = new Session({ name: "Ada" });
-  expect(session.pull("name")).toBe("Ada");
+  expect<unknown>(session.pull("name")).toBe("Ada");
   expect(session.has("name")).toBe(false);
   expect(session.pull("missing", "fallback")).toBe("fallback");
 });
@@ -35,7 +35,7 @@ test("session push flush exists missing now keep regenerate", () => {
   const session = new Session({}, "a".repeat(40));
   session.push("items", "a");
   session.push("items", "b");
-  expect(session.get("items")).toEqual(["a", "b"]);
+  expect<unknown>(session.get("items")).toEqual(["a", "b"]);
 
   session.put("nullable", null);
   expect(session.exists("nullable")).toBe(true);
@@ -43,16 +43,16 @@ test("session push flush exists missing now keep regenerate", () => {
   expect(session.missing("gone")).toBe(true);
 
   session.now("temp", 1);
-  expect(session.get("temp")).toBe(1);
+  expect<unknown>(session.get("temp")).toBe(1);
   session.ageFlash();
   expect(session.missing("temp")).toBe(true);
 
   session.flash("notice", "hi");
   session.ageFlash();
-  expect(session.get("notice")).toBe("hi");
+  expect<unknown>(session.get("notice")).toBe("hi");
   session.keep("notice");
   session.ageFlash();
-  expect(session.get("notice")).toBe("hi");
+  expect<unknown>(session.get("notice")).toBe("hi");
 
   session.flush();
   expect(session.all()).toEqual({});
@@ -82,7 +82,7 @@ test("session increment decrement token previousUrl migrate", () => {
   expect(session.previousRoute()).toBe("home");
 
   session.flashInput({ email: "a@b.c" });
-  expect(session.getOldInput("email")).toBe("a@b.c");
+  expect<unknown>(session.getOldInput("email")).toBe("a@b.c");
   expect(session.hasOldInput("email")).toBe(true);
 
   expect(session.remember("x", () => 42)).toBe(42);
@@ -155,8 +155,8 @@ test("startSession middleware persists cookie", async () => {
     }),
   );
   await runPipeline(second, [mw], async () => {
-    expect(second.session!.get("visits")).toBe(1);
-    expect(second.session!.get("hello")).toBe("world");
+    expect<unknown>(second.session!.get("visits")).toBe(1);
+    expect<unknown>(second.session!.get("hello")).toBe("world");
     return json({ ok: true });
   });
 });
@@ -180,7 +180,7 @@ test("startSession regenerate rotates cookie id", async () => {
     }),
   );
   const res2 = await runPipeline(second, [mw], async () => {
-    second.session!.regenerate(true);
+    second.session!.regenerate!(true);
     second.session!.put("user", 1);
     return json({ ok: true });
   });
@@ -261,7 +261,7 @@ test("DatabaseSessionStore read write destroy and expiry", async () => {
   const { connectSqlite } = await import("@bunyad/database");
   const { DatabaseSessionStore } = await import("../src/index.ts");
 
-  const db = await connectSqlite(":memory:");
+  const db = await connectSqlite({ path: ":memory:" });
   await db.run(`
     CREATE TABLE sessions (
       id TEXT PRIMARY KEY,
@@ -400,12 +400,12 @@ test("session reflash keeps previous flash for another request", () => {
   const session = new Session();
   session.flash("status", "Saved");
   session.ageFlash();
-  expect(session.get("status")).toBe("Saved");
-  expect(session.get("_flash")).toEqual(["status"]);
+  expect<unknown>(session.get("status")).toBe("Saved");
+  expect<unknown>(session.get("_flash")).toEqual(["status"]);
   session.reflash();
   session.ageFlash();
-  expect(session.get("status")).toBe("Saved");
-  expect(session.get("_flash")).toEqual(["status"]);
+  expect<unknown>(session.get("status")).toBe("Saved");
+  expect<unknown>(session.get("_flash")).toEqual(["status"]);
 });
 
 test("session invalidate flushes data and schedules destroy migrate", () => {
@@ -439,7 +439,7 @@ test("startSession invalidate destroys old record and rotates cookie", async () 
     }),
   );
   const res2 = await runPipeline(second, [mw], async () => {
-    second.session!.invalidate();
+    second.session!.invalidate!();
     return json({ ok: true });
   });
   const newId = decodeURIComponent(
@@ -464,7 +464,7 @@ test("SessionManager memory driver extend and start", () => {
 
   const bag = manager.start({ hello: "world" });
   expect(bag.isStarted()).toBe(true);
-  expect(bag.get("hello")).toBe("world");
+  expect<unknown>(bag.get("hello")).toBe("world");
   expect(bag.getId().length).toBe(40);
 });
 
@@ -572,7 +572,7 @@ test("re-flashing a key keeps it for the next request", () => {
   session.flash("errors", { email: ["second"] });
   session.ageFlashData();
 
-  expect(session.get("errors")).toEqual({ email: ["second"] });
+  expect<unknown>(session.get("errors")).toEqual({ email: ["second"] });
   session.ageFlashData();
   expect(session.get("errors")).toBeUndefined();
 });

@@ -302,7 +302,7 @@ export class HttpResponseException extends BunyadError {
   }
 }
 
-/** Laravel `abort($code, $message = '', array $headers = [])`. */
+/** `abort($code, $message = '', array $headers = [])`. */
 export function abort(
   status: number,
   message?: string,
@@ -334,7 +334,7 @@ export function abort_unless(
 export type StreamWrite = (chunk: string | Uint8Array) => void;
 
 /**
- * Laravel `response()->stream($callback)` — ReadableStream body.
+ * `stream($callback)` — ReadableStream body.
  * Callback receives a `write` function (and may be async).
  */
 export function stream(
@@ -366,7 +366,7 @@ export function stream(
 }
 
 /**
- * Laravel `response()->streamJson($data)` — NDJSON stream of values
+ * `streamJson($data)` — NDJSON stream of values
  * (arrays / async iterables / sync iterables / factory).
  */
 export function streamJson(
@@ -405,7 +405,7 @@ export type EventStreamSend = (
 ) => void;
 
 /**
- * Laravel `response()->eventStream($callback)` — Server-Sent Events.
+ * `eventStream($callback)` — Server-Sent Events.
  */
 export function eventStream(
   callback: (send: EventStreamSend) => void | Promise<void>,
@@ -443,7 +443,7 @@ export function eventStream(
 }
 
 /**
- * Laravel `response()->streamDownload($callback, $name)` — attachment stream.
+ * `streamDownload($callback, $name)` — attachment stream.
  */
 export function streamDownload(
   callback: (write: StreamWrite) => void | Promise<void>,
@@ -464,7 +464,7 @@ export function streamDownload(
 
 
 /**
- * Laravel `response()->download($path, $name)` — attachment from a filesystem path.
+ * `download($path, $name)` — attachment from a filesystem path.
  * Uses `Bun.file` (zero-copy) when available.
  */
 export function download(
@@ -486,7 +486,7 @@ export function download(
 }
 
 /**
- * Laravel `response()->file($path)` — inline file response.
+ * `file($path)` — inline file response.
  */
 export function file(path: string, headers: ResponseHeadersInit = {}): Response {
   const bunFile = Bun.file(path);

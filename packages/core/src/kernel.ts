@@ -65,7 +65,7 @@ function isPlainJsonObject(value: object): boolean {
   return proto === Object.prototype || proto === null;
 }
 
-/** Laravel Arrayable / JsonSerializable — Collection, Model, Paginator, … */
+/** Arrayable / JsonSerializable — Collection, Model, Paginator, … */
 function hasJsonSerialize(value: object): value is { toJSON: () => unknown } {
   return typeof (value as { toJSON?: unknown }).toJSON === "function";
 }
@@ -94,7 +94,7 @@ export class HttpKernel {
     pathname?: string,
   ): Response | Promise<Response> {
     // Always render exceptions as Responses so Bun's development overlay never
-    // paints for handled HTTP errors (Laravel-style exception handler).
+    // paints for handled HTTP errors.
     try {
       const result = this.#dispatch(raw, pathname);
       if (result instanceof Promise) {
@@ -158,8 +158,8 @@ export class HttpKernel {
   }
 
   /**
-   * Middleware sees a thrown action error as its rendered response (Laravel's pipeline does the
-   * same), so CORS headers, `throttle` counting and `terminate` also apply to 422 / 404 / 500.
+   * Middleware sees a thrown action error as its rendered response (as in a
+   * request pipeline), so CORS headers, `throttle` counting and `terminate` also apply to 422 / 404 / 500.
    */
   #wrapStack(
     stack: Middleware[],
@@ -390,7 +390,7 @@ export class HttpKernel {
 
   /**
    * No route matched. Global middleware still runs, so CORS answers preflight `OPTIONS`
-   * requests and adds its headers to 404 responses (Laravel does the same).
+   * requests and adds its headers to 404 responses.
    */
   #unmatched(request: Request): Response | Promise<Response> {
     const global = this.app.getMiddleware();
@@ -587,7 +587,7 @@ export class HttpKernel {
     if (result == null) {
       return new Response("", HTML_OK);
     }
-    // Collection / Model / Paginator — JSON.stringify invokes toJSON (Laravel-like).
+    // Collection / Model / Paginator — JSON.stringify invokes toJSON.
     if (typeof result === "object" && hasJsonSerialize(result)) {
       return json(result);
     }

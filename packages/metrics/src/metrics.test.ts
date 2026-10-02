@@ -163,7 +163,7 @@ test("RequestsRecorder records slow requests", async () => {
     durationMs: 120,
     userId: 7,
   });
-  recorder.record({ method: "GET", path: "/pulse", durationMs: 200 });
+  recorder.record({ method: "GET", path: "/metrics", durationMs: 200 });
   await Metrics.ingest();
   expect(Metrics.store().entries("request").length).toBeGreaterThan(0);
   expect(Metrics.store().entries("slow_request")).toHaveLength(1);
@@ -190,11 +190,11 @@ test("Metrics.routes registers dashboard and aggregates", async () => {
   await Metrics.ingest();
 
   const router = new Router();
-  Metrics.routes(router, { path: "/pulse", title: "Metrics Test" });
+  Metrics.routes(router, { path: "/metrics", title: "Metrics Test" });
   const routes = router.getRoutes();
-  expect(routes.some((r) => r.uri === "/pulse" && r.name === "pulse.dashboard")).toBe(true);
+  expect(routes.some((r) => r.uri === "/metrics" && r.name === "metrics.dashboard")).toBe(true);
   expect(
-    routes.some((r) => r.uri === "/pulse/aggregates" && r.name === "pulse.aggregates"),
+    routes.some((r) => r.uri === "/metrics/aggregates" && r.name === "metrics.aggregates"),
   ).toBe(true);
 
   const controller = new MetricsController();

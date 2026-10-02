@@ -4,7 +4,6 @@ import { Feature } from "./feature.ts";
 
 /**
  * Abort unless all listed features are active for the default scope.
- * Laravel `EnsureFeaturesAreActive`.
  */
 export function ensureFeaturesAreActive(...features: string[]): Middleware {
   return async (_request, next) => {

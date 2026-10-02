@@ -844,7 +844,7 @@ export async function progress<T>(
 }
 
 /**
- * Facade mirroring common Laravel Prompts helpers.
+ * Facade of common prompt helpers.
  */
 export const Prompt = {
   fake,

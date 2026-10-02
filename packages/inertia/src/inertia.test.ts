@@ -65,7 +65,7 @@ describe("Inertia.render", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("X-Inertia")).toBe("true");
     expect(response.headers.get("X-Inertia-Version")).toBe("abc");
-    const page = await response.json();
+    const page = (await response.json()) as any;
     expect(page.component).toBe("Users/Index");
     expect(page.version).toBe("abc");
     expect(page.url).toBe("/users");
@@ -101,7 +101,7 @@ describe("Inertia.render", () => {
     const b = await inertia("A", { x: 1 }).toResponse(
       req("http://localhost/", { inertia: true }),
     );
-    expect(await a.json()).toEqual(await b.json());
+    expect((await a.json()) as any).toEqual((await b.json()) as any);
   });
 
   test("with() merges props onto the response", async () => {
@@ -109,7 +109,7 @@ describe("Inertia.render", () => {
       .with("b", 2)
       .with({ c: 3 })
       .toResponse(req("http://localhost/", { inertia: true }));
-    expect((await page.json()).props).toEqual({ a: 1, b: 2, c: 3 });
+    expect(((await page.json()) as any).props).toEqual({ a: 1, b: 2, c: 3 });
   });
 
   test("resolveInertiaResponse unwraps InertiaResponse", async () => {
@@ -118,7 +118,7 @@ describe("Inertia.render", () => {
       req("http://localhost/", { inertia: true }),
     );
     expect(raw.headers.get("X-Inertia")).toBe("true");
-    expect((await raw.json()).props.ok).toBe(true);
+    expect(((await raw.json()) as any).props.ok).toBe(true);
 
     const passthrough = await resolveInertiaResponse(
       new Response("ok"),
@@ -134,7 +134,7 @@ describe("shared / lazy / always / defer / optional", () => {
     const response = await Inertia.render("X").toResponse(
       req("http://localhost/shared", { inertia: true }),
     );
-    const page = await response.json();
+    const page = (await response.json()) as any;
     expect(page.props.path).toBe("/shared");
   });
 
@@ -147,7 +147,7 @@ describe("shared / lazy / always / defer / optional", () => {
     const page = await Inertia.render("X").toResponse(
       req("http://localhost/", { inertia: true }),
     );
-    expect((await page.json()).props).toEqual({});
+    expect(((await page.json()) as any).props).toEqual({});
   });
 
   test("lazy props omitted on full visit, included on partial", async () => {
@@ -155,7 +155,7 @@ describe("shared / lazy / always / defer / optional", () => {
       users: [{ id: 1 }],
       stats: Inertia.lazy(() => ({ count: 10 })),
     }).toResponse(req("http://localhost/users", { inertia: true }));
-    expect((await pageFull.json()).props).toEqual({ users: [{ id: 1 }] });
+    expect(((await pageFull.json()) as any).props).toEqual({ users: [{ id: 1 }] });
 
     const pagePartial = await Inertia.render("Users", {
       users: [{ id: 1 }],
@@ -167,7 +167,7 @@ describe("shared / lazy / always / defer / optional", () => {
         component: "Users",
       }),
     );
-    expect((await pagePartial.json()).props).toEqual({ stats: { count: 10 } });
+    expect(((await pagePartial.json()) as any).props).toEqual({ stats: { count: 10 } });
   });
 
   test("optional props match lazy omit/include semantics", async () => {
@@ -175,7 +175,7 @@ describe("shared / lazy / always / defer / optional", () => {
       users: [1],
       meta: Inertia.optional(() => ({ role: "admin" })),
     }).toResponse(req("http://localhost/users", { inertia: true }));
-    expect((await full.json()).props).toEqual({ users: [1] });
+    expect(((await full.json()) as any).props).toEqual({ users: [1] });
 
     const partial = await Inertia.render("Users", {
       users: [1],
@@ -187,7 +187,7 @@ describe("shared / lazy / always / defer / optional", () => {
         component: "Users",
       }),
     );
-    expect((await partial.json()).props).toEqual({ meta: { role: "admin" } });
+    expect(((await partial.json()) as any).props).toEqual({ meta: { role: "admin" } });
   });
 
   test("always props included on full visit and partial reloads", async () => {
@@ -195,7 +195,7 @@ describe("shared / lazy / always / defer / optional", () => {
       users: [1],
       flash: Inertia.always(() => ({ ok: true })),
     }).toResponse(req("http://localhost/users", { inertia: true }));
-    expect((await full.json()).props).toEqual({
+    expect(((await full.json()) as any).props).toEqual({
       users: [1],
       flash: { ok: true },
     });
@@ -210,7 +210,7 @@ describe("shared / lazy / always / defer / optional", () => {
         component: "Users",
       }),
     );
-    expect((await partial.json()).props).toEqual({
+    expect(((await partial.json()) as any).props).toEqual({
       users: [1],
       flash: { ok: true },
     });
@@ -222,7 +222,7 @@ describe("shared / lazy / always / defer / optional", () => {
       posts: Inertia.defer(() => [{ id: 2 }]),
       comments: Inertia.defer(() => [{ id: 3 }], "sidebar"),
     }).toResponse(req("http://localhost/users", { inertia: true }));
-    const page = await response.json();
+    const page = (await response.json()) as any;
     expect(page.props).toEqual({ users: [1] });
     expect(page.deferredProps).toEqual({
       default: ["posts"],
@@ -241,7 +241,7 @@ describe("shared / lazy / always / defer / optional", () => {
         component: "Users",
       }),
     );
-    const page = await response.json();
+    const page = (await response.json()) as any;
     expect(page.props).toEqual({ posts: [{ id: 2 }] });
     expect(page.deferredProps).toBeUndefined();
   });
@@ -258,7 +258,7 @@ describe("shared / lazy / always / defer / optional", () => {
         component: "Users",
       }),
     );
-    expect((await response.json()).props).toEqual({
+    expect(((await response.json()) as any).props).toEqual({
       users: [1],
       flash: { ok: true },
     });
@@ -268,7 +268,7 @@ describe("shared / lazy / always / defer / optional", () => {
     const page = await Inertia.render("X", {
       now: () => 42,
     }).toResponse(req("http://localhost/", { inertia: true }));
-    expect((await page.json()).props.now).toBe(42);
+    expect(((await page.json()) as any).props.now).toBe(42);
   });
 });
 
@@ -321,7 +321,7 @@ describe("location and middleware", () => {
       const response = await Inertia.render("Home").toResponse(
         req("http://localhost/", { inertia: true }),
       );
-      const page = await response.json();
+      const page = (await response.json()) as any;
       expect(page.props.locale).toBe("en");
       expect(page.version).toBe("v9");
       return response;
@@ -369,8 +369,8 @@ describe("location and middleware", () => {
     const grace = await visit("grace", null);
     releaseAda();
 
-    expect((await (await ada).json()).props.user).toBe("ada");
-    expect((await grace.json()).props.user).toBe("grace");
+    expect(((await (await ada).json()) as any).props.user).toBe("ada");
+    expect(((await grace.json()) as any).props.user).toBe("grace");
     expect(Inertia.getShared("user")).toBeUndefined();
   });
 
@@ -391,7 +391,7 @@ describe("location and middleware", () => {
     );
     expect(shareCalls).toBe(0);
     expect(response.headers.get("Vary")).toBe("X-Inertia");
-    expect(await response.json()).toEqual({ ok: true });
+    expect((await response.json()) as any).toEqual({ ok: true });
   });
 
   test("external redirect becomes Inertia.location for X-Inertia", async () => {

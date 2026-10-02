@@ -66,7 +66,7 @@ function resolveInjectSlot(
   if (slot.kind === "request") return request;
   if (slot.kind === "form") return form ?? request;
   if (slot.kind === "model") return request.model(slot.param);
-  // Prefer substituted model when a binder ran (Laravel SubstituteBindings).
+  // Prefer substituted model when a binder ran.
   const bound = request.model(slot.param);
   if (bound !== undefined && bound !== null) return bound;
   return request.route(slot.param);
@@ -216,13 +216,13 @@ async function fromControllerSource(
       });
       continue;
     }
-    // Laravel: route parameter name match → scalar (or bound model at invoke).
+    // Route parameter name match → scalar (or bound model at invoke).
     if (routeParams.includes(p.name)) {
       usedRouteParams.add(p.name);
       slots.push({ kind: "param", param: p.name });
       continue;
     }
-    // Laravel positional: `{user}` + `($id)` → inject the URI segment string.
+    // Positional: `{user}` + `($id)` → inject the URI segment string.
     if (!p.typeName) {
       const next = routeParams.find((name) => !usedRouteParams.has(name));
       if (next) {

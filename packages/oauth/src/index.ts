@@ -10,3 +10,4 @@ export { GoogleProvider } from "./google-provider.ts";
 export { DiscordProvider } from "./discord-provider.ts";
 export { GitlabProvider } from "./gitlab-provider.ts";
 export { OAuth, type OAuthServices } from "./oauth.ts";
+export type { FetchLike } from "./fetch-like.ts";

@@ -24,5 +24,5 @@ export class SmsMessage {
   }
 }
 
-/** Alias matching Laravel `VonageMessage`. */
+/** Alias matching `VonageMessage`. */
 export class VonageMessage extends SmsMessage {}

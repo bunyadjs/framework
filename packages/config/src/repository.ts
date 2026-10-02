@@ -19,7 +19,7 @@ export class ConfigRepository {
     return (value === undefined ? defaultValue : value) as T;
   }
 
-  /** Laravel `Config::getMany`. */
+  /** `Config::getMany`. */
   getMany(keys: string[]): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const key of keys) {
@@ -30,6 +30,8 @@ export class ConfigRepository {
 
   set(key: string, value: unknown): void {
     const parts = key.split(".");
+    // Never write through keys that reach Object.prototype.
+    if (parts.some((part) => part === "__proto__" || part === "constructor" || part === "prototype")) return;
     let cursor: Record<string, unknown> = this.#items;
 
     for (let i = 0; i < parts.length - 1; i++) {
@@ -88,13 +90,13 @@ export class ConfigRepository {
     return collect(this.array(key));
   }
 
-  /** Prepend a value onto a config array (Laravel `Config::prepend`). */
+  /** Prepend a value onto a config array. */
   prepend(key: string, value: unknown): void {
     const array = this.array(key);
     this.set(key, [value, ...array]);
   }
 
-  /** Push a value onto a config array (Laravel `Config::push`). */
+  /** Push a value onto a config array. */
   push(key: string, value: unknown): void {
     const array = this.array(key);
     this.set(key, [...array, value]);

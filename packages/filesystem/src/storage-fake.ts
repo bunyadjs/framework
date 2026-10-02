@@ -91,7 +91,7 @@ function requireStorageFake(): StorageFake {
 }
 
 /**
- * Swap a disk for an in-memory fake (Laravel `Storage::fake($disk)`).
+ * Swap a disk for an in-memory fake.
  * Omitting `disk` fakes the current default driver.
  */
 export function fakeStorage(disk?: string): StorageFake {

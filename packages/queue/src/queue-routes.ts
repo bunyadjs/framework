@@ -1,16 +1,16 @@
 import type { Job } from "./job.ts";
 
 export type QueueRouteTarget = {
-  /** Queue connection name (Laravel connection). */
-  connection: string | null;
+  /** Queue connection name. */
+  connection?: string | null;
   /** Queue name. */
-  queue: string | null;
+  queue?: string | null;
 };
 
 type RouteKey = string | Function;
 
 /**
- * Laravel `Illuminate\Queue\QueueRoutes` — default connection/queue by class,
+ * Queue routes — default connection/queue by class,
  * parent, or marker (interface/trait stand-in as a constructor).
  */
 export class QueueRoutes {
@@ -81,14 +81,14 @@ export class QueueRoutes {
     const route = this.getRoute(queueable);
     if (route == null) return null;
     if (typeof route === "string") return null;
-    return route.connection;
+    return route.connection ?? null;
   }
 
   getQueue(queueable: object): string | null {
     const route = this.getRoute(queueable);
     if (route == null) return null;
     if (typeof route === "string") return route;
-    return route.queue;
+    return route.queue ?? null;
   }
 
   all(): Map<RouteKey, QueueRouteTarget | string> {
@@ -213,7 +213,7 @@ export function jobHasExplicitConnection(job: object): boolean {
   return explicitConnection.has(job);
 }
 
-/** Process-wide routes (Laravel manager singleton). */
+/** Process-wide routes. */
 const globalRoutes = new QueueRoutes();
 
 export function queueRoutes(): QueueRoutes {

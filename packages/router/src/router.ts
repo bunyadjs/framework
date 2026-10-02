@@ -20,7 +20,7 @@ export type RouteActionResult =
   | null
   | readonly unknown[]
   | Readonly<Record<string, unknown>>
-  /** Collection, Model, Paginator, … (Laravel JsonSerializable / Arrayable). */
+  /** Collection, Model, Paginator, … */
   | { toJSON(): unknown }
   /** Builds its own Response from the request (e.g. Inertia page responses). */
   | Responsable;
@@ -72,7 +72,7 @@ export type InjectSlot =
   | { kind: "request" }
   | { kind: "form" }
   | { kind: "model"; param: string }
-  /** Raw route segment (`{id}` → `"1"`), Laravel-style by parameter name. */
+  /** Raw route segment (`{id}` → `"1"`), by parameter name. */
   | { kind: "param"; param: string };
 
 /** Route middleware entry — alias string or middleware instance. */
@@ -85,20 +85,20 @@ export type RouteDefinition = {
   name?: string;
   middleware: RouteMiddleware[];
   paramNames: string[];
-  /** Laravel `{user:user_name}` → `{ user: "user_name" }`. */
+  /** `{user:user_name}` → `{ user: "user_name" }`. */
   bindingFields: Record<string, string>;
   wheres: Record<string, string>;
   regex: RegExp;
   /** Host constraint when set via `domain()` / group domain. */
   domain?: string;
   /**
-   * Laravel scoped bindings:
+   * Scoped bindings:
    * `true` = `scopeBindings()`, `false` = `withoutScopedBindings()`,
    * `undefined` = scope only when a custom binding field is present.
    */
   scopeBindings?: boolean;
   /**
-   * Laravel `withTrashed()` — allow soft-deleted models on implicit binding
+   * `withTrashed()` — allow soft-deleted models on implicit binding
    * (`allowsTrashedBindings`).
    */
   withTrashed?: boolean;
@@ -135,7 +135,7 @@ export type BindableModel = {
     field?: string,
   ): unknown | null | Promise<unknown | null>;
   /**
-   * Laravel SoftDeletes `resolveSoftDeletableRouteBinding` — include trashed
+   * `resolveSoftDeletableRouteBinding` — include trashed
    * when the route opts in via `withTrashed()`.
    */
   resolveSoftDeletableRouteBinding?(
@@ -143,7 +143,7 @@ export type BindableModel = {
     field?: string,
   ): unknown | null | Promise<unknown | null>;
   /**
-   * Laravel `resolveChildRouteBinding` — class-level fallback when the parent
+   * `resolveChildRouteBinding` — class-level fallback when the parent
    * instance has no instance method (tests / custom binders).
    */
   resolveChildRouteBinding?(
@@ -152,7 +152,7 @@ export type BindableModel = {
     field?: string,
     parent?: unknown,
   ): unknown | null | Promise<unknown | null>;
-  /** Laravel SoftDeletes `resolveSoftDeletableChildRouteBinding`. */
+  /** `resolveSoftDeletableChildRouteBinding`. */
   resolveSoftDeletableChildRouteBinding?(
     childType: string,
     value: string | number,
@@ -280,9 +280,9 @@ type GroupAttrs = {
   middleware?: RouteMiddleware[];
   name?: string;
   domain?: string;
-  /** Group-level scoped bindings (Laravel `scopeBindings` / `withoutScopedBindings`). */
+  /** Group-level scoped bindings. */
   scopeBindings?: boolean;
-  /** Group-level soft-deleted binding (Laravel `withTrashed`). */
+  /** Group-level soft-deleted binding. */
   withTrashed?: boolean;
 };
 
@@ -450,7 +450,7 @@ function domainMatches(route: RouteDefinition, host?: string): boolean {
 }
 
 /**
- * Extract named domain captures into params (Laravel subdomain → route params).
+ * Extract named domain captures into params.
  * Returns `null` when the host does not match; empty object when no domain / no captures.
  */
 function extractDomainParams(
@@ -558,7 +558,7 @@ function resourceWildcard(
   return singular(segment).replace(/-/g, "_");
 }
 
-/** Nested resource URI without the final `{param}` (Laravel `getResourceUri`). */
+/** Nested resource URI without the final `{param}`. */
 function resourceCollectionUri(
   name: string,
   parameters?: Readonly<Record<string, string>>,
@@ -1096,7 +1096,7 @@ export class Router {
       if (!route) return false;
       if (route.scopeBindings === false) return false;
       if (route.scopeBindings === true) return true;
-      // Laravel default: scope when a custom binding field is present.
+      // Default: scope when a custom binding field is present.
       return Object.prototype.hasOwnProperty.call(route.bindingFields, param);
     };
 
@@ -1107,7 +1107,7 @@ export class Router {
       const value = params[key]!;
       const field = route?.bindingFields[key];
       if (shouldScope(key) && index > 0) {
-        // Laravel: immediate parent of this parameter.
+        // Immediate parent of this parameter.
         const parentKey = ordered[index - 1]!;
         const parent = request.model(parentKey) as ScopedParent | undefined;
         const allowTrashed = route?.withTrashed === true;
@@ -1267,17 +1267,17 @@ export class Router {
     return new GroupBuilder(this, { domain });
   }
 
-  /** Laravel `Route::scopeBindings()` — enforce nested child scoping for a group. */
+  /** `Route::scopeBindings()` — enforce nested child scoping for a group. */
   scopeBindings(scope = true): GroupBuilder {
     return new GroupBuilder(this, { scopeBindings: scope });
   }
 
-  /** Laravel `Route::withoutScopedBindings()`. */
+  /** `Route::withoutScopedBindings()`. */
   withoutScopedBindings(): GroupBuilder {
     return new GroupBuilder(this, { scopeBindings: false });
   }
 
-  /** Laravel `Route::withTrashed()` — include soft-deleted models in binding. */
+  /** `Route::withTrashed()` — include soft-deleted models in binding. */
   withTrashed(withTrashed = true): GroupBuilder {
     return new GroupBuilder(this, { withTrashed });
   }
@@ -1720,25 +1720,25 @@ class RouteRegistrar {
     return this;
   }
 
-  /** Laravel `->scopeBindings()` — enforce nested child model scoping. */
+  /** `->scopeBindings()` — enforce nested child model scoping. */
   scopeBindings(scope = true): this {
     this.route.scopeBindings = scope;
     return this;
   }
 
-  /** Laravel `->withoutScopedBindings()`. */
+  /** `->withoutScopedBindings()`. */
   withoutScopedBindings(): this {
     this.route.scopeBindings = false;
     return this;
   }
 
-  /** Laravel `->withTrashed()` — include soft-deleted models in binding. */
+  /** `->withTrashed()` — include soft-deleted models in binding. */
   withTrashed(withTrashed = true): this {
     this.route.withTrashed = withTrashed;
     return this;
   }
 
-  /** Laravel `allowsTrashedBindings()`. */
+  /** `allowsTrashedBindings()`. */
   allowsTrashedBindings(): boolean {
     return this.route.withTrashed === true;
   }
@@ -1811,7 +1811,7 @@ class RouteRegistrar {
     return this;
   }
 
-  /** Laravel `whereUlid` — Crockford base32, 26 chars. */
+  /** `whereUlid` — Crockford base32, 26 chars. */
   whereUlid(...params: string[]): this {
     for (const param of params) {
       this.where(param, "[0-7][0-9A-HJKMNP-TV-Z]{25}");
@@ -1833,7 +1833,7 @@ const defaultRouter = new Router();
 let activeRouter: Router = defaultRouter;
 
 /**
- * Laravel-style `Route` façade — forwards to the active router so side-effect
+ * `Route` façade — forwards to the active router so side-effect
  * `Route.get(...)` in route files registers on the app router during load.
  */
 export const Route: Router = new Proxy(defaultRouter, {

@@ -1,5 +1,5 @@
 /**
- * Password hashing facade (Laravel `Hash` / `BcryptHasher` method names).
+ * Password hashing facade.
  */
 export type HashOptions = {
   algorithm?: "bcrypt" | "argon2id";
@@ -36,7 +36,7 @@ type HashFacade = {
 };
 
 export const Hash: HashFacade = {
-  /** Hash a plain-text value (Laravel `Hash::make`). */
+  /** Hash a plain-text value. */
   async make(value: string, options: HashOptions = {}): Promise<string> {
     if (options.algorithm === "argon2id") {
       return Bun.password.hash(value, { algorithm: "argon2id" });
@@ -47,12 +47,12 @@ export const Hash: HashFacade = {
     });
   },
 
-  /** Verify plain text against a hash (Laravel `Hash::check`). */
+  /** Verify plain text against a hash. */
   async check(value: string, hashed: string): Promise<boolean> {
     return Bun.password.verify(value, hashed);
   },
 
-  /** Whether the hash should be rehashed (Laravel `Hash::needsRehash`). */
+  /** Whether the hash should be rehashed. */
   needsRehash(hashed: string, options: HashOptions = {}): boolean {
     const algorithm = options.algorithm ?? "bcrypt";
     if (algorithm === "bcrypt") {
@@ -65,7 +65,7 @@ export const Hash: HashFacade = {
     return !hashed.startsWith("$argon2id$");
   },
 
-  /** Whether a value looks like a hash (Laravel `Hash::isHashed`). */
+  /** Whether a value looks like a hash. */
   isHashed(value: string): boolean {
     return (
       value.startsWith("$2") ||
@@ -75,7 +75,7 @@ export const Hash: HashFacade = {
     );
   },
 
-  /** Hash info (Laravel `Hash::info` / `password_get_info`). */
+  /** Hash info. */
   info(hashed: string): HashInfo {
     const bcrypt = /^\$2([aby]?)\$(\d{2})\$/.exec(hashed);
     if (bcrypt) {
@@ -97,13 +97,13 @@ export const Hash: HashFacade = {
     return { algo: 0, algoName: "unknown", options: {} };
   },
 
-  /** Set bcrypt rounds (Laravel `BcryptHasher::setRounds`). */
+  /** Set bcrypt rounds. */
   setRounds(rounds: number): HashFacade {
     defaultRounds = rounds;
     return this;
   },
 
-  /** Current bcrypt cost (Laravel `BcryptHasher::cost`). */
+  /** Current bcrypt cost. */
   cost(): number {
     return defaultRounds;
   },
@@ -113,7 +113,7 @@ export const Hash: HashFacade = {
     return defaultRounds;
   },
 
-  /** Whether config looks usable (Laravel `verifyConfiguration`). */
+  /** Whether config looks usable. */
   verifyConfiguration(options: HashOptions = {}): boolean {
     const cost = options.cost ?? defaultRounds;
     return cost >= 4 && cost <= 31;
@@ -131,7 +131,7 @@ export const Hash: HashFacade = {
   },
 };
 
-/** Laravel `bcrypt()` helper. */
+/** `bcrypt()` helper. */
 export async function bcrypt(value: string, cost?: number): Promise<string> {
   return Hash.make(value, { algorithm: "bcrypt", cost });
 }

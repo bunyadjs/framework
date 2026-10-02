@@ -218,7 +218,7 @@ export class FeatureManager {
 
   /**
    * Activate for every known scope row of the feature, plus the global scope.
-   * Laravel `activateForEveryone` — we store under global and overwrite known scopes.
+   * We store under global and overwrite known scopes.
    */
   async activateForEveryone(
     features: NamedFeatures,

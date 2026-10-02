@@ -1,6 +1,6 @@
 /**
- * Laravel-like markdown mail theme (card layout, button, subcopy, header/footer).
- * CSS is inlined for email-client compatibility (same approach as Illuminate\Mail\Markdown).
+ * Markdown mail theme (card layout, button, subcopy, header/footer).
+ * CSS is inlined for email-client compatibility.
  */
 
 import { markdownToHtml } from "./markdown.ts";
@@ -77,7 +77,7 @@ function buttonColorClass(color: MailButtonColor | string | undefined): string {
   }
 }
 
-/** Centered CTA button (Laravel `mail::button`). */
+/** Centered CTA button. */
 export function renderMailButton(options: {
   url: string;
   text: string;
@@ -107,7 +107,7 @@ export function renderMailButton(options: {
 </table>`;
 }
 
-/** Brand header (Laravel `mail::header`). */
+/** Brand header. */
 export function renderMailHeader(options: {
   appName: string;
   logoUrl?: string;
@@ -129,7 +129,7 @@ ${inner}
 </tr>`;
 }
 
-/** Footer (Laravel `mail::footer`). */
+/** Footer. */
 export function renderMailFooter(options: {
   appName: string;
   year?: number;
@@ -149,7 +149,7 @@ export function renderMailFooter(options: {
 </tr>`;
 }
 
-/** Subcopy under the body (Laravel `mail::subcopy`). */
+/** Subcopy under the body. */
 export function renderMailSubcopy(html: string): string {
   return `<table class="subcopy" width="100%" cellpadding="0" cellspacing="0" role="presentation">
 <tr>
@@ -211,7 +211,7 @@ ${options.footerHtml}
 }
 
 /**
- * Render a Laravel-style notification email (greeting, lines, CTA, salutation, subcopy).
+ * Render a notification email (greeting, lines, CTA, salutation, subcopy).
  */
 export function renderNotificationMailHtml(
   content: NotificationMailContent,
@@ -316,7 +316,7 @@ export function renderMarkdownMail(
     },
   );
 
-  // Also support Laravel-ish @component('mail::button', ['url' => '...'])
+  // Also support @component('mail::button', ['url' => '...'])
   body = body.replace(
     /@component\(\s*['"]mail::button['"]\s*,\s*\[([^\]]*)\]\s*\)\s*\n([\s\S]*?)\n\s*@endcomponent/gi,
     (_full, arr: string, slot: string) => {
@@ -407,7 +407,7 @@ function stripToPlain(source: string): string {
     .trim();
 }
 
-/** Laravel framework default theme CSS (inlined). */
+/** Default theme CSS (inlined). */
 export const DEFAULT_THEME_CSS = `/* Base */
 body, body *:not(html):not(style):not(br):not(tr):not(code) {
   box-sizing: border-box;

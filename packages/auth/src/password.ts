@@ -260,7 +260,7 @@ export class PasswordBroker {
 
   /**
    * Validate a reset request without applying the new password
-   * (Laravel `PasswordBroker::validateReset` — returns status; `PASSWORD_RESET` means ok).
+   * (returns status; `PASSWORD_RESET` means ok).
    */
   async validateReset(credentials: PasswordResetCredentials): Promise<string> {
     const user = await this.getUser(credentials);
@@ -271,31 +271,31 @@ export class PasswordBroker {
     return PASSWORD_RESET;
   }
 
-  /** Resolve user from credentials (Laravel `PasswordBroker::getUser`). */
+  /** Resolve user from credentials. */
   async getUser(
     credentials: PasswordCredentials | PasswordResetCredentials,
   ): Promise<Authenticatable | null> {
     return this.#retrieveByCredentials(credentials.email);
   }
 
-  /** Token repository (Laravel `PasswordBroker::getRepository`). */
+  /** Token repository. */
   getRepository(): PasswordTokenRepository {
     return this.#tokens;
   }
 
-  /** Laravel `Password::tokenExists` / broker token check. */
+  /** Whether a reset token exists for the user. */
   async tokenExists(email: string, token: string): Promise<boolean> {
     return this.#tokens.exists(email, token);
   }
 
-  /** Delete stored tokens for an email (Laravel `PasswordBroker::deleteToken`). */
+  /** Delete stored tokens for an email. */
   async deleteToken(user: Authenticatable | string): Promise<void> {
     const email =
       typeof user === "string" ? user : String(user.email ?? "");
     await this.#tokens.delete(email);
   }
 
-  /** Create a new reset token (Laravel `PasswordBroker::createToken`). */
+  /** Create a new reset token. */
   async createToken(user: Authenticatable | string): Promise<string> {
     const email =
       typeof user === "string" ? user : String(user.email ?? "");

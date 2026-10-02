@@ -15,10 +15,13 @@ export type ConsoleOptions = {
 /** Wrap a line so both expressions and statements can `await`. */
 export function wrapEvalSource(line: string): string {
   const code = line.trim();
+  // A lone `await expr` is an expression, so its value is returned; several statements are not.
   const isStatement =
-    /^\s*(const|let|var|await|for|if|while|import|return|throw|try|class|function|delete|export)\b/.test(
+    /^\s*(const|let|var|for|if|while|import|return|throw|try|class|function|delete|export)\b/.test(
       code,
-    ) || code.endsWith(";");
+    ) ||
+    code.endsWith(";") ||
+    (/^\s*await\b/.test(code) && code.includes(";"));
   if (isStatement) {
     return `(async () => { ${code} })()`;
   }
@@ -63,15 +66,19 @@ export async function startConsole(options: ConsoleOptions = {}): Promise<void> 
   rl.prompt();
 
   let processing = Promise.resolve();
+  let closed = false;
 
   rl.on("line", (line: string) => {
     processing = processing.then(async () => {
+      // Lines already buffered when the session ends are dropped.
+      if (closed) return;
       const trimmed = line.trim();
       if (!trimmed) {
         rl.prompt();
         return;
       }
       if (trimmed === ".exit" || trimmed === "exit" || trimmed === "quit") {
+        closed = true;
         rl.close();
         return;
       }
@@ -90,6 +97,7 @@ export async function startConsole(options: ConsoleOptions = {}): Promise<void> 
 
   await new Promise<void>((resolve) => {
     rl.on("close", () => {
+      closed = true;
       print("Bye.");
       resolve();
     });

@@ -196,7 +196,12 @@ export abstract class Disk implements Filesystem {
 
   async checksum(path: string, algorithm = "md5"): Promise<string> {
     const algo = algorithm.toLowerCase().replace("-", "");
-    const hash = createHash(algo === "sha256" ? "sha256" : algo === "sha1" ? "sha1" : "md5");
+    let hash;
+    try {
+      hash = createHash(algo);
+    } catch {
+      throw new Error(`Unsupported checksum algorithm [${algorithm}].`);
+    }
     hash.update(await this.get(path));
     return hash.digest("hex");
   }
@@ -237,7 +242,7 @@ export abstract class Disk implements Filesystem {
       h.set("Content-Type", await this.mimeType(path));
     }
     if (!h.has("Content-Disposition")) {
-      h.set("Content-Disposition", `${disposition}; filename="${filename}"`);
+      h.set("Content-Disposition", contentDisposition(disposition, filename));
     }
     return new Response(data, { headers: h });
   }
@@ -261,4 +266,17 @@ export abstract class Disk implements Filesystem {
     const pass = typeof condition === "function" ? condition(this) : condition;
     return this.when(!pass, callback, defaultCallback);
   }
+}
+
+/**
+ * `Content-Disposition` value for a download name. The quoted name is a safe ASCII fallback;
+ * names with quotes, backslashes, control or non-ASCII characters also get an encoded
+ * `filename*` so the caller can never terminate the parameter and add their own.
+ */
+function contentDisposition(disposition: string, filename: string): string {
+  const plain = /^[\x20-\x7e]*$/.test(filename) && !/["\\]/.test(filename);
+  if (plain) return `${disposition}; filename="${filename}"`;
+  const fallback = filename.replace(/[^A-Za-z0-9 ._-]/g, "_");
+  const encoded = encodeURIComponent(filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }

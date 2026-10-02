@@ -126,14 +126,14 @@ export class GateManager {
     return this;
   }
 
-  /** Defined policies (Laravel `Gate::policies`). */
+  /** Defined policies. */
   policies(): Map<ModelClass, PolicyClass> {
     return new Map(this.#policies);
   }
 
   /**
    * Define resource abilities (`posts.view`, `posts.update`, …)
-   * (Laravel `Gate::resource`).
+   *.
    */
   resource(
     name: string,
@@ -162,7 +162,7 @@ export class GateManager {
     return this;
   }
 
-  /** Create an allow response (Laravel `Gate::allow`). */
+  /** Create an allow response. */
   allow(
     message: string | null = null,
     code: string | number | null = null,
@@ -170,7 +170,7 @@ export class GateManager {
     return AccessResponse.allow(message, code);
   }
 
-  /** Create a deny response (Laravel `Gate::deny`). */
+  /** Create a deny response. */
   deny(
     message: string | null = null,
     code: string | number | null = null,
@@ -178,7 +178,7 @@ export class GateManager {
     return AccessResponse.deny(message, code);
   }
 
-  /** Deny with an HTTP status (Laravel `Gate::denyWithStatus`). */
+  /** Deny with an HTTP status. */
   denyWithStatus(
     status: number,
     message: string | null = null,
@@ -187,7 +187,7 @@ export class GateManager {
     return AccessResponse.denyWithStatus(status, message, code);
   }
 
-  /** Deny as not found (Laravel `Gate::denyAsNotFound`). */
+  /** Deny as not found. */
   denyAsNotFound(
     message: string | null = null,
     code: string | number | null = null,
@@ -196,7 +196,7 @@ export class GateManager {
   }
 
   /**
-   * On-demand allow — throws when condition is false (Laravel `Gate::allowIf`).
+   * On-demand allow — throws when condition is false.
    */
   async allowIf(
     condition:
@@ -210,7 +210,7 @@ export class GateManager {
   }
 
   /**
-   * On-demand deny — throws when condition is true (Laravel `Gate::denyIf`).
+   * On-demand deny — throws when condition is true.
    */
   async denyIf(
     condition:
@@ -223,7 +223,7 @@ export class GateManager {
     return this.authorizeOnDemand(condition, message, code, false);
   }
 
-  /** Laravel `Gate::authorizeOnDemand`. */
+  /** Authorize on demand without a defined ability. */
   async authorizeOnDemand(
     condition:
       | boolean
@@ -248,29 +248,29 @@ export class GateManager {
     return AccessResponse.allow(message, code);
   }
 
-  /** Laravel `Gate::before`. */
+  /** Register a callback run before every ability check. */
   before(callback: GateBeforeCallback): this {
     this.#beforeCallbacks.push(callback);
     return this;
   }
 
-  /** Laravel `Gate::after`. */
+  /** Register a callback run after every ability check. */
   after(callback: GateAfterCallback): this {
     this.#afterCallbacks.push(callback);
     return this;
   }
 
-  /** Whether an ability is defined (Laravel `Gate::has`). */
+  /** Whether an ability is defined. */
   has(ability: string): boolean {
     return this.#abilities.has(ability);
   }
 
-  /** Defined ability names (Laravel `Gate::abilities`). */
+  /** Defined ability names. */
   abilities(): string[] {
     return [...this.#abilities.keys()];
   }
 
-  /** Resolve a policy instance for a model (Laravel `Gate::getPolicyFor`). */
+  /** Resolve a policy instance for a model. */
   getPolicyFor(model: object | ModelClass): object | null {
     const ctor =
       typeof model === "function"
@@ -281,7 +281,7 @@ export class GateManager {
   }
 
   /**
-   * Authorize as a specific user without a request (Laravel `Gate::forUser`).
+   * Authorize as a specific user without a request.
    */
   forUser(user: GateUser): GateManager {
     const scoped = new GateManager();
@@ -326,7 +326,7 @@ export class GateManager {
   }
 
   /**
-   * Raw ability result before boolean coercion (Laravel `Gate::raw`).
+   * Raw ability result before boolean coercion.
    */
   async raw(
     request: Request | undefined,
@@ -469,7 +469,7 @@ export class GateManager {
     return !(await this.allows(request, ability, ...args));
   }
 
-  /** Laravel `Gate::check` — all abilities must pass. */
+  /** All abilities must pass. */
   async check(
     request: Request | undefined,
     abilities: string | string[],
@@ -482,7 +482,7 @@ export class GateManager {
     return true;
   }
 
-  /** Laravel `Gate::any` — at least one ability passes. */
+  /** At least one ability passes. */
   async any(
     request: Request | undefined,
     abilities: string[],
@@ -494,7 +494,7 @@ export class GateManager {
     return false;
   }
 
-  /** Laravel `Gate::none` — no ability passes. */
+  /** No ability passes. */
   async none(
     request: Request | undefined,
     abilities: string[],
@@ -526,7 +526,7 @@ export class GateManager {
 
 export const Gate = new GateManager();
 
-/** Laravel `$this->authorize(...)`. */
+/** Authorize an ability or throw. */
 export function authorize(
   request: Request,
   ability: string,

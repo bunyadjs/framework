@@ -6,7 +6,7 @@ export type FileSessionStoreOptions = {
   /** Directory for session files (created if missing). */
   path: string;
   /**
-   * Session lifetime in minutes (Laravel `lifetime`).
+   * Session lifetime in minutes.
    * Files older than this are treated as missing on read.
    */
   lifetime?: number;

@@ -9,7 +9,7 @@ import { ArrayFeatureStore } from "./array-store.ts";
 import { FeatureFake } from "./feature-fake.ts";
 
 /**
- * `Feature` facade — Laravel Feature method names.
+ * `Feature` facade.
  */
 export const Feature = {
   define(name: string, resolver: FeatureDefinition): FeatureManager {

@@ -150,7 +150,7 @@ function resolveCredentials(
 }
 
 /**
- * Session authentication guard (Laravel `SessionGuard` method names).
+ * Session authentication guard.
  */
 export class SessionGuard {
   readonly #retrieveById: SessionGuardOptions["retrieveById"];
@@ -228,7 +228,7 @@ export class SessionGuard {
   }
 
   /**
-   * Attempt login with an additional callback (Laravel `Auth::attemptWhen`).
+   * Attempt login with an additional callback.
    */
   async attemptWhen(
     request: Request,
@@ -250,14 +250,14 @@ export class SessionGuard {
   }
 
   /**
-   * Validate credentials without logging in (Laravel `Auth::validate`).
+   * Validate credentials without logging in.
    */
   async validate(credentials: Credentials): Promise<boolean> {
     return (await this.#attemptUser(credentials)) !== null;
   }
 
   /**
-   * Ensure the user is authenticated or throw 401 (Laravel `Auth::authenticate`).
+   * Ensure the user is authenticated or throw 401.
    */
   async authenticate(request: Request): Promise<Authenticatable> {
     const user = await this.user(request);
@@ -266,7 +266,7 @@ export class SessionGuard {
   }
 
   /**
-   * Validate credentials against a user (Laravel `hasValidCredentials`).
+   * Validate credentials against a user.
    */
   async hasValidCredentials(
     user: Authenticatable | null,
@@ -278,7 +278,7 @@ export class SessionGuard {
   }
 
   /**
-   * HTTP Basic Auth — session login (Laravel `Auth::basic`).
+   * HTTP Basic Auth — session login.
    * Returns a 401 response on failure, or `null` on success.
    */
   async basic(
@@ -291,7 +291,7 @@ export class SessionGuard {
   }
 
   /**
-   * Stateless HTTP Basic Auth (Laravel `Auth::onceBasic`).
+   * Stateless HTTP Basic Auth.
    */
   async onceBasic(
     request: Request,
@@ -304,7 +304,7 @@ export class SessionGuard {
   }
 
   /**
-   * Attempt Basic Auth credentials (Laravel `attemptBasic`).
+   * Attempt Basic Auth credentials.
    */
   async attemptBasic(request: Request, field = "email"): Promise<boolean> {
     return this.attempt(request, this.basicCredentials(request, field));
@@ -334,12 +334,12 @@ export class SessionGuard {
     });
   }
 
-  /** Session key name (Laravel `getName`). */
+  /** Session key name. */
   getName(): string {
     return this.#sessionKey;
   }
 
-  /** Remember cookie name (Laravel `getRecallerName`). */
+  /** Remember cookie name. */
   getRecallerName(): string {
     return this.#rememberCookie;
   }
@@ -354,7 +354,7 @@ export class SessionGuard {
   }
 
   /**
-   * Log the user in for this request only — no session write (Laravel `Auth::once`).
+   * Log the user in for this request only — no session write.
    */
   async once(
     request: Request,
@@ -372,7 +372,7 @@ export class SessionGuard {
   }
 
   /**
-   * Log in by id for this request only (Laravel `Auth::onceUsingId`).
+   * Log in by id for this request only.
    */
   async onceUsingId(
     request: Request,
@@ -385,7 +385,7 @@ export class SessionGuard {
   }
 
   /**
-   * Log in by primary key (Laravel `Auth::loginUsingId`).
+   * Log in by primary key.
    */
   async loginUsingId(
     request: Request,
@@ -421,7 +421,7 @@ export class SessionGuard {
 
   /**
    * Set the user on the request without touching the session
-   * (Laravel `Auth::setUser` / `once`).
+   *.
    */
   setUser(request: Request, user: Authenticatable): this {
     this.#state(request).viaRemember = false;
@@ -429,12 +429,12 @@ export class SessionGuard {
     return this;
   }
 
-  /** Whether a user was already resolved for the request (Laravel `hasUser`). */
+  /** Whether a user was already resolved for the request. */
   hasUser(request?: Request): boolean {
     return Boolean((request ?? getUrlContext().request)?.user);
   }
 
-  /** Last user for which credentials were validated (Laravel `getLastAttempted`). */
+  /** Last user for which credentials were validated. */
   getLastAttempted(request?: Request): Authenticatable | null {
     return this.#state(request).lastAttempted;
   }
@@ -456,7 +456,7 @@ export class SessionGuard {
     return this.#userFromRemember(request);
   }
 
-  /** Alias for `user` (Laravel `getUser`). */
+  /** Alias for `user`. */
   getUser(request: Request): Promise<Authenticatable | null> {
     return this.user(request);
   }
@@ -538,14 +538,14 @@ export class SessionGuard {
 
   /**
    * Log out current device only — does not cycle the remember token
-   * (Laravel `Auth::logoutCurrentDevice`).
+   *.
    */
   async logoutCurrentDevice(request: Request): Promise<void> {
     this.clearUserDataFromStorage(request);
   }
 
   /**
-   * Remove user id / remember cookie from the request (Laravel `clearUserDataFromStorage`).
+   * Remove user id / remember cookie from the request.
    */
   clearUserDataFromStorage(request: Request): void {
     request.session?.forget(this.#sessionKey);
@@ -554,7 +554,7 @@ export class SessionGuard {
     forgetQueuedCookie(request, this.#rememberCookie);
   }
 
-  /** Forget the cached user without writing storage (Laravel `forgetUser`). */
+  /** Forget the cached user without writing storage. */
   forgetUser(request?: Request): this {
     const current = request ?? getUrlContext().request;
     if (current) {
@@ -566,7 +566,7 @@ export class SessionGuard {
 
   /**
    * Invalidate other sessions/devices by rotating the password hash and
-   * remember token (Laravel `Auth::logoutOtherDevices`).
+   * remember token.
    */
   async logoutOtherDevices(
     request: Request,
@@ -729,7 +729,7 @@ function forward<K extends keyof SessionGuard>(method: K) {
   }) as SessionGuard[K];
 }
 
-/** `Auth` facade — Laravel method names (`Auth.attempt`, `Auth::guard`, …). */
+/** `Auth` facade. */
 export const Auth = Object.assign(sessionGuard, {
   guard: authGuard,
   /** Register a named guard driver (`Auth.extend('jwt', () => new JwtGuard(...))`). */

@@ -8,7 +8,7 @@ function randomOwner(): string {
 
 /**
  * Atomic lock backed by `Cache.add` (SETNX-style).
- * Laravel `Cache::lock($name, $seconds)`.
+ * `Cache::lock($name, $seconds)`.
  */
 export class CacheLock {
   readonly #store: CacheStore & {

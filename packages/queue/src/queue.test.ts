@@ -19,6 +19,7 @@ import { CacheRepository, setCache, MemoryCacheStore } from "@bunyad/cache";
 import { RateLimiter, setRateLimiter } from "@bunyad/http";
 
 class HelloJob extends Job {
+  // @ts-expect-error the test overrides the `name` accessor with a constructor property
   constructor(readonly name: string) {
     super();
   }

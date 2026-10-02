@@ -45,7 +45,7 @@ type RelationshipFactory =
 const JSON_API = "application/vnd.api+json";
 
 /**
- * Laravel 13 `JsonApiResource` — minimal JSON:API document builder.
+ * `JsonApiResource` — minimal JSON:API document builder.
  *
  * Override `toAttributes` / `toRelationships`. Supports `?include=` and
  * `?fields[type]=a,b` when a request is passed via `withRequest` / `toResponse`.
@@ -132,7 +132,7 @@ export abstract class JsonApiResource<T = unknown> extends JsonResource<T> {
       if (!includes.has(name)) continue;
       // Sparse fieldsets: relationship name must be requested on parent type when fields set
       if (fields && !fields.has(name) && fields.size > 0) {
-        // still allow if include asked — Laravel often requires field in fieldset;
+        // still allow if include asked;
         // keep include-driven for MVP unless fields explicitly omits and is non-empty without rel
       }
       const resolved = typeof factory === "function" ? factory() : factory;

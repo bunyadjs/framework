@@ -5,7 +5,7 @@ import { json } from "@bunyad/http";
 
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 
-/** Laravel `hash_equals` for CSRF session token vs request token. */
+/** Constant-time comparison for CSRF session token vs request token. */
 function tokensMatch(sessionToken: string, requestToken: unknown): boolean {
   if (typeof requestToken !== "string" || requestToken.length === 0) return false;
   const a = Buffer.from(sessionToken, "utf8");
@@ -67,12 +67,11 @@ export type PreventRequestForgeryOptions = {
   exceptPrefixes?: string[];
   /**
    * Allow `Sec-Fetch-Site: same-site` (trusted subdomains).
-   * Laravel `PreventRequestForgery::allowSameSite()`.
    */
   allowSameSite?: boolean;
   /**
    * Rely only on origin (`Sec-Fetch-Site`); no CSRF token fallback.
-   * Failures return 403. Laravel `originOnly: true`.
+   * Failures return 403.
    */
   originOnly?: boolean;
   /**
@@ -86,7 +85,7 @@ export type PreventRequestForgeryOptions = {
 export type VerifyCsrfOptions = PreventRequestForgeryOptions;
 
 /**
- * Laravel 13 `PreventRequestForgery` — Sec-Fetch-Site origin check, then CSRF token.
+ * Request forgery prevention — Sec-Fetch-Site origin check, then CSRF token.
  *
  * 1. `Sec-Fetch-Site: same-origin` → allow (optional `same-site` when `allowSameSite`)
  * 2. Else if not `originOnly` → verify `_token` / `X-CSRF-TOKEN` / `X-XSRF-TOKEN`
@@ -173,13 +172,13 @@ function appendXsrfCookie(
 }
 
 /**
- * @deprecated Use {@link preventRequestForgery}. Alias kept for Laravel ≤12 / Bunyad BC.
+ * @deprecated Use {@link preventRequestForgery}. Alias kept for backward compatibility.
  */
 export function verifyCsrf(options: VerifyCsrfOptions = {}) {
   return preventRequestForgery(options);
 }
 
-/** Laravel `csrf_token()` helper. */
+/** Current CSRF token helper. */
 export function csrf_token(request: Request): string {
   if (!request.session!.has("_token")) {
     request.session!.put("_token", crypto.randomUUID());

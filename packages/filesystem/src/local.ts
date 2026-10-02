@@ -1,5 +1,5 @@
 import type { Filesystem } from "@bunyad/contracts";
-import { mkdir, readdir, rename, rm, stat, unlink } from "node:fs/promises";
+import { lstat, mkdir, readdir, realpath, rename, rm, stat, unlink } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { Disk } from "./disk.ts";
 
@@ -51,6 +51,53 @@ export class LocalFilesystem extends Disk implements Filesystem {
     return full;
   }
 
+  /** Real path of the disk root, even before the root directory exists. */
+  async #realRoot(): Promise<string> {
+    const missing: string[] = [];
+    let current = this.#root;
+    for (;;) {
+      try {
+        return join(await realpath(current), ...missing.reverse());
+      } catch {
+        const parent = dirname(current);
+        if (parent === current) return this.#root;
+        missing.push(current.slice(parent.length + 1));
+        current = parent;
+      }
+    }
+  }
+
+  /**
+   * Like `#full`, but also follows symlinks: the deepest existing part of the path must
+   * resolve inside the (real) disk root, and a dangling link is never written through.
+   */
+  async #resolve(path: string): Promise<string> {
+    const full = this.#full(path);
+    const realRoot = await this.#realRoot();
+    const missing: string[] = [];
+    let current = full;
+    for (;;) {
+      try {
+        const real = join(await realpath(current), ...missing.reverse());
+        if (real !== realRoot && !real.startsWith(realRoot + sep)) {
+          throw new Error(`Path traversal detected: [${path}] resolves outside disk root.`);
+        }
+        return full;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === undefined) throw error;
+        // A link that exists but cannot be resolved is dangling: never write through it.
+        if (await lstat(current).then(() => true, () => false)) {
+          throw new Error(`Path traversal detected: [${path}] is a dangling symlink.`);
+        }
+        const parent = dirname(current);
+        if (parent === current) return full;
+        missing.push(current.slice(parent.length + 1));
+        current = parent;
+      }
+    }
+  }
+
   #normalizeDir(directory = ""): string {
     return directory.replace(/^\/+|\/+$/g, "");
   }
@@ -60,13 +107,13 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async put(path: string, contents: string | Uint8Array): Promise<void> {
-    const full = this.#full(path);
+    const full = await this.#resolve(path);
     await mkdir(dirname(full), { recursive: true });
     await Bun.write(full, contents);
   }
 
   async get(path: string): Promise<Uint8Array> {
-    const file = Bun.file(this.#full(path));
+    const file = Bun.file((await this.#resolve(path)));
     if (!(await file.exists())) {
       throw new Error(`File not found: [${path}]`);
     }
@@ -74,11 +121,11 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async exists(path: string): Promise<boolean> {
-    return Bun.file(this.#full(path)).exists();
+    return Bun.file((await this.#resolve(path))).exists();
   }
 
   async delete(path: string): Promise<boolean> {
-    const full = this.#full(path);
+    const full = await this.#resolve(path);
     if (!(await Bun.file(full).exists())) return false;
     await unlink(full);
     return true;
@@ -90,8 +137,8 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async move(from: string, to: string): Promise<void> {
-    const source = this.#full(from);
-    const target = this.#full(to);
+    const source = await this.#resolve(from);
+    const target = await this.#resolve(to);
     await mkdir(dirname(target), { recursive: true });
     try {
       await rename(source, target);
@@ -103,7 +150,7 @@ export class LocalFilesystem extends Disk implements Filesystem {
 
   async files(directory = ""): Promise<string[]> {
     const dir = this.#normalizeDir(directory);
-    const full = dir ? this.#full(dir) : this.#root;
+    const full = dir ? await this.#resolve(dir) : this.#root;
     try {
       const entries = await readdir(full, { withFileTypes: true });
       return entries
@@ -117,7 +164,7 @@ export class LocalFilesystem extends Disk implements Filesystem {
 
   async allFiles(directory = ""): Promise<string[]> {
     const dir = this.#normalizeDir(directory);
-    const full = dir ? this.#full(dir) : this.#root;
+    const full = dir ? await this.#resolve(dir) : this.#root;
     const out: string[] = [];
 
     async function walk(current: string): Promise<void> {
@@ -145,7 +192,7 @@ export class LocalFilesystem extends Disk implements Filesystem {
 
   async directories(directory = ""): Promise<string[]> {
     const dir = this.#normalizeDir(directory);
-    const full = dir ? this.#full(dir) : this.#root;
+    const full = dir ? await this.#resolve(dir) : this.#root;
     try {
       const entries = await readdir(full, { withFileTypes: true });
       return entries
@@ -159,7 +206,7 @@ export class LocalFilesystem extends Disk implements Filesystem {
 
   async allDirectories(directory = ""): Promise<string[]> {
     const dir = this.#normalizeDir(directory);
-    const full = dir ? this.#full(dir) : this.#root;
+    const full = dir ? await this.#resolve(dir) : this.#root;
     const out: string[] = [];
 
     async function walk(current: string): Promise<void> {
@@ -183,12 +230,12 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async makeDirectory(path: string): Promise<boolean> {
-    await mkdir(this.#full(path), { recursive: true });
+    await mkdir((await this.#resolve(path)), { recursive: true });
     return true;
   }
 
   async deleteDirectory(directory: string): Promise<boolean> {
-    const full = this.#full(directory);
+    const full = await this.#resolve(directory);
     try {
       await rm(full, { recursive: true, force: true });
       return true;
@@ -199,7 +246,7 @@ export class LocalFilesystem extends Disk implements Filesystem {
 
   async directoryExists(path: string): Promise<boolean> {
     try {
-      const info = await stat(this.#full(path));
+      const info = await stat((await this.#resolve(path)));
       return info.isDirectory();
     } catch {
       return false;
@@ -207,16 +254,16 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async size(path: string): Promise<number> {
-    return Bun.file(this.#full(path)).size;
+    return Bun.file((await this.#resolve(path))).size;
   }
 
   async lastModified(path: string): Promise<number> {
-    const info = await stat(this.#full(path));
+    const info = await stat((await this.#resolve(path)));
     return Math.floor(info.mtimeMs / 1000);
   }
 
   async mimeType(path: string): Promise<string> {
-    const type = Bun.file(this.#full(path)).type;
+    const type = Bun.file((await this.#resolve(path))).type;
     if (type && type !== "application/octet-stream") return type;
     return MIME_BY_EXT[extname(path).toLowerCase()] ?? "application/octet-stream";
   }

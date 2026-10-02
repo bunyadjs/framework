@@ -17,7 +17,7 @@ export type SsrOptions = {
   enabled?: boolean;
   /**
    * `inline` — call `render` in-process (preferred on Bun).
-   * `http` — POST to a remote SSR server (Laravel-style).
+   * `http` — POST to a remote SSR server.
    * Default: `inline` when `render` is set, otherwise `http`.
    */
   mode?: SsrMode;

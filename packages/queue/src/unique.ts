@@ -3,14 +3,14 @@ import { cache } from "@bunyad/cache";
 
 const PREFIX = "bunyad-unique-job:";
 
-/** Laravel `ShouldBeUnique` — unique while lock TTL is held. */
+/** `ShouldBeUnique` — unique while lock TTL is held. */
 export type ShouldBeUnique = {
   uniqueId(): string;
-  /** Lock TTL in seconds (Laravel `$uniqueFor`). Default 3600. */
+  /** Lock TTL in seconds. Default 3600. */
   uniqueFor?: number;
 };
 
-/** Laravel `ShouldBeUniqueUntilProcessing` — release lock when job starts. */
+/** `ShouldBeUniqueUntilProcessing` — release lock when job starts. */
 export type ShouldBeUniqueUntilProcessing = ShouldBeUnique & {
   /** Marker — presence of this method or flag. */
   shouldBeUniqueUntilProcessing?: true;

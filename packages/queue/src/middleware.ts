@@ -5,7 +5,7 @@ import { getRateLimiter, Limit } from "@bunyad/http";
 export type JobMiddlewareNext = () => void | Promise<void>;
 
 /**
- * Laravel job middleware — class with `handle($job, $next)` or a function.
+ * Job middleware — class with `handle($job, $next)` or a function.
  */
 export type JobMiddleware =
   | {
@@ -21,7 +21,7 @@ function isJobLike(value: unknown): value is Job {
   );
 }
 
-/** Run `middleware()` stack then `handle()` (Laravel worker pipeline). */
+/** Run `middleware()` stack then `handle()`. */
 export async function runJob(job: Job): Promise<void> {
   const raw =
     typeof (job as Job & { middleware?: () => JobMiddleware[] }).middleware ===
@@ -58,7 +58,7 @@ export function isJobInstance(data: unknown): data is Job {
 }
 
 /**
- * Laravel `Illuminate\Queue\Middleware\WithoutOverlapping`.
+ * `WithoutOverlapping` job middleware.
  * Uses `Cache.add` as a lock (SET-if-absent).
  */
 export class WithoutOverlapping {
@@ -124,7 +124,7 @@ export class WithoutOverlapping {
 }
 
 /**
- * Laravel `Illuminate\Queue\Middleware\RateLimited`.
+ * `RateLimited` job middleware.
  * Uses named `RateLimiter::for` limiters (job passed as context) or
  * `Limit.perMinute` via {@link RateLimited.using}.
  */

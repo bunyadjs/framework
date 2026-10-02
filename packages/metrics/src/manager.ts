@@ -117,7 +117,7 @@ export class MetricsManager {
   }
 
   /**
-   * Drain the ingest buffer into the store (Laravel `pulse:work`).
+   * Drain the ingest buffer into the store (`metrics:work`).
    * @returns number of batches processed
    */
   async work(limit = 100): Promise<number> {

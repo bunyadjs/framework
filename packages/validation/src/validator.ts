@@ -47,7 +47,7 @@ export class ValidationException extends BunyadError {
     return this;
   }
 
-  /** Laravel `ValidationException::withMessages` (`{ email: "Bad" }` or `{ email: ["Bad"] }`). */
+  /** `ValidationException::withMessages` (`{ email: "Bad" }` or `{ email: ["Bad"] }`). */
   static withMessages(
     messages: Record<string, string | string[]>,
   ): ValidationException {
@@ -60,7 +60,7 @@ export class ValidationException extends BunyadError {
 }
 
 /**
- * Error message bag (Laravel `MessageBag`).
+ * Error message bag.
  */
 export class MessageBag {
   readonly #messages: Record<string, string[]>;
@@ -341,10 +341,10 @@ async function checkPresence(
 }
 
 type RuleContext = {
-  /** Field has `numeric` or `integer` (Laravel size uses the number). */
+  /** Field has `numeric` or `integer`. */
   hasNumeric: boolean;
   /** Authenticated user for `current_password` (from ValidateOptions). */
-  user?: { password?: string } | null;
+  user?: ({ password?: string } & Record<string, unknown>) | null;
 };
 
 type RuleFn = (
@@ -478,7 +478,7 @@ function parseRatio(raw: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-/** Laravel `Validator::getSize` — strings by length, numeric by value, files by KB. */
+/** `Validator::getSize` — strings by length, numeric by value, files by KB. */
 function sizeForMinMax(value: unknown, context: RuleContext): number | undefined {
   if (isUploadedFile(value)) return Math.ceil(value.size / 1024);
   if (Array.isArray(value)) return value.length;
@@ -617,7 +617,7 @@ const rules: Record<string, RuleFn> = {
   required(value) {
     if (isEmpty(value)) return "required";
   },
-  /** Laravel `nullable` — empty values skip remaining rules (handled in runner). */
+  /** `nullable` — empty values skip remaining rules (handled in runner). */
   nullable() {
     return undefined;
   },
@@ -805,12 +805,12 @@ const rules: Record<string, RuleFn> = {
     const size = sizeForMinMax(value, context);
     if (size === undefined || size < min || size > max) return "between";
   },
-  /** Laravel `confirmed` — field must match `{field}_confirmation`. */
+  /** `confirmed` — field must match `{field}_confirmation`. */
   confirmed(value, _params, field, data) {
     if (isEmpty(value)) return;
     if (dataGet(data, confirmationAttribute(field)) !== value) return "confirmed";
   },
-  /** Laravel `current_password` / `current_password:guard`. */
+  /** `current_password` / `current_password:guard`. */
   async current_password(value, params, _field, _data, context) {
     if (isEmpty(value)) return;
     if (typeof value !== "string") return "current_password";
@@ -819,24 +819,24 @@ const rules: Record<string, RuleFn> = {
     const ok = await verifier(value, params[0], context.user);
     if (!ok) return "current_password";
   },
-  /** Laravel `same:other`. */
+  /** `same:other`. */
   same(value, params, _field, data) {
     if (isEmpty(value)) return;
     const other = params[0];
     if (!other || dataGet(data, other) !== value) return "same";
   },
-  /** Laravel `different:other`. */
+  /** `different:other`. */
   different(value, params, _field, data) {
     if (isEmpty(value)) return;
     const other = params[0];
     if (!other || dataGet(data, other) === value) return "different";
   },
-  /** Laravel `in:a,b,c`. */
+  /** `in:a,b,c`. */
   in(value, params) {
     if (isEmpty(value)) return;
     if (!params.map(String).includes(String(value))) return "in";
   },
-  /** Laravel `not_in:a,b,c`. */
+  /** `not_in:a,b,c`. */
   not_in(value, params) {
     if (isEmpty(value)) return;
     if (params.map(String).includes(String(value))) return "not_in";
@@ -875,7 +875,7 @@ const rules: Record<string, RuleFn> = {
       return "alpha_dash";
     }
   },
-  /** Laravel `ascii` — 7-bit ASCII only. */
+  /** `ascii` — 7-bit ASCII only. */
   ascii(value) {
     if (isEmpty(value)) return;
     if (typeof value !== "string") return "ascii";
@@ -883,14 +883,14 @@ const rules: Record<string, RuleFn> = {
       if (value.charCodeAt(i) > 127) return "ascii";
     }
   },
-  /** Laravel `lowercase`. */
+  /** `lowercase`. */
   lowercase(value) {
     if (isEmpty(value)) return;
     if (typeof value !== "string" || value !== value.toLowerCase()) {
       return "lowercase";
     }
   },
-  /** Laravel `uppercase`. */
+  /** `uppercase`. */
   uppercase(value) {
     if (isEmpty(value)) return;
     if (typeof value !== "string" || value !== value.toUpperCase()) {
@@ -2064,12 +2064,12 @@ export const Rule = {
     if (constraints.ratio != null) parts.push(`ratio=${constraints.ratio}`);
     return `dimensions:${parts.join(",")}`;
   },
-  /** Laravel `Rule::password()` — uses `Password::defaults()` when set. */
+  /** `Rule::password()` — uses `Password::defaults()` when set. */
   password(): Password {
     return Password.default();
   },
   /**
-   * Laravel `Rule::can($ability, ...$arguments)`.
+   * `Rule::can($ability, ...$arguments)`.
    * Field value is appended as the last Gate argument.
    */
   can(ability: string, ...arguments_: unknown[]): Can {
@@ -2082,7 +2082,7 @@ export const Rule = {
   canAny(abilities: string | string[], ...arguments_: unknown[]): CanAny {
     return new CanAny(abilities, arguments_);
   },
-  /** Laravel `current_password` / `current_password:guard`. */
+  /** `current_password` / `current_password:guard`. */
   currentPassword(guard?: string): string {
     return guard ? `current_password:${guard}` : "current_password";
   },
@@ -2117,8 +2117,8 @@ export class Validator {
     this.ruleMap = ruleMap;
   }
 
-  /** Authenticated user for `current_password` (Laravel request user). */
-  setUser(user: { password?: string } | null | undefined): this {
+  /** Authenticated user for `current_password`. */
+  setUser(user: ({ password?: string } & Record<string, unknown>) | null | undefined): this {
     this.#authUser = user;
     return this;
   }
@@ -2154,7 +2154,7 @@ export class Validator {
     return this;
   }
 
-  /** Alias of `setAttributeNames` (Laravel `attributes`). */
+  /** Alias of `setAttributeNames`. */
   attributes(names: Record<string, string>): this {
     return this.setAttributeNames(names);
   }
@@ -2169,7 +2169,7 @@ export class Validator {
     return this;
   }
 
-  /** Register an after-validation callback (Laravel `after`). */
+  /** Register an after-validation callback. */
   after(
     callback: ((validator: Validator) => void | Promise<void>) | Array<(validator: Validator) => void | Promise<void>>,
   ): this {
@@ -2206,7 +2206,7 @@ export class Validator {
     return this;
   }
 
-  /** Conditionally add rules (Laravel `sometimes`). */
+  /** Conditionally add rules. */
   sometimes(
     attribute: string | string[],
     rulesToAdd: FieldRules,
@@ -2253,7 +2253,7 @@ export class Validator {
     return this.#errors;
   }
 
-  /** Message bag (Laravel `messages` / `getMessageBag`). */
+  /** Message bag. */
   messages(): MessageBag {
     return new MessageBag(this.#errors);
   }
@@ -2262,7 +2262,7 @@ export class Validator {
     return this.messages();
   }
 
-  /** Failed rule names per attribute (Laravel `failed`). */
+  /** Failed rule names per attribute. */
   failed(): Record<string, string[]> {
     return { ...this.#failedRules };
   }
@@ -2272,7 +2272,7 @@ export class Validator {
     return this.#validated;
   }
 
-  /** Subset of validated keys (Laravel `safe()->only`). */
+  /** Subset of validated keys. */
   safe(keys?: string[]): Record<string, unknown> {
     if (!keys) return { ...this.#validated };
     const out: Record<string, unknown> = {};
@@ -2491,7 +2491,7 @@ export type ValidateOptions = {
   attributes?: Record<string, string>;
   messages?: Record<string, string>;
   /** Authenticated user for `current_password` (e.g. FormRequest.user). */
-  user?: { password?: string } | null;
+  user?: ({ password?: string } & Record<string, unknown>) | null;
 };
 
 /**

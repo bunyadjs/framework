@@ -6,12 +6,13 @@ import type {
   FindBillable,
   SubscriptionRepository,
 } from "./types.ts";
+import type { FetchLike } from "./fetch-like.ts";
 
 let config: BillingConfig = {
   currency: "usd",
   path: "stripe",
 };
-let fetchImpl: typeof fetch = fetch;
+let fetchImpl: FetchLike = fetch;
 let client: StripeClient | undefined;
 let repository: SubscriptionRepository = new ArraySubscriptionRepository();
 let findBillableFn: FindBillable | null = null;
@@ -49,7 +50,7 @@ export const Billing = {
   },
 
   /** Override fetch (tests). */
-  setFetch(next: typeof fetch): void {
+  setFetch(next: FetchLike): void {
     fetchImpl = next;
     client = undefined;
   },
@@ -84,7 +85,7 @@ export const Billing = {
 
   /**
    * Enable Stripe Tax on Checkout / new subscriptions
-   * (`automatic_tax[enabled]=true`) — Laravel `Billing::calculateTaxes()`.
+   * (`automatic_tax[enabled]=true`).
    */
   calculateTaxes(value = true): void {
     calculatesTaxes = value;
@@ -97,8 +98,7 @@ export const Billing = {
   },
 
   /**
-   * Register how to resolve a billable owner from a Stripe customer id
-   * (Laravel `Billing::useCustomerModel` / `findBillable` path).
+   * Register how to resolve a billable owner from a Stripe customer id.
    */
   findBillableUsing(resolver: FindBillable): void {
     findBillableFn = resolver;

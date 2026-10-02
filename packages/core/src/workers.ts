@@ -84,7 +84,6 @@ export async function resolveWorkerLaunch(
 
 /**
  * Supervisor: spawn compiled HTTP / queue / scheduler workers and forward shutdown.
- * Octane-style production process model for Bun (not a PHP Octane port).
  */
 export async function startWorkers(
   options: StartWorkersOptions = {},

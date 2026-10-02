@@ -5,7 +5,7 @@ import { Gate } from "./gate.ts";
 type Constructor = new (...args: any[]) => object;
 
 /**
- * Laravel `Illuminate\Foundation\Auth\Access\Authorizable`.
+ * Mixin adding authorization helpers to a user model.
  *
  * Usage: `class User extends Authorizable(Model) implements Authenticatable { … }`
  * Methods: `can` / `cannot` / `cant` / `canAny` → `Gate.forUser(this)`.
@@ -13,7 +13,7 @@ type Constructor = new (...args: any[]) => object;
 export function Authorizable<TBase extends Constructor>(Base: TBase) {
   return class extends Base {
     /**
-     * Laravel `$user->can($ability, ...$arguments)`.
+     * Whether the user may perform the ability.
      * Pass a string or list (all must pass, like `Gate.check`).
      */
     async can(
@@ -27,7 +27,7 @@ export function Authorizable<TBase extends Constructor>(Base: TBase) {
       return gate.allows(undefined, abilities, ...arguments_);
     }
 
-    /** Laravel `$user->cannot(...)`. */
+    /** Inverse of `can`. */
     async cannot(
       abilities: string | string[],
       ...arguments_: unknown[]
@@ -35,7 +35,7 @@ export function Authorizable<TBase extends Constructor>(Base: TBase) {
       return !(await this.can(abilities, ...arguments_));
     }
 
-    /** Laravel `$user->cant(...)` — alias of `cannot`. */
+    /** Alias of `cannot`. */
     async cant(
       abilities: string | string[],
       ...arguments_: unknown[]
@@ -43,7 +43,7 @@ export function Authorizable<TBase extends Constructor>(Base: TBase) {
       return this.cannot(abilities, ...arguments_);
     }
 
-    /** Laravel `$user->canAny($abilities, ...$arguments)`. */
+    /** Whether at least one ability passes. */
     async canAny(
       abilities: string[],
       ...arguments_: unknown[]

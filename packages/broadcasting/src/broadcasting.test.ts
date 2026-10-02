@@ -335,7 +335,7 @@ test("Broadcast manager driver extend event on private socket routes", async () 
 });
 
 
-test("Laravel-style channel patterns omit private/presence prefix", async () => {
+test("channel patterns omit private/presence prefix", async () => {
   const { ChannelManager, normalizeChannelName, setChannelManager, Broadcast } =
     await import("../src/index.ts");
 
@@ -352,7 +352,7 @@ test("Laravel-style channel patterns omit private/presence prefix", async () => 
     return { id: user.id, name: "Ada" };
   });
 
-  // Prefixed client names match unprefixed Laravel registrations
+  // Prefixed client names match unprefixed registrations
   expect(await channels.authorize("private-orders.9", { id: 9 })).toBe(true);
   expect(await channels.authorize("private-orders.9", { id: 1 })).toBe(false);
   expect(await channels.authorize("presence-chat", { id: 1 })).toEqual({

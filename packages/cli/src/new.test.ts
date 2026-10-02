@@ -76,7 +76,7 @@ test("flockServedHint points at name.test when Flock is present", () => {
   }
 });
 
-test("the prompt offers the starter kits by name and copies no runtime leftovers", { timeout: 30_000 }, async () => {
+test("the prompt offers the starter kits by name and copies no runtime leftovers", async () => {
   const parent = resolve(import.meta.dir, "../.tmp-new-prompt");
   await rm(parent, { recursive: true, force: true });
   await mkdir(parent, { recursive: true });
@@ -107,7 +107,7 @@ test("the prompt offers the starter kits by name and copies no runtime leftovers
     expect(existsSync(resolve(target, "database/testing.sqlite"))).toBe(false);
     expect(existsSync(resolve(target, "database/migrations"))).toBe(true);
     expect(existsSync(resolve(target, ".env"))).toBe(true);
-    expect(menu).toContain("bunyad migrate");
+    expect(menu).toContain("bun ./bunyad migrate");
     expect(menu).toContain("bun run dev");
   } finally {
     if (prevHome === undefined) delete process.env.FLOCK_HOME;
@@ -119,7 +119,7 @@ test("the prompt offers the starter kits by name and copies no runtime leftovers
     process.chdir(cwd);
     await rm(parent, { recursive: true, force: true });
   }
-});
+}, 30_000);
 
 test("--database points the new app's .env at PostgreSQL", async () => {
   const parent = resolve(import.meta.dir, "../.tmp-new-db");
@@ -195,6 +195,40 @@ test("--kit and --dir name the starter kit and directory without prompts", async
     expect(existsSync(resolve(parent, "from-flags/routes/api.ts"))).toBe(true);
     expect(existsSync(resolve(parent, "positional-dir/routes/api.ts"))).toBe(true);
   } finally {
+    process.chdir(cwd);
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test("names with spaces are rejected, and non-empty directories are not overwritten", async () => {
+  const parent = resolve(import.meta.dir, "../.tmp-new-dirs");
+  await rm(parent, { recursive: true, force: true });
+  await mkdir(resolve(parent, "taken"), { recursive: true });
+  await Bun.write(resolve(parent, "taken/keep.txt"), "mine");
+  await mkdir(resolve(parent, "empty"), { recursive: true });
+  const cwd = process.cwd();
+  const err = console.error;
+  const messages: string[] = [];
+  console.error = (line: string) => messages.push(String(line));
+  process.chdir(parent);
+  try {
+    await newProject(["api", "my app"]);
+    expect(existsSync(resolve(parent, "my app"))).toBe(false);
+    expect(messages.join("\n")).toContain("contains spaces");
+
+    messages.length = 0;
+    await newProject(["api", "taken"]);
+    expect(messages.join("\n")).toContain("not empty");
+    expect(await Bun.file(resolve(parent, "taken/keep.txt")).text()).toBe("mine");
+
+    messages.length = 0;
+    process.exitCode = 0;
+    await newProject(["api", "empty"]);
+    expect(messages).toEqual([]);
+    expect(existsSync(resolve(parent, "empty/server.ts"))).toBe(true);
+  } finally {
+    console.error = err;
+    process.exitCode = 0;
     process.chdir(cwd);
     await rm(parent, { recursive: true, force: true });
   }

@@ -1,5 +1,5 @@
 /**
- * Laravel `ShouldQueue` marker — Job subclasses are queueable via the active
+ * `ShouldQueue` marker — Job subclasses are queueable via the active
  * connection (sync runs immediately; memory/database/redis defer to workers).
  */
 export interface ShouldQueue {}
@@ -12,7 +12,7 @@ export abstract class Job implements ShouldQueue {
   queue = "default";
 
   /**
-   * Queue connection name (Laravel `$connection`).
+   * Queue connection name.
    * When set, dispatch uses `Queue.connection(name)` if configured.
    */
   connection: string | null = null;
@@ -132,7 +132,7 @@ export abstract class Job implements ShouldQueue {
     return this.#failed;
   }
 
-  /** Optional failure hook (Laravel `failed`). */
+  /** Optional failure hook. */
   failed?(_error: Error): void | Promise<void>;
 
   shouldFailOnTimeout(): boolean {
@@ -140,7 +140,7 @@ export abstract class Job implements ShouldQueue {
   }
 
   /**
-   * Laravel `middleware()` — job middleware stack run around `handle()`.
+   * `middleware()` — job middleware stack run around `handle()`.
    * Override to return `WithoutOverlapping` / `RateLimited` / custom layers.
    */
   middleware(): import("./middleware.ts").JobMiddleware[] {

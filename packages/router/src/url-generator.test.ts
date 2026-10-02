@@ -22,11 +22,11 @@ afterEach(() => {
 
 test("url('/path') and url().query", () => {
   expect(url("/posts/1")).toBe("http://localhost/posts/1");
-  expect(url().query("/posts", { search: "Laravel" })).toBe(
-    "http://localhost/posts?search=Laravel",
+  expect(url().query("/posts", { search: "Bunyad" })).toBe(
+    "http://localhost/posts?search=Bunyad",
   );
-  expect(url().query("/posts?sort=latest", { search: "Laravel" })).toBe(
-    "http://localhost/posts?sort=latest&search=Laravel",
+  expect(url().query("/posts?sort=latest", { search: "Bunyad" })).toBe(
+    "http://localhost/posts?sort=latest&search=Bunyad",
   );
   expect(url().query("/posts?sort=latest", { sort: "oldest" })).toBe(
     "http://localhost/posts?sort=oldest",

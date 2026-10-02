@@ -40,7 +40,7 @@ function isApiRouteFile(entry: string): boolean {
 }
 
 /**
- * Load one Laravel-style route file onto `router`.
+ * Load one route file onto `router`.
  *
  * Accepted styles (first match wins):
  * 1. `export default function (router: Router)` — preferred for apps/tests (reloadable)

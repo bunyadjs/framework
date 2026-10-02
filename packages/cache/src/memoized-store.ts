@@ -1,7 +1,7 @@
 import type { CacheStore } from "@bunyad/contracts";
 
 /**
- * Laravel `MemoizedStore` — decorate a CacheStore with per-execution in-memory hits.
+ * `MemoizedStore` — decorate a CacheStore with per-execution in-memory hits.
  * Mutating ops invalidate the memoized key (or flush all) then delegate.
  */
 export class MemoizedStore implements CacheStore {

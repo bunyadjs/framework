@@ -123,7 +123,7 @@ test("auth middleware redirects html guests", async () => {
   const res = await mw.handle(request, (async () => json({ ok: true })) as Next);
   expect(res.status).toBe(302);
   expect(res.headers.get("Location")).toBe("/login");
-  expect(request.session.get("url.intended")).toBe(
+  expect<unknown>(request.session.get("url.intended")).toBe(
     "http://localhost/dashboard",
   );
 });
@@ -567,7 +567,7 @@ test("Auth.validate once loginUsingId logoutOtherDevices facade", async () => {
   await Auth.logout(request);
   const loggedIn = await Auth.loginUsingId(request, 1);
   expect(loggedIn).not.toBe(false);
-  expect(request.session.get("login_web")).toBe(1);
+  expect<unknown>(request.session.get("login_web")).toBe(1);
 
   const onceId = await Auth.onceUsingId(request, 1);
   expect(onceId).not.toBe(false);
@@ -658,7 +658,7 @@ test("Auth.attemptWhen authenticate basic logoutCurrentDevice", async () => {
       (user) => (user as { active?: boolean }).active === true,
     ),
   ).toBe(true);
-  expect(await Auth.authenticate(request)).toEqual(users.get(1));
+  expect<unknown>(await Auth.authenticate(request)).toEqual(users.get(1));
 
   await Auth.logoutCurrentDevice(request);
   expect(await Auth.check(request)).toBe(false);
@@ -803,7 +803,7 @@ test("MustVerifyEmail decorator attaches verification helpers", async () => {
     password = "secret";
   }
 
-  const user = new VerifiableUser();
+  const user = new VerifiableUser() as VerifiableUser & Record<string, (...args: any[]) => any>;
   expect(isMustVerifyEmail(user)).toBe(true);
   expect(typeof user.sendEmailVerificationNotification).toBe("function");
   expect(user.hasVerifiedEmail()).toBe(false);
@@ -1046,19 +1046,20 @@ test("logout invalidates session and clears remember cookie", async () => {
   const request = new Request(
     new globalThis.Request("http://localhost/login", { method: "POST" }),
   );
-  request.session = new Session();
-  const before = request.session.getId();
+  const session = new Session();
+  request.session = session;
+  const before = session.getId();
   expect(await guard.attempt(request, "ada@example.com", "secret", true)).toBe(
     true,
   );
   // regenerate may have changed id already
-  expect(request.session.getId()).not.toBe("");
+  expect(session.getId()).not.toBe("");
 
   await guard.logout(request);
   expect(await guard.check(request)).toBe(false);
   expect(request.session.get("login_web")).toBeUndefined();
   // invalidate rotates id
-  expect(request.session.getId()).not.toBe(before);
+  expect(session.getId()).not.toBe(before);
   const pending = guard.pullRememberCookie(request);
   expect(pending).toBeNull();
 });
@@ -1211,7 +1212,7 @@ test("csrf_token issues and returns session token", async () => {
   request.session = new Session();
   const token = csrf_token(request);
   expect(token.length).toBeGreaterThan(10);
-  expect(request.session.get("_token")).toBe(token);
+  expect<unknown>(request.session.get("_token")).toBe(token);
   expect(csrf_token(request)).toBe(token);
 });
 

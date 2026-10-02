@@ -4,7 +4,7 @@ export type MiddlewareFactory = (...params: string[]) => Middleware;
 
 const aliases = new Map<string, MiddlewareFactory>();
 
-/** Laravel `aliasMiddleware` — register a named middleware factory. */
+/** `aliasMiddleware` — register a named middleware factory. */
 export function aliasMiddleware(name: string, factory: MiddlewareFactory): void {
   aliases.set(name, factory);
 }
@@ -13,7 +13,7 @@ export function getMiddlewareAlias(name: string): MiddlewareFactory | undefined 
   return aliases.get(name);
 }
 
-/** Parse Laravel-style `auth:token` / `can:update,post` / `throttle:api`. */
+/** Parse `auth:token` / `can:update,post` / `throttle:api`. */
 export function parseMiddlewareName(raw: string): {
   name: string;
   params: string[];
@@ -73,7 +73,7 @@ export function resolveMiddlewareStack(
 }
 
 /**
- * Expand Laravel middleware group names (`web`, `api`) before alias resolution.
+ * Expand middleware group names (`web`, `api`) before alias resolution.
  * Nested groups are expanded recursively; unknown names stay as aliases.
  */
 export function expandMiddlewareGroups(
@@ -95,7 +95,7 @@ export function expandMiddlewareGroups(
   return out;
 }
 
-/** Tag a middleware instance with its Laravel alias for the compiler. */
+/** Tag a middleware instance with its alias for the compiler. */
 export function taggedMiddleware<T extends Middleware>(
   alias: string,
   middleware: T,

@@ -470,7 +470,7 @@ function resolveCanonical(
   let url =
     value === true
       ? (requestUrl ?? "/")
-      : value.startsWith("http")
+      : /^https?:\/\//i.test(value)
         ? value
         : requestUrl
           ? new URL(value, requestUrl).toString()

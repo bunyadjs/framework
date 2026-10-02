@@ -4,7 +4,7 @@ export type AbilityCheckMode = "can" | "canAny";
 
 /**
  * Injected by AuthServiceProvider — keeps `@bunyad/validation` free of `@bunyad/auth`.
- * `args` already includes the field value as the last item (Laravel `Rule::can`).
+ * `args` already includes the field value as the last item.
  */
 export type AbilityChecker = (
   mode: AbilityCheckMode,
@@ -29,7 +29,6 @@ export type CanRuleContext = {
 };
 
 /**
- * Laravel `Illuminate\Validation\Rules\Can`.
  * Gate args = `[...ruleArguments, fieldValue]` (value always last).
  */
 export class Can implements ValidationRule {
@@ -60,7 +59,7 @@ export class Can implements ValidationRule {
 
 /**
  * Bunyad extension — `Gate.any` over abilities with the same arg/value pattern as `Can`.
- * (Authorizable has `canAny`; Laravel has no `Rule::canAny`, but Auditor asked for the pair.)
+ * (Authorizable has `canAny`.)
  */
 export class CanAny implements ValidationRule {
   readonly #abilities: string[];

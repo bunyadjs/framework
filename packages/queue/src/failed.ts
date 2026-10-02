@@ -9,7 +9,7 @@ export type FailedJobRecord = {
 };
 
 /**
- * Laravel `failed_jobs` repository.
+ * Failed jobs repository.
  */
 export interface FailedJobRepository {
   store(job: FailedJobRecord): Promise<void>;

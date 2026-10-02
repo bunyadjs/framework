@@ -47,7 +47,7 @@ type QueuedBroadcastPayload = {
 };
 
 /**
- * Laravel `BroadcastManager` — named drivers + anonymous broadcasts.
+ * `BroadcastManager` — named drivers + anonymous broadcasts.
  */
 export class BroadcastManager {
   readonly #drivers = new Map<string, Broadcaster>();

@@ -454,7 +454,7 @@ test("Rule.can / Rule.canAny via Gate ability checker", async () => {
   Gate.define("delete", () => false);
 
   setAbilityChecker(async (mode, abilities, args, user) => {
-    const gate = Gate.forUser((user as { id?: number } | null) ?? null);
+    const gate = Gate.forUser((user as Parameters<typeof Gate.forUser>[0]) ?? null);
     if (mode === "canAny") {
       const list = Array.isArray(abilities) ? abilities : [abilities];
       return gate.any(undefined, list, ...args);
@@ -533,7 +533,7 @@ test("Validator.make validated safe and Rule.enum", async () => {
   ).rejects.toBeInstanceOf(ValidationException);
 });
 
-test("boolean accepts Laravel on/off/yes/no", async () => {
+test("boolean accepts on/off/yes/no", async () => {
   const on = await validate({ a: "on", b: "yes" }, { a: "boolean", b: "boolean" });
   expect(on.a).toBe(true);
   expect(on.b).toBe(true);

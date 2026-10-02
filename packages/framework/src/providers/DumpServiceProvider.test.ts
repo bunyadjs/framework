@@ -16,7 +16,7 @@ test("query listener posts sql when a dump URL is set", async () => {
   process.env.FLOCK_DUMP_URL = "http://127.0.0.1:7979/v1/ingest";
   const posts: string[] = [];
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
     posts.push(String(init?.body ?? ""));
     return new Response("{}", { status: 200 });
   }) as typeof fetch;

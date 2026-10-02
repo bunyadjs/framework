@@ -2,7 +2,7 @@ import type { Engine, SearchableModel, SearchDocument } from "./types.ts";
 import { scoutKey, searchableIndex, toSearchDocument } from "./search.ts";
 
 /**
- * In-memory Search engine (Laravel `collection` driver).
+ * In-memory Search engine.
  */
 export class CollectionEngine implements Engine {
   #indexes = new Map<string, Map<string, SearchDocument>>();

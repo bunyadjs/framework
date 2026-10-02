@@ -64,7 +64,7 @@ type BroadcastFacade = {
   setAbly(driver: AblyBroadcaster | null): BroadcastFacade;
 };
 
-/** Laravel `Broadcast` facade. */
+/** `Broadcast` facade. */
 export const Broadcast: BroadcastFacade = {
   channel(pattern: string, callback: ChannelCallback): ChannelManager {
     return getChannelManager().channel(pattern, callback);
@@ -84,7 +84,7 @@ export const Broadcast: BroadcastFacade = {
   },
   /**
    * Presence member store (no args), or anonymous presence-channel broadcast
-   * when channel name(s) are passed — Laravel `Broadcast::presence($channels)`.
+   * when channel name(s) are passed — `Broadcast::presence($channels)`.
    */
   presence(channels?: string | string[]): PresenceRepository | AnonymousBroadcast {
     if (channels === undefined) return getPresenceStore();
@@ -140,7 +140,7 @@ export const Broadcast: BroadcastFacade = {
   on(channels: string | string[]): AnonymousBroadcast {
     return getBroadcastManager().on(channels);
   },
-  /** Laravel `Broadcast::private()`. */
+  /** `Broadcast::private()`. */
   private(channels: string | string[]): AnonymousBroadcast {
     return getBroadcastManager().privateChannel(channels);
   },

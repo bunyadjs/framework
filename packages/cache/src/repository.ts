@@ -480,7 +480,7 @@ export class CacheRepository {
     return value as T;
   }
 
-  /** Laravel `Cache::lock($name, $seconds)`. */
+  /** `Cache::lock($name, $seconds)`. */
   lock(name: string, seconds = 0, owner?: string): CacheLock {
     const lock = new CacheLock(this.store, name, seconds, owner);
     knownLockKeys.add(lockKey(name));
@@ -770,7 +770,7 @@ export const Cache = {
     return resolveNamedStore(name);
   },
   /**
-   * Laravel `Cache::memo([$store])` — request/job-scoped in-memory memo over a store.
+   * `Cache::memo([$store])` — request/job-scoped in-memory memo over a store.
    */
   memo(store?: string | null): CacheRepository {
     const key = store ?? defaultCache?.getName() ?? "default";

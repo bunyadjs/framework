@@ -4,6 +4,7 @@ import type {
   StripeCustomer,
   StripeSubscription,
 } from "./types.ts";
+import type { FetchLike } from "./fetch-like.ts";
 
 export type StripeRequestOptions = {
   method?: string;
@@ -16,7 +17,7 @@ export type StripeRequestOptions = {
 export class StripeClient {
   constructor(
     private readonly secret: string,
-    private readonly fetchImpl: typeof fetch = fetch,
+    private readonly fetchImpl: FetchLike = fetch,
     private readonly apiBase = "https://api.stripe.com",
   ) {}
 
