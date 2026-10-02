@@ -27,7 +27,7 @@ versioned together and always carry the same version number.
 | `contracts`, `common`, `database`, `orm` | Node.js 20, 22 and 24, and Bun 1.4+ |
 | All other packages | Bun 1.4+ only |
 
-**Databases:** SQLite, PostgreSQL and MySQL are tested in CI on every change. SQL Server
+**Databases:** SQLite, PostgreSQL and MySQL are tested in CI on every change (SQLite on Node 20 uses `better-sqlite3` 12, because version 13 needs Node 22+). SQL Server
 is experimental and needs `mssql` installed alongside `@bunyad/database`.
 
 ## The beta promise

@@ -105,42 +105,64 @@ test("debug HTML exception page includes message and stack", () => {
 });
 
 test("pickEditorFrame prefers app code over packages vendor frames", () => {
-  const frames = [
-    {
-      functionName: "anonymous",
-      file: "/Users/shah/Desktop/bunyad/packages/view/src/compiler.ts",
-      path: "/Users/shah/Desktop/bunyad/packages/view/src/compiler.ts",
-      line: 13,
-      column: 14,
-    },
-    {
-      functionName: "view",
-      file: "/Users/shah/Desktop/bunyad/packages/view/src/helpers.ts",
-      path: "/Users/shah/Desktop/bunyad/packages/view/src/helpers.ts",
-      line: 29,
-      column: 33,
-    },
-    {
-      functionName: "index",
-      file: "/Users/shah/Desktop/bunyad/apps/playground/app/Http/Controllers/HelloController.ts",
-      path: "/Users/shah/Desktop/bunyad/apps/playground/app/Http/Controllers/HelloController.ts",
-      line: 7,
-      column: 12,
-    },
-  ];
-  expect(isApplicationFrame(frames[0]!)).toBe(false);
-  expect(isApplicationFrame(frames[2]!)).toBe(true);
-  expect(pickEditorFrame(frames)?.path).toContain("HelloController.ts");
+  // The controller frame must point at a real file so the page can show its source.
+  const appRoot = mkdtempSync(join(tmpdir(), "bunyad-frame-"));
+  const controllerPath = join(appRoot, "app/Http/Controllers/HelloController.ts");
+  mkdirSync(join(appRoot, "app/Http/Controllers"), { recursive: true });
+  writeFileSync(
+    controllerPath,
+    [
+      "// controller",
+      "",
+      "",
+      "",
+      "",
+      "export default class HelloController {",
+      "  index() { return users.length; }",
+      "}",
+      "",
+    ].join("\n"),
+  );
+  try {
+    const frames = [
+      {
+        functionName: "anonymous",
+        file: "/Users/shah/Desktop/bunyad/packages/view/src/compiler.ts",
+        path: "/Users/shah/Desktop/bunyad/packages/view/src/compiler.ts",
+        line: 13,
+        column: 14,
+      },
+      {
+        functionName: "view",
+        file: "/Users/shah/Desktop/bunyad/packages/view/src/helpers.ts",
+        path: "/Users/shah/Desktop/bunyad/packages/view/src/helpers.ts",
+        line: 29,
+        column: 33,
+      },
+      {
+        functionName: "index",
+        file: controllerPath,
+        path: controllerPath,
+        line: 7,
+        column: 12,
+      },
+    ];
+    expect(isApplicationFrame(frames[0]!)).toBe(false);
+    expect(isApplicationFrame(frames[2]!)).toBe(true);
+    expect(pickEditorFrame(frames)?.path).toContain("HelloController.ts");
 
-  const err = new TypeError("users.length");
-  err.stack = `TypeError: users.length
-    at anonymous (${frames[0]!.path}:13:14)
-    at view (${frames[1]!.path}:29:33)
-    at index (${frames[2]!.path}:7:12)`;
-  const html = renderExceptionHtml(err, { debug: true });
-  expect(html).toContain("HelloController.ts:7");
-  expect(html).toContain("export default class HelloController");
-  expect(html).toContain("vendor frame");
+    const err = new TypeError("users.length");
+    err.stack = `TypeError: users.length
+      at anonymous (${frames[0]!.path}:13:14)
+      at view (${frames[1]!.path}:29:33)
+      at index (${frames[2]!.path}:7:12)`;
+    const html = renderExceptionHtml(err, { debug: true });
+    expect(html).toContain("HelloController.ts:7");
+    expect(html).toContain("export default class HelloController");
+    expect(html).toContain("vendor frame");
+  } finally {
+    rmSync(appRoot, { recursive: true, force: true });
+  }
 });
 
 test("pickEditorFrame skips internal sql frames without readable source", () => {
