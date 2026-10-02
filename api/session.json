@@ -1,0 +1,17 @@
+[
+  "DatabaseSessionStore",
+  "EncryptedSessionStore",
+  "FileSessionStore",
+  "MemorySessionStore",
+  "RedisSessionStore",
+  "Session",
+  "SessionBlock",
+  "SessionManager",
+  "blockSession",
+  "getSessionOptions",
+  "getSessionStore",
+  "maybeEncryptSessionStore",
+  "setSessionOptions",
+  "setSessionStore",
+  "startSession"
+]

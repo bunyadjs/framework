@@ -1,0 +1,9 @@
+[
+  "AbstractProvider",
+  "DiscordProvider",
+  "GithubProvider",
+  "GitlabProvider",
+  "GoogleProvider",
+  "OAuth",
+  "OAuthUser"
+]

@@ -1,0 +1,18 @@
+[
+  "analyzePhpSource",
+  "classifyPhpFile",
+  "convertBladeToView",
+  "convertControllerStub",
+  "convertFormRequestStub",
+  "convertJobStub",
+  "convertMiddlewareStub",
+  "convertMigrationStub",
+  "convertModelStub",
+  "convertPhpFile",
+  "convertPolicyStub",
+  "convertRoutesStub",
+  "findCompatibilityIssues",
+  "formatReport",
+  "parsePhpClass",
+  "scanPhpDirectory"
+]

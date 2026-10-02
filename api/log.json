@@ -1,0 +1,14 @@
+[
+  "ConsoleChannel",
+  "DailyChannel",
+  "Log",
+  "SingleChannel",
+  "StackChannel",
+  "getLogChannel",
+  "levelWeight",
+  "parseLevel",
+  "resetLogChannelsForTests",
+  "setDefaultLogChannel",
+  "setLogChannel",
+  "shouldLog"
+]
