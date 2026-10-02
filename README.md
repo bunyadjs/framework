@@ -8,14 +8,14 @@ It is inspired by Laravel's developer experience. It does not copy Laravel's fol
 
 **Website and docs: [bunyadjs.com](https://bunyadjs.com)** · [Documentation](https://bunyadjs.com/docs/1.x) · [npm](https://www.npmjs.com/org/bunyad) · [GitHub](https://github.com/bunyadjs/framework)
 
-> **Alpha moving to beta.** The current npm release is `0.1.0-alpha.0` under the `alpha` tag. The first beta will be published under the `beta` tag and `latest` will not move until 1.0. See the [stability policy](docs/STABILITY.md) for what each stage promises.
+> **Beta.** The current release is `0.2.0-beta.0`, published under the `beta` npm tag. `latest` still points at the old `0.1.0-alpha.0` and will not move until 1.0, so install with `@beta`. Public APIs change only in minor releases, with a changelog entry and an upgrade note: see the [stability policy](docs/STABILITY.md), the [changelog](CHANGELOG.md) and the [upgrade guide](docs/UPGRADING.md).
 
 ## Get started
 
 Install [Bun](https://bun.sh) 1.4 or newer, then create an app:
 
 ```bash
-bun create bunyad my-app
+bun create bunyad@beta my-app
 cd my-app
 bun run dev
 ```
@@ -74,6 +74,8 @@ bunyad/
 |----------|---------|
 | [bunyadjs.com](https://bunyadjs.com/docs/1.x) | Installation, guides and package references |
 | [docs/STABILITY.md](docs/STABILITY.md) | Versions, stability and the beta promise |
+| [CHANGELOG.md](CHANGELOG.md) | What changed in each release |
+| [docs/UPGRADING.md](docs/UPGRADING.md) | Steps for moving between releases |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [SECURITY.md](SECURITY.md) | How to report a vulnerability |
 
@@ -87,8 +89,8 @@ bunyad/
 ## Status
 
 ```bash
-bun add @bunyad/orm@alpha     # current release
-bun add @bunyad/orm@beta      # once the first beta is published
+bun create bunyad@beta my-app   # new app
+bun add @bunyad/orm@beta        # a single package
 ```
 
 To work on the framework itself:
