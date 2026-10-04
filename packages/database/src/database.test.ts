@@ -1004,6 +1004,15 @@ test("aggregates distinct addSelect chunkById afterCommit", async () => {
   expect(sql).toContain("id");
   expect(sql).toContain("name");
 
+  const quoted = db
+    .table("categories")
+    .select("id", "order", "categories.group", "count(*) as total", "*")
+    .selectRaw("1 as one")
+    .toSql();
+  expect(quoted).toContain('"id", "order", "categories"."group"');
+  expect(quoted).toContain("count(*) as total");
+  expect(quoted).toContain("1 as one");
+
   const seen: number[] = [];
   await db.table("metrics").orderBy("id").chunkById(2, (rows) => {
     for (const row of rows) seen.push(Number(row.id));
