@@ -57,7 +57,11 @@ Relations load lazily (`await user.posts().get()`) or eagerly (`User.with("posts
 for await (const user of User.where("active", true).cursor()) {
   // hydrated one model at a time from a single streamed query
 }
+
+for await (const user of User.cursor()) {} // whole table
 ```
+
+`User.cursor()`, `User.lazy()`, `User.lazyById()` and `User.lazyByIdDesc()` are also available as statics.
 
 `cursor()` keeps memory flat and fires `retrieved` events. `with()` relations are loaded per batch of `chunkSize` models (default 1000), not per row. Use `lazyById()` when the loop updates the rows it reads. See `@bunyad/database` for per-driver behavior.
 

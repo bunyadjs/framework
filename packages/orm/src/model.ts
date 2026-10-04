@@ -1781,6 +1781,40 @@ export class Model {
     );
   }
 
+  /** `Model::cursor()`: stream models from a single query. */
+  static cursor<T extends typeof Model>(
+    this: T,
+    chunkSize?: number,
+  ): AsyncGenerator<InstanceType<T>, void, unknown> {
+    return this.newQuery().cursor(chunkSize);
+  }
+
+  /** `Model::lazy()`: chunked iteration, one query per chunk. */
+  static lazy<T extends typeof Model>(
+    this: T,
+    chunkSize?: number,
+  ): AsyncGenerator<InstanceType<T>, void, unknown> {
+    return this.newQuery().lazy(chunkSize);
+  }
+
+  /** `Model::lazyById()`: chunked iteration by primary key (safe while updating). */
+  static lazyById<T extends typeof Model>(
+    this: T,
+    chunkSize?: number,
+    column?: string,
+  ): AsyncGenerator<InstanceType<T>, void, unknown> {
+    return this.newQuery().lazyById(chunkSize, column);
+  }
+
+  /** `Model::lazyByIdDesc()`. */
+  static lazyByIdDesc<T extends typeof Model>(
+    this: T,
+    chunkSize?: number,
+    column?: string,
+  ): AsyncGenerator<InstanceType<T>, void, unknown> {
+    return this.newQuery().lazyByIdDesc(chunkSize, column);
+  }
+
   /** `Model::create` (respects `$fillable` / `$guarded`). */
   static create<T extends typeof Model>(
     this: T,

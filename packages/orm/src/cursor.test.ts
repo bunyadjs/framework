@@ -145,6 +145,24 @@ test("models can be updated while the cursor is open (sqlite)", async () => {
   expect(await Post.query().where("title", "like", "%!").count()).toBe(12);
 });
 
+test("static Model.cursor / lazy / lazyById match the query forms", async () => {
+  const { Post } = await setup(connectSqlite(), "c8");
+  const seen: string[] = [];
+  listen((event) => seen.push(event.sql));
+
+  const cursor = await collect(Post.cursor());
+  expect(cursor).toHaveLength(12);
+  expect(cursor[0]).toBeInstanceOf(Post);
+  expect(seen).toHaveLength(1);
+
+  const titles = (rows: { title: string }[]) => rows.map((m) => m.title).sort();
+  expect(titles(await collect(Post.lazy(5)))).toEqual(titles(cursor));
+  const byId = await collect(Post.lazyById(5));
+  expect(byId.map((m) => m.id)).toEqual(cursor.map((m) => m.id).sort((a, b) => Number(a) - Number(b)));
+  const desc = await collect(Post.lazyByIdDesc(5));
+  expect(desc.map((m) => m.id)).toEqual([...byId.map((m) => m.id)].reverse());
+});
+
 const postgresUrl = process.env.BUNYAD_TEST_POSTGRES_URL;
 
 test.skipIf(!postgresUrl)("cursor streams models over Postgres", async () => {
