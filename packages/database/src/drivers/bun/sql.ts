@@ -1,5 +1,6 @@
 import { SQL, type ReservedSQL } from "bun";
 import { dialectFor, wrapSqlName } from "../../dialect.ts";
+import { dateTimeForStorage } from "../../dates.ts";
 import { afterCommit } from "../../after-commit.ts";
 import { createTransactionApi } from "../../nested-transaction.ts";
 import { reservedSql, setReservedSql } from "../../transaction-context.ts";
@@ -22,6 +23,17 @@ import {
   postgresConnectionUrl,
 } from "../../postgres-url.ts";
 
+/** Bun SQL stringifies `Date` binds (`GMT+0500 …`); send driver-native datetime text instead. */
+function coerceParams(
+  driver: "postgres" | "mysql" | "mariadb",
+  params: unknown[],
+): unknown[] {
+  if (!params.some((value) => value instanceof Date)) return params;
+  return params.map((value) =>
+    value instanceof Date ? dateTimeForStorage(value, driver) : value,
+  );
+}
+
 function createBunSqlConnection(
   driver: "postgres" | "mysql" | "mariadb",
   client: SQL,
@@ -32,7 +44,8 @@ function createBunSqlConnection(
 
   const sqlClient = (): SQL => (reservedSql(txKey) as SQL | undefined) ?? client;
 
-  const runUnsafe = async (query: string, params: unknown[] = []) => {
+  const runUnsafe = async (query: string, rawParams: unknown[] = []) => {
+    const params = coerceParams(driver, rawParams);
     const bound = dialect.bindSql(query);
     // Bun SQL errors only retain native `internal:sql/*` frames; capture the
     // JS caller stack before await so debug pages can show application code.
