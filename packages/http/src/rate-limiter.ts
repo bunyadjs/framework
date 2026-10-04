@@ -9,10 +9,88 @@ export type RateLimitResult = {
   resetAt: number;
 };
 
+/**
+ * Sliding-window counter state. The effective hit count is the current
+ * window's hits plus the previous window's hits weighted by how much of that
+ * window still overlaps the trailing `window` ms.
+ */
 type Bucket = {
+  /** Hits in the current window. */
   count: number;
-  resetAt: number;
+  /** Hits in the window before the current one. */
+  previous: number;
+  /** Current window start (ms). */
+  start: number;
+  /** Window length (ms). */
+  window: number;
+  /** Last finite limit used, so `availableIn(key)` can work without it. */
+  max?: number;
 };
+
+const EPSILON = 1e-9;
+
+/** Roll the window forward so `start <= now < start + window`. */
+function slide(
+  bucket: Bucket | undefined,
+  now: number,
+  window: number,
+): Bucket {
+  if (!bucket || bucket.window !== window) {
+    return { count: 0, previous: 0, start: now, window };
+  }
+  const elapsed = now - bucket.start;
+  if (elapsed >= window * 2) {
+    return { count: 0, previous: 0, start: now, window, max: bucket.max };
+  }
+  if (elapsed >= window) {
+    return {
+      count: 0,
+      previous: bucket.count,
+      start: bucket.start + window,
+      window,
+      max: bucket.max,
+    };
+  }
+  return bucket;
+}
+
+/** Weighted hit count over the trailing window. */
+function estimate(bucket: Bucket, now: number): number {
+  const elapsed = Math.min(bucket.window, Math.max(0, now - bucket.start));
+  return bucket.previous * (1 - elapsed / bucket.window) + bucket.count;
+}
+
+/** Whether one more hit would exceed `max`. */
+function isFull(bucket: Bucket, now: number, max: number): boolean {
+  return estimate(bucket, now) + 1 > max + EPSILON;
+}
+
+/** Milliseconds until one more hit would fit under `max`. */
+function waitMs(bucket: Bucket, now: number, max: number): number {
+  const { count, previous, window } = bucket;
+  const elapsed = now - bucket.start;
+  const room = max - count - 1;
+  if (room >= 0) {
+    if (previous <= 0) return 0;
+    return Math.max(0, window * (1 - room / previous) - elapsed);
+  }
+  // Current window is full: wait for it to roll, then for its weight to decay.
+  if (max < 1) return window * 2 - elapsed;
+  return window - elapsed + window * (1 - (max - 1) / count);
+}
+
+/** Milliseconds until the key holds no weight at all. */
+function clearMs(bucket: Bucket, now: number): number {
+  const elapsed = now - bucket.start;
+  if (bucket.count > 0) return bucket.window * 2 - elapsed;
+  if (bucket.previous > 0) return bucket.window - elapsed;
+  return 0;
+}
+
+/** Hit count as shown to callers (rounded up, never under-reports). */
+function attemptsOf(bucket: Bucket, now: number): number {
+  return Math.max(0, Math.ceil(estimate(bucket, now) - EPSILON));
+}
 
 /**
  * Minimal cache surface for multi-worker rate limiting.
@@ -116,7 +194,8 @@ export type NamedLimiter = (
 const CACHE_PREFIX = "bunyad:rate:";
 
 /**
- * Fixed-window rate limiter.
+ * Sliding-window rate limiter (weighted two-window counter), so a client can
+ * not burst `2 × max` across a window boundary.
  * Uses an in-process Map by default; call `use(cache)` to share via Cache.
  */
 export class RateLimiter {
@@ -161,7 +240,7 @@ export class RateLimiter {
           this.tooManyAttempts(key, maxAttempts),
         );
         if (peek) {
-          const retryAfter = await Promise.resolve(this.availableIn(key));
+          const retryAfter = await Promise.resolve(this.availableIn(key, maxAttempts));
           return {
             allowed: false,
             limit: maxAttempts,
@@ -193,33 +272,61 @@ export class RateLimiter {
     return this.#attemptMemory(key, maxAttempts, decaySeconds);
   }
 
+  /** Record a hit on `bucket`; a blocked hit is not counted. */
+  #record(
+    stored: Bucket | undefined,
+    maxAttempts: number,
+    decaySeconds: number,
+    now: number,
+  ): { bucket: Bucket; result: RateLimitResult } {
+    const bucket = slide(stored, now, decaySeconds * 1000);
+    if (Number.isFinite(maxAttempts) && maxAttempts < Number.MAX_SAFE_INTEGER) {
+      bucket.max = maxAttempts;
+    }
+
+    if (isFull(bucket, now, maxAttempts)) {
+      const wait = waitMs(bucket, now, maxAttempts);
+      return {
+        bucket,
+        result: {
+          allowed: false,
+          limit: maxAttempts,
+          remaining: 0,
+          retryAfter: Math.max(1, Math.ceil(wait / 1000)),
+          resetAt: now + wait,
+        },
+      };
+    }
+
+    bucket.count += 1;
+    return {
+      bucket,
+      result: {
+        allowed: true,
+        limit: maxAttempts,
+        remaining: Math.max(
+          0,
+          Math.floor(maxAttempts - estimate(bucket, now) + EPSILON),
+        ),
+        retryAfter: 0,
+        resetAt: bucket.start + bucket.window,
+      },
+    };
+  }
+
   #attemptMemory(
     key: string,
     maxAttempts: number,
     decaySeconds: number,
   ): RateLimitResult {
-    const now = Date.now();
-    let bucket = this.#buckets.get(key);
-
-    if (!bucket || now >= bucket.resetAt) {
-      bucket = { count: 0, resetAt: now + decaySeconds * 1000 };
-      this.#buckets.set(key, bucket);
-    }
-
-    bucket.count += 1;
-    const remaining = Math.max(0, maxAttempts - bucket.count);
-    const allowed = bucket.count <= maxAttempts;
-    const retryAfter = allowed
-      ? 0
-      : Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
-
-    return {
-      allowed,
-      limit: maxAttempts,
-      remaining: allowed ? remaining : 0,
-      retryAfter,
-      resetAt: bucket.resetAt,
-    };
+    const { bucket, result } = this.#record(
+      this.#buckets.get(key),
+      maxAttempts,
+      decaySeconds,
+      Date.now(),
+    );
+    this.#buckets.set(key, bucket);
+    return result;
   }
 
   async #attemptCache(
@@ -229,33 +336,29 @@ export class RateLimiter {
   ): Promise<RateLimitResult> {
     const cache = this.#cache!;
     const cacheKey = `${CACHE_PREFIX}${key}`;
-    const now = Date.now();
-    let bucket = await cache.get<Bucket>(cacheKey);
-
-    if (!bucket || now >= bucket.resetAt) {
-      bucket = { count: 0, resetAt: now + decaySeconds * 1000 };
-    }
-
-    bucket = { ...bucket, count: bucket.count + 1 };
-    const ttlSeconds = Math.max(
-      1,
-      Math.ceil((bucket.resetAt - now) / 1000),
+    const { bucket, result } = this.#record(
+      await cache.get<Bucket>(cacheKey),
+      maxAttempts,
+      decaySeconds,
+      Date.now(),
     );
-    await cache.put(cacheKey, bucket, ttlSeconds);
+    // A bucket stays relevant for two windows before it carries no weight.
+    await cache.put(cacheKey, bucket, Math.ceil(decaySeconds * 2));
+    return result;
+  }
 
-    const remaining = Math.max(0, maxAttempts - bucket.count);
-    const allowed = bucket.count <= maxAttempts;
-    const retryAfter = allowed
-      ? 0
-      : Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+  /** Read the live bucket for a key (memory or cache), rolled to `now`. */
+  #peek<T>(key: string, read: (bucket: Bucket | undefined, now: number) => T): T | Promise<T> {
+    if (this.#cache) {
+      return this.#cache
+        .get<Bucket>(`${CACHE_PREFIX}${key}`)
+        .then((bucket) => read(this.#live(bucket), Date.now()));
+    }
+    return read(this.#live(this.#buckets.get(key)), Date.now());
+  }
 
-    return {
-      allowed,
-      limit: maxAttempts,
-      remaining: allowed ? remaining : 0,
-      retryAfter,
-      resetAt: bucket.resetAt,
-    };
+  #live(bucket: Bucket | undefined): Bucket | undefined {
+    return bucket ? slide(bucket, Date.now(), bucket.window) : undefined;
   }
 
   /** Evaluate a named limiter against the request. */
@@ -309,27 +412,16 @@ export class RateLimiter {
     key: string,
     maxAttempts: number,
   ): boolean | Promise<boolean> {
-    if (this.#cache) {
-      return Promise.resolve(this.attempts(key)).then(
-        (n) => n >= maxAttempts,
-      );
-    }
-    const bucket = this.#buckets.get(key);
-    if (!bucket || Date.now() >= bucket.resetAt) return false;
-    return bucket.count >= maxAttempts;
+    return this.#peek(key, (bucket, now) =>
+      bucket ? isFull(bucket, now, maxAttempts) : false,
+    );
   }
 
   /** Hits recorded for a key. */
   attempts(key: string): number | Promise<number> {
-    if (this.#cache) {
-      return this.#cache.get<Bucket>(`${CACHE_PREFIX}${key}`).then((bucket) => {
-        if (!bucket || Date.now() >= bucket.resetAt) return 0;
-        return bucket.count;
-      });
-    }
-    const bucket = this.#buckets.get(key);
-    if (!bucket || Date.now() >= bucket.resetAt) return 0;
-    return bucket.count;
+    return this.#peek(key, (bucket, now) =>
+      bucket ? attemptsOf(bucket, now) : 0,
+    );
   }
 
   /** Remaining attempts. */
@@ -351,34 +443,32 @@ export class RateLimiter {
     return this.remaining(key, maxAttempts);
   }
 
-  /** Unix timestamp when the lockout ends. */
-  availableAt(key: string): number | Promise<number> {
-    if (this.#cache) {
-      return this.#cache.get<Bucket>(`${CACHE_PREFIX}${key}`).then((bucket) => {
-        if (!bucket || Date.now() >= bucket.resetAt) {
-          return Math.floor(Date.now() / 1000);
-        }
-        return Math.ceil(bucket.resetAt / 1000);
-      });
-    }
-    const bucket = this.#buckets.get(key);
-    if (!bucket || Date.now() >= bucket.resetAt) {
-      return Math.floor(Date.now() / 1000);
-    }
-    return Math.ceil(bucket.resetAt / 1000);
+  /** Unix timestamp (seconds) when the lockout ends. */
+  availableAt(
+    key: string,
+    maxAttempts?: number,
+  ): number | Promise<number> {
+    const seconds = this.availableIn(key, maxAttempts);
+    const at = (s: number) => Math.floor(Date.now() / 1000) + s;
+    return seconds instanceof Promise ? seconds.then(at) : at(seconds);
   }
 
-  /** Seconds until available. */
-  availableIn(key: string): number | Promise<number> {
-    if (this.#cache) {
-      return this.#cache.get<Bucket>(`${CACHE_PREFIX}${key}`).then((bucket) => {
-        if (!bucket || Date.now() >= bucket.resetAt) return 0;
-        return Math.max(0, Math.ceil((bucket.resetAt - Date.now()) / 1000));
-      });
-    }
-    const bucket = this.#buckets.get(key);
-    if (!bucket || Date.now() >= bucket.resetAt) return 0;
-    return Math.max(0, Math.ceil((bucket.resetAt - Date.now()) / 1000));
+  /**
+   * Seconds until another hit would be allowed under `maxAttempts`.
+   * Without it, falls back to the last limit used on the key, then to the time
+   * until the key has no weight left.
+   */
+  availableIn(
+    key: string,
+    maxAttempts?: number,
+  ): number | Promise<number> {
+    return this.#peek(key, (bucket, now) => {
+      if (!bucket) return 0;
+      const max = maxAttempts ?? bucket.max;
+      const ms =
+        max === undefined ? clearMs(bucket, now) : waitMs(bucket, now, max);
+      return ms <= 0 ? 0 : Math.max(1, Math.ceil(ms / 1000));
+    });
   }
 
   /** Record a hit and return the new attempt count. */
@@ -420,24 +510,25 @@ export class RateLimiter {
     key: string,
     amount = 1,
   ): number | Promise<number> {
+    const apply = (bucket: Bucket | undefined): Bucket | undefined => {
+      if (!bucket) return undefined;
+      const live = slide(bucket, Date.now(), bucket.window);
+      live.count = Math.max(0, live.count - amount);
+      return live;
+    };
     if (this.#cache) {
       return (async () => {
         const cacheKey = `${CACHE_PREFIX}${key}`;
-        const bucket = await this.#cache!.get<Bucket>(cacheKey);
-        if (!bucket || Date.now() >= bucket.resetAt) return 0;
-        bucket.count = Math.max(0, bucket.count - amount);
-        const ttl = Math.max(
-          1,
-          Math.ceil((bucket.resetAt - Date.now()) / 1000),
-        );
-        await this.#cache!.put(cacheKey, bucket, ttl);
-        return bucket.count;
+        const bucket = apply(await this.#cache!.get<Bucket>(cacheKey));
+        if (!bucket) return 0;
+        await this.#cache!.put(cacheKey, bucket, Math.ceil(bucket.window / 500));
+        return attemptsOf(bucket, Date.now());
       })();
     }
-    const bucket = this.#buckets.get(key);
-    if (!bucket || Date.now() >= bucket.resetAt) return 0;
-    bucket.count = Math.max(0, bucket.count - amount);
-    return bucket.count;
+    const bucket = apply(this.#buckets.get(key));
+    if (!bucket) return 0;
+    this.#buckets.set(key, bucket);
+    return attemptsOf(bucket, Date.now());
   }
 
   /** Reset attempts for a key. */
