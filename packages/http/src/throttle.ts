@@ -19,7 +19,9 @@ export type ThrottleOptions = {
 };
 
 function tooManyResponse(result: RateLimitResult): Response {
-  return new Response(JSON.stringify({ message: "Too Many Attempts." }), {
+  const seconds = result.retryAfter;
+  const message = `Too Many Attempts. Please try again in ${seconds} ${seconds === 1 ? "second" : "seconds"}.`;
+  return new Response(JSON.stringify({ message, retry_after: seconds }), {
     status: 429,
     headers: {
       "Content-Type": "application/json",
@@ -78,7 +80,7 @@ export function throttle(
             if (limit.isUnlimited()) continue;
             const key = `named:${name}:${limit.key || request.ip()}`;
             if (await rateLimiter.tooManyAttempts(key, limit.maxAttempts)) {
-              const retryAfter = await rateLimiter.availableIn(key);
+              const retryAfter = await rateLimiter.availableIn(key, limit.maxAttempts);
               return blockedResponse(limit, {
                 allowed: false,
                 limit: limit.maxAttempts,

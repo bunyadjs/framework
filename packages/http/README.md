@@ -31,6 +31,18 @@ await res.json();               // { id: "5" }
 abort(404, "Not here"); // throws HttpException with status 404
 ```
 
+## Rate limiting
+
+`throttle` and `RateLimiter` use a sliding window (a weighted two-window counter), so a client cannot burst `2 × max` across a window boundary. Counters are per process by default; call `getRateLimiter().use(cache)` to share them across workers.
+
+```ts
+Route.post("/login", handler).middleware("throttle:5,1"); // 5 per minute, keyed by IP
+```
+
+- Blocked requests are not counted, so retrying does not extend the lockout.
+- A 429 carries a `Retry-After` header and a body of `{ message, retry_after }`.
+- `limiter.availableIn(key, maxAttempts)` returns the seconds until the next hit is allowed. Pass `maxAttempts` for an exact answer.
+
 ## Notes
 
 - Bun-only runtime (Bun 1.4 or newer).

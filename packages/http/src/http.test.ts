@@ -758,6 +758,9 @@ test("request.ip and throttle middleware", async () => {
   const blocked = await mw.handle(req, async () => json({ ok: true }));
   expect(blocked.status).toBe(429);
   expect(blocked.headers.get("Retry-After")).toBeTruthy();
+  const body = (await blocked.json()) as { message: string; retry_after: number };
+  expect(body.retry_after).toBe(Number(blocked.headers.get("Retry-After")));
+  expect(body.message).toContain(`try again in ${body.retry_after}`);
 });
 
 test("request has integer merge path wantsJson", async () => {
@@ -1442,4 +1445,57 @@ test("Limit.after counts only matching responses and blocks before the handler o
   // The handler no longer runs, even for a request that would succeed.
   expect((await mw.handle(req(), respond(200))).status).toBe(429);
   expect(handled).toBe(before);
+});
+
+test("RateLimiter slides: no 2x burst across a window boundary", () => {
+  const realNow = Date.now;
+  let now = 1_000_000;
+  Date.now = () => now;
+  try {
+    const limiter = new RateLimiter();
+    const hit = () => limiter.attempt("burst", 5, 60) as RateLimitResult;
+
+    // Spend the whole limit; the window opens on the first hit.
+    for (let i = 0; i < 5; i++) expect(hit().allowed).toBe(true);
+    expect(hit().allowed).toBe(false);
+
+    // A fixed window would reset here and allow 5 more immediately.
+    now += 61_000;
+    expect(hit().allowed).toBe(false);
+
+    // Capacity returns gradually as the previous window's weight decays.
+    now += 12_000;
+    expect(hit().allowed).toBe(true);
+    expect(hit().allowed).toBe(false);
+
+    // A full idle window clears everything.
+    now += 120_000;
+    expect(limiter.attempts("burst")).toBe(0);
+    expect(hit().allowed).toBe(true);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("RateLimiter retryAfter matches when the next hit is allowed", () => {
+  const realNow = Date.now;
+  let now = 5_000_000;
+  Date.now = () => now;
+  try {
+    const limiter = new RateLimiter();
+    for (let i = 0; i < 4; i++) limiter.attempt("k", 4, 60);
+    const blocked = limiter.attempt("k", 4, 60) as RateLimitResult;
+    expect(blocked.allowed).toBe(false);
+    expect(limiter.tooManyAttempts("k", 4)).toBe(true);
+
+    // Waiting just short of retryAfter is still blocked; waiting it out is not.
+    const wait = blocked.retryAfter * 1000;
+    now += wait - 1_500;
+    expect((limiter.attempt("k", 4, 60) as RateLimitResult).allowed).toBe(false);
+    now += 1_500 + 1_000;
+    expect((limiter.attempt("k", 4, 60) as RateLimitResult).allowed).toBe(true);
+    expect(limiter.availableIn("k", 4)).toBeGreaterThanOrEqual(0);
+  } finally {
+    Date.now = realNow;
+  }
 });
