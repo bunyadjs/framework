@@ -2380,7 +2380,7 @@ export class QueryBuilder {
     withLimit: boolean;
     withLock: boolean;
   }): { sql: string; params: unknown[] } {
-    const cols = this.#columns?.join(", ") ?? "*";
+    const cols = this.#compileColumns();
     const { clause, params, joinSql } = this.#whereAndJoins();
     // Avoid empty spreads on the common path (no selectRaw / fromSub).
     const allParams =
@@ -2581,7 +2581,22 @@ export class QueryBuilder {
   #wrap(name: string): string {
     return wrapSqlName(this.#connection.dialect, name);
   }
+
+  /**
+   * Quote plain column names (`id`, `categories.order`) so reserved words work;
+   * expressions, aliases and `*` from `selectRaw`/`selectSub` pass through.
+   */
+  #compileColumns(): string {
+    if (this.#columns === null) return "*";
+    return this.#columns
+      .map((column) =>
+        PLAIN_COLUMN.test(column.trim()) ? this.#wrap(column) : column,
+      )
+      .join(", ");
+  }
 }
+
+const PLAIN_COLUMN = /^[A-Za-z_][A-Za-z0-9_]*(\.([A-Za-z_][A-Za-z0-9_]*|\*))*$/;
 
 function applyQueryCast(
   value: unknown,
