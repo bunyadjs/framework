@@ -178,7 +178,7 @@ export class RateLimited {
       const key = `job:${this.#limiterName ?? "inline"}:${limit.key || job.constructor.name}`;
       if (await limiter.tooManyAttempts(key, limit.maxAttempts)) {
         if (this.#shouldRelease) {
-          job.release((await limiter.availableIn(key)) || 1);
+          job.release((await limiter.availableIn(key, limit.maxAttempts)) || 1);
         }
         return;
       }
