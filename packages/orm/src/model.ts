@@ -15,7 +15,7 @@ import {
   withoutQueryWriteHook,
   wrapSqlName,
 } from "@bunyad/database";
-import { Collection } from "@bunyad/common";
+import { Collection, LazyCollection } from "@bunyad/common";
 import { OrmCollection } from "./orm-collection.ts";
 import {
   Attribute,
@@ -1779,6 +1779,40 @@ export class Model {
       cursor,
       options,
     );
+  }
+
+  /** `Model::cursor()`: stream models from a single query. */
+  static cursor<T extends typeof Model>(
+    this: T,
+    chunkSize?: number,
+  ): LazyCollection<InstanceType<T>> {
+    return this.newQuery().cursor(chunkSize);
+  }
+
+  /** `Model::lazy()`: chunked iteration, one query per chunk. */
+  static lazy<T extends typeof Model>(
+    this: T,
+    chunkSize?: number,
+  ): LazyCollection<InstanceType<T>> {
+    return this.newQuery().lazy(chunkSize);
+  }
+
+  /** `Model::lazyById()`: chunked iteration by primary key (safe while updating). */
+  static lazyById<T extends typeof Model>(
+    this: T,
+    chunkSize?: number,
+    column?: string,
+  ): LazyCollection<InstanceType<T>> {
+    return this.newQuery().lazyById(chunkSize, column);
+  }
+
+  /** `Model::lazyByIdDesc()`. */
+  static lazyByIdDesc<T extends typeof Model>(
+    this: T,
+    chunkSize?: number,
+    column?: string,
+  ): LazyCollection<InstanceType<T>> {
+    return this.newQuery().lazyByIdDesc(chunkSize, column);
   }
 
   /** `Model::create` (respects `$fillable` / `$guarded`). */

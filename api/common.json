@@ -5,6 +5,7 @@
   "Crypt",
   "DdException",
   "Fluent",
+  "LazyCollection",
   "Pipeline",
   "Str",
   "Stringable",

@@ -216,6 +216,18 @@ return attachConnectionContract(
     ): T[] {
       return sqliteAll(stmt(sqlText), params) as T[];
     },
+    /** Row-at-a-time on an uncached statement (a cached one would be busy for other callers). */
+    async *stream<T extends Record<string, unknown> = Record<string, unknown>>(
+      sqlText: string,
+      params: unknown[] = [],
+    ): AsyncGenerator<T, void, unknown> {
+      const statement = raw.prepare(sqlText);
+      try {
+        yield* statement.iterate(...sqliteParams(params)) as Iterable<T>;
+      } finally {
+        statement.finalize();
+      }
+    },
     async exec(sqlText: string) {
       stmt(sqlText).run();
     },

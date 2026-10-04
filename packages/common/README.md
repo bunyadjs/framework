@@ -1,6 +1,6 @@
 # @bunyad/common
 
-Shared utilities for [Bunyad](https://github.com/bunyadjs/framework) packages: `Collection`, `Str`/`Arr` helpers, `dataGet`/`dataSet`, pipelines, and `BunyadError`.
+Shared utilities for [Bunyad](https://github.com/bunyadjs/framework) packages: `Collection`, `LazyCollection`, `Str`/`Arr` helpers, `dataGet`/`dataSet`, pipelines, and `BunyadError`.
 
 > **Beta.** Public APIs change only in minor releases, with a changelog entry and migration note. See the [stability policy](https://github.com/bunyadjs/framework/blob/main/docs/STABILITY.md).
 

@@ -7,7 +7,7 @@ type ItemCallback<T, R> = (item: T, index: number) => R;
 type ItemPredicate<T> = (item: T, index: number) => boolean;
 type KeyRetriever<T> = string | ((item: T) => unknown);
 
-function valueAt(
+export function valueAt(
   item: unknown,
   key: string | ((item: unknown) => unknown),
 ): unknown {

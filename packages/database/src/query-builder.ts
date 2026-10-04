@@ -1,4 +1,4 @@
-import { Collection, collect } from "@bunyad/common";
+import { Collection, LazyCollection, collect } from "@bunyad/common";
 import type { Connection } from "./connection.ts";
 import type { DriverName } from "./dialect.ts";
 import { isMysqlFamily, wrapSqlName } from "./dialect.ts";
@@ -1790,13 +1790,33 @@ export class QueryBuilder {
   }
 
   /**
-   * Async iterator over rows (chunked under the hood).
-   * Implemented as a method returning AsyncGenerator so scanners detect `cursor`.
+   * `cursor()` — stream rows from a single query without buffering the result
+   * set. Drivers with a real streaming primitive (SQLite, Postgres, Node MySQL)
+   * keep one statement/cursor open; others fall back to `lazy()` chunking.
+   * Prefer `lazyById()` when the loop body writes to the same table.
    */
-  cursor(
-    chunkSize = 1000,
+  cursor(chunkSize = 1000): LazyCollection<Record<string, unknown>> {
+    return new LazyCollection(() => this.#cursorRows(chunkSize));
+  }
+
+  async *#cursorRows(
+    chunkSize: number,
   ): AsyncGenerator<Record<string, unknown>, void, unknown> {
-    return this.#cursorPages(chunkSize);
+    const connection = this.#connection;
+    if (!connection.stream) {
+      yield* this.#cursorPages(chunkSize);
+      return;
+    }
+    const { sql, params } = this.#compileSelect();
+    let hasCasts = false;
+    for (const _ in this.#casts) {
+      hasCasts = true;
+      break;
+    }
+    const size = Math.max(1, Math.floor(chunkSize));
+    for await (const row of connection.stream(sql, params, { chunkSize: size })) {
+      yield hasCasts ? this.#applyCasts(row) : row;
+    }
   }
 
   async *#cursorPages(
@@ -1813,23 +1833,23 @@ export class QueryBuilder {
     }
   }
 
-  /** Same as cursor (lazy chunked iteration). */
-  lazy(chunkSize = 1000): AsyncGenerator<Record<string, unknown>, void, unknown> {
-    return this.cursor(chunkSize);
+  /** `lazy()` — chunked `LIMIT/OFFSET` iteration (one query per chunk). */
+  lazy(chunkSize = 1000): LazyCollection<Record<string, unknown>> {
+    return new LazyCollection(() => this.#cursorPages(chunkSize));
   }
 
   lazyById(
     chunkSize = 1000,
     column = "id",
-  ): AsyncGenerator<Record<string, unknown>, void, unknown> {
-    return this.#lazyById(chunkSize, column, "asc");
+  ): LazyCollection<Record<string, unknown>> {
+    return new LazyCollection(() => this.#lazyById(chunkSize, column, "asc"));
   }
 
   lazyByIdDesc(
     chunkSize = 1000,
     column = "id",
-  ): AsyncGenerator<Record<string, unknown>, void, unknown> {
-    return this.#lazyById(chunkSize, column, "desc");
+  ): LazyCollection<Record<string, unknown>> {
+    return new LazyCollection(() => this.#lazyById(chunkSize, column, "desc"));
   }
 
   async *#lazyById(

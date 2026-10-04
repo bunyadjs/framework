@@ -105,6 +105,91 @@ async function tryMysql(): Promise<Connection | null> {
   }
 }
 
+/** Shared `Connection.stream` / `cursor()` contract, run against every Node driver that supports it. */
+async function assertStreamConformance(connection: Connection, table: string) {
+  assert.equal(typeof connection.stream, "function");
+  const schema = schemaFor(connection);
+  await schema.dropIfExists(table);
+  await schema.create(table, (t) => {
+    t.id();
+    t.string("name");
+    t.integer("qty");
+  });
+  const db = new DatabaseManager(connection);
+  const total = 30;
+  const collect = async <T>(rows: AsyncIterable<T>) => {
+    const out: T[] = [];
+    for await (const row of rows) out.push(row);
+    return out;
+  };
+  try {
+    for (let i = 1; i <= total; i++) {
+      await db.table(table).insert({ name: `n${i}`, qty: i % 3 });
+    }
+
+    // Whole table, in order, across several fetch chunks.
+    const all = await collect(db.table(table).orderBy("id").cursor(7));
+    assert.equal(all.length, total);
+    assert.deepEqual(
+      all.map((r) => Number(r.id)),
+      Array.from({ length: total }, (_, i) => i + 1),
+    );
+    assert.deepEqual(all, (await db.table(table).orderBy("id").get()).all());
+
+    // Bound parameters.
+    const filtered = await collect(
+      db.table(table).where("qty", 1).where("id", ">", 10).orderBy("id").cursor(3),
+    );
+    assert.deepEqual(
+      filtered.map((r) => Number(r.id)),
+      [13, 16, 19, 22, 25, 28],
+    );
+
+    // Empty result.
+    assert.deepEqual(await collect(db.table(table).where("id", -1).cursor()), []);
+
+    // More abandoned streams than pooled connections: leaks would hang here.
+    for (let i = 0; i < 6; i++) {
+      let taken = 0;
+      for await (const _row of db.table(table).orderBy("id").cursor(4)) {
+        if (++taken === 2) break;
+      }
+      assert.equal(taken, 2);
+    }
+    assert.equal(Number(await db.table(table).count()), total);
+
+    // Chaining + early termination (first / take) also releases the connection.
+    for (let i = 0; i < 6; i++) {
+      assert.ok(await db.table(table).orderBy("id").cursor(4).first());
+      assert.equal(await db.table(table).orderBy("id").cursor(4).take(2).count(), 2);
+    }
+    assert.deepEqual(
+      await db.table(table).orderBy("id").cursor(4).filter((r) => r.qty === 0).take(3).pluck("name").toArray(),
+      ["n3", "n6", "n9"],
+    );
+    assert.equal(Number(await db.table(table).count()), total);
+
+    // Inside a transaction: sees its own writes, and an abandoned stream
+    // leaves the transaction usable.
+    await connection.transaction(async () => {
+      await db.table(table).insert({ name: "tx-row", qty: 9 });
+      assert.equal((await collect(db.table(table).where("qty", 9).cursor())).length, 1);
+      let taken = 0;
+      for await (const _row of db.table(table).orderBy("id").cursor(5)) {
+        if (++taken === 2) break;
+      }
+      assert.equal(Number(await db.table(table).count()), total + 1);
+    });
+    assert.equal(Number(await db.table(table).count()), total + 1);
+
+    // Errors surface from the iterator and do not poison the connection.
+    await assert.rejects(collect(db.table(`${table}_missing`).cursor()));
+    assert.equal(Number(await db.table(table).count()), total + 1);
+  } finally {
+    await schema.dropIfExists(table);
+  }
+}
+
 describe("Node peer fail-fast", () => {
   it("loadPg returns the pg module when installed", () => {
     const pg = loadPg();
@@ -271,6 +356,12 @@ describe("Read/write routing (in-memory stubs)", () => {
 });
 
 describe("Node SQLite better-sqlite3 (in-memory)", () => {
+  it("stream / cursor conformance", async () => {
+    const connection = connectSqlite({ path: ":memory:" });
+    await assertStreamConformance(connection, "n6_sqlite_stream");
+    await connection.close();
+  });
+
   it("run/get/all/exec + sync helpers parity", async () => {
     const connection = connectSqlite({ path: ":memory:" });
     const schema = schemaFor(connection);
@@ -390,6 +481,14 @@ describe("Node Postgres live (skip unless BUNYAD_TEST_POSTGRES_URL / DATABASE_UR
 
   after(async () => {
     if (connection) await connection.close();
+  });
+
+  it("stream / cursor conformance (server-side cursor)", async (t) => {
+    if (!connection) {
+      t.skip("Postgres unavailable — set BUNYAD_TEST_POSTGRES_URL (or DATABASE_URL) to a reachable postgres:// URL");
+      return;
+    }
+    await assertStreamConformance(connection, "n6_pg_stream");
   });
 
   it("run/get/all/exec + affectedRows parity", async (t) => {
@@ -548,6 +647,16 @@ describe("Node MySQL live (skip unless BUNYAD_TEST_MYSQL_URL / mysql DATABASE_UR
 
   after(async () => {
     if (connection) await connection.close();
+  });
+
+  it("stream / cursor conformance (mysql2 stream)", async (t) => {
+    if (!connection) {
+      t.skip(
+        "MySQL unavailable — set BUNYAD_TEST_MYSQL_URL (or mysql:// DATABASE_URL) to a reachable URL",
+      );
+      return;
+    }
+    await assertStreamConformance(connection, "n6_mysql_stream");
   });
 
   it("run/get/all/exec + insertGetId", async (t) => {

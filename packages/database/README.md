@@ -39,6 +39,38 @@ Install the driver you need as a peer dependency: `better-sqlite3`, `pg` or `mys
 
 Don't call `close()` or `pool.end()` while a transaction still holds a reserved client.
 
+## Iterating large result sets
+
+`cursor()` runs one query and yields rows as they arrive, so memory stays flat on big tables. `lazy()` and `lazyById()` page through the table with one query per chunk. All of them return a `LazyCollection` (from `@bunyad/common`): loop over it with `for await`, or chain on it.
+
+```ts
+for await (const row of DB.table("orders").where("status", "open").cursor()) {
+  // one row at a time
+}
+
+const ids = await DB.table("orders")
+  .cursor()
+  .filter((row) => row.total > 100)
+  .map((row) => row.id)
+  .take(50)
+  .toArray();
+```
+
+`LazyCollection` transforms (`map`, `filter`, `reject`, `flatMap`, `tap`, `take`, `skip`, `takeWhile`, `takeUntil`, `skipWhile`, `chunk`, `pluck`, `unique`) are lazy and accept async callbacks. Terminal methods (`each`, `first`, `last`, `count`, `sum`, `avg`, `min`, `max`, `reduce`, `contains`, `every`, `isEmpty`, `toArray`, `collect`) return a promise. Stopping early (`take`, `first`, `each` returning `false`) releases the cursor. Iterating a `LazyCollection` twice runs the query twice.
+
+| Driver | `cursor()` |
+|---|---|
+| `bun:sqlite`, `better-sqlite3` | one statement, row at a time |
+| Postgres (Bun SQL and `pg`) | server-side cursor, `chunkSize` rows per round trip |
+| MySQL / MariaDB (`mysql2`) | one streamed query |
+| MySQL / MariaDB (Bun SQL), SQL Server | no streaming primitive, so it falls back to `lazy()` |
+
+Things to know:
+
+- Abandoning the loop early (`break`) releases the statement, cursor or connection.
+- Inside `transaction()` the stream reuses the transaction's connection and sees its writes.
+- `better-sqlite3` rejects writes on the same connection while a stream is open, and `mysql2` holds a pool connection until the stream ends. If the loop body writes to the table you are reading, use `lazyById()`.
+
 ## Status
 
 SQLite is the most tested driver. PostgreSQL and MySQL have live-database test gates (`BUNYAD_TEST_POSTGRES_URL`, `BUNYAD_TEST_MYSQL_URL`) that are skipped when unset. SQL Server support is experimental.

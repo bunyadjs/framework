@@ -101,8 +101,33 @@ export function attachConnectionContract(
       }) as (...args: A) => R;
     };
 
+  const coreStream = core.stream?.bind(core);
+  const stream = coreStream
+    ? async function* (
+        sql: string,
+        params: unknown[] = [],
+        options?: StreamOptions,
+      ): AsyncGenerator<Record<string, unknown>, void, unknown> {
+        const listening = hasQueryListeners();
+        const start = performance.now();
+        try {
+          yield* coreStream(sql, params, options);
+        } finally {
+          if (listening) {
+            fireQueryExecuted({
+              sql,
+              bindings: params,
+              timeMs: performance.now() - start,
+              connection,
+            });
+          }
+        }
+      }
+    : undefined;
+
   const connection = {
     ...core,
+    stream,
     getDriverName() {
       return driverNameOf(core.driver);
     },
@@ -172,6 +197,11 @@ export function attachConnectionContract(
 }
 
 
+export type StreamOptions = {
+  /** Rows fetched per round trip by cursor-based drivers (default 1000). */
+  chunkSize?: number;
+};
+
 export type Connection = {
   readonly driver: DriverName;
   readonly dialect: Dialect;
@@ -215,6 +245,18 @@ export type Connection = {
     sql: string,
     params?: unknown[],
   ): T[];
+  /**
+   * Stream rows from a single query without buffering the result set
+   * (`Query::cursor()`). Optional: only drivers with a real streaming primitive
+   * implement it (SQLite, Postgres, Node MySQL); callers fall back to chunked
+   * pagination when it is absent. Abandoning the iterator early releases the
+   * underlying statement / cursor / connection.
+   */
+  stream?<T extends Record<string, unknown> = Record<string, unknown>>(
+    sql: string,
+    params?: unknown[],
+    options?: StreamOptions,
+  ): AsyncGenerator<T, void, unknown>;
   exec(sql: string): Promise<void>;
   /**
    * Run INSERT and return the new primary key.

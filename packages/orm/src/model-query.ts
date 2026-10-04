@@ -12,7 +12,7 @@ import {
   resolvePaginatorPage,
   wrapSqlName,
 } from "@bunyad/database";
-import { Collection } from "@bunyad/common";
+import { Collection, LazyCollection } from "@bunyad/common";
 import { OrmCollection } from "./orm-collection.ts";
 import {
   bootIfNotBooted,
@@ -3550,8 +3550,48 @@ export class ModelQuery<
     }
   }
 
+  /**
+   * `cursor($chunkSize)` — hydrate models one at a time from a single streamed
+   * query, so memory stays flat on large tables. `with()` relations are loaded
+   * per batch of `chunkSize` models rather than per row.
+   */
+  cursor(chunkSize = 1000): LazyCollection<T> {
+    return new LazyCollection(() => this.#cursorModels(chunkSize));
+  }
+
+  async *#cursorModels(chunkSize: number): AsyncGenerator<T, void, unknown> {
+    const size = Math.max(1, Math.floor(chunkSize));
+    const fireRetrieved = hasModelEventListeners(this.model, "retrieved");
+    const eager = this.#eagerLoad.length > 0;
+    let batch: T[] = [];
+    for await (const row of this.#buildQuery().cursor(size)) {
+      const model = this.#makeModel(row);
+      if (fireRetrieved) {
+        await fireModelEvent(model, "retrieved");
+      }
+      if (!eager) {
+        yield model;
+        continue;
+      }
+      batch.push(model);
+      if (batch.length >= size) {
+        await this.#loadEager(batch);
+        yield* batch;
+        batch = [];
+      }
+    }
+    if (batch.length > 0) {
+      await this.#loadEager(batch);
+      yield* batch;
+    }
+  }
+
   /** `lazy($chunkSize)`. */
-  async *lazy(chunkSize = 1000): AsyncGenerator<T, void, unknown> {
+  lazy(chunkSize = 1000): LazyCollection<T> {
+    return new LazyCollection(() => this.#lazyPages(chunkSize));
+  }
+
+  async *#lazyPages(chunkSize: number): AsyncGenerator<T, void, unknown> {
     let page = 1;
     const fireRetrieved = hasModelEventListeners(this.model, "retrieved");
     for (;;) {
@@ -3616,18 +3656,16 @@ export class ModelQuery<
   }
 
   /** `lazyById`. */
-  async *lazyById(
-    chunkSize = 1000,
-    column?: string,
-  ): AsyncGenerator<T, void, unknown> {
-    yield* this.#lazyById(chunkSize, column ?? this.model.primaryKey, "asc");
+  lazyById(chunkSize = 1000, column?: string): LazyCollection<T> {
+    return new LazyCollection(() =>
+      this.#lazyById(chunkSize, column ?? this.model.primaryKey, "asc"),
+    );
   }
 
-  async *lazyByIdDesc(
-    chunkSize = 1000,
-    column?: string,
-  ): AsyncGenerator<T, void, unknown> {
-    yield* this.#lazyById(chunkSize, column ?? this.model.primaryKey, "desc");
+  lazyByIdDesc(chunkSize = 1000, column?: string): LazyCollection<T> {
+    return new LazyCollection(() =>
+      this.#lazyById(chunkSize, column ?? this.model.primaryKey, "desc"),
+    );
   }
 
   async *#lazyById(

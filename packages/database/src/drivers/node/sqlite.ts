@@ -23,6 +23,7 @@ type SqliteStatement = {
   run(...params: unknown[]): SqliteRunResult;
   get(...params: unknown[]): unknown;
   all(...params: unknown[]): unknown[];
+  iterate(...params: unknown[]): IterableIterator<unknown>;
 };
 
 /** Fail-fast when the optional `better-sqlite3` peer is not installed. */
@@ -247,6 +248,17 @@ export function connectSqlite(options: SqliteOptions = {}): Connection {
         params: unknown[] = [],
       ): T[] {
         return sqliteAll(stmt(sqlText), params) as T[];
+      },
+      /**
+       * Row-at-a-time on an uncached statement. better-sqlite3 rejects writes on
+       * the same connection while an iterator is open, so buffer first if the loop body writes.
+       */
+      async *stream<T extends Record<string, unknown> = Record<string, unknown>>(
+        sqlText: string,
+        params: unknown[] = [],
+      ): AsyncGenerator<T, void, unknown> {
+        const statement = raw.prepare(sqlText) as unknown as SqliteStatement;
+        yield* statement.iterate(...sqliteParams(params)) as Iterable<T>;
       },
       async exec(sqlText: string) {
         raw.exec(sqlText);

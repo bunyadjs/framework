@@ -51,6 +51,28 @@ await User.query().count();
 
 Relations load lazily (`await user.posts().get()`) or eagerly (`User.with("posts")`).
 
+## Large tables
+
+```ts
+for await (const user of User.where("active", true).cursor()) {
+  // hydrated one model at a time from a single streamed query
+}
+
+for await (const user of User.cursor()) {} // whole table
+```
+
+`User.cursor()`, `User.lazy()`, `User.lazyById()` and `User.lazyByIdDesc()` are also available as statics. They return a `LazyCollection`, so you can chain without loading the table:
+
+```ts
+const emails = await User.cursor()
+  .filter((user) => user.active)
+  .map((user) => user.email)
+  .take(100)
+  .toArray();
+```
+
+`cursor()` keeps memory flat and fires `retrieved` events. `with()` relations are loaded per batch of `chunkSize` models (default 1000), not per row. Use `lazyById()` when the loop updates the rows it reads. See `@bunyad/database` for per-driver behavior.
+
 ## Drivers
 
 Pick one and install it next to `@bunyad/database`: `better-sqlite3`, `pg` or `mysql2`. Bun uses its built-in drivers.
