@@ -14,6 +14,7 @@ import {
   shouldCaptureQueryCallerStack,
 } from "../../query-exception.ts";
 import { dateTimeForStorage } from "../../dates.ts";
+import { streamChunkSize } from "../../streaming.ts";
 import {
   attachConnectionContract,
   affectedRowsFromResult,
@@ -22,6 +23,7 @@ import {
   type ConnectionIdentity,
   type MariadbOptions,
   type MysqlOptions,
+  type StreamOptions,
 } from "../../connection-contract.ts";
 
 const require = createRequire(import.meta.url);
@@ -202,6 +204,56 @@ function createNodeMysqlConnection(
         const result = await runExecute(query, params);
         if (!Array.isArray(result)) return [];
         return result as T[];
+      },
+      /**
+       * Single-query row stream over mysql2's text protocol (prepared
+       * `execute()` cannot stream). A connection abandoned mid-result still has
+       * unread rows queued, so it is destroyed instead of returned to the pool.
+       */
+      async *stream<T extends Record<string, unknown> = Record<string, unknown>>(
+        query: string,
+        params: unknown[] = [],
+        options?: StreamOptions,
+      ): AsyncGenerator<T, void, unknown> {
+        const bound = dialect.bindSql(query);
+        const values = coerceParams(params, driver);
+        const callerStack = shouldCaptureQueryCallerStack()
+          ? new Error().stack
+          : null;
+        const reserved = reservedSql(txKey) as PoolConnection | undefined;
+        const connection = reserved ?? (await pool.getConnection());
+        let finished = false;
+        let rows: AsyncIterable<T> & { destroy(): unknown };
+        try {
+          rows = (
+            connection as unknown as {
+              connection: {
+                query(sql: string, values: unknown[]): {
+                  stream(options: { highWaterMark: number }): AsyncIterable<T> & {
+                    destroy(): unknown;
+                  };
+                };
+              };
+            }
+          ).connection
+            .query(bound, values)
+            .stream({ highWaterMark: streamChunkSize(options) });
+        } catch (error) {
+          if (!reserved) connection.release();
+          throw QueryException.wrap(error, { sql: bound, bindings: values, callerStack });
+        }
+        try {
+          for await (const row of rows) yield row;
+          finished = true;
+        } catch (error) {
+          throw QueryException.wrap(error, { sql: bound, bindings: values, callerStack });
+        } finally {
+          rows.destroy();
+          if (!reserved) {
+            if (finished) connection.release();
+            else connection.destroy();
+          }
+        }
       },
       async exec(query: string) {
         await runQueryText(query);

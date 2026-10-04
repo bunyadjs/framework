@@ -1790,13 +1790,35 @@ export class QueryBuilder {
   }
 
   /**
-   * Async iterator over rows (chunked under the hood).
-   * Implemented as a method returning AsyncGenerator so scanners detect `cursor`.
+   * `cursor()` — stream rows from a single query without buffering the result
+   * set. Drivers with a real streaming primitive (SQLite, Postgres, Node MySQL)
+   * keep one statement/cursor open; others fall back to `lazy()` chunking.
+   * Prefer `lazyById()` when the loop body writes to the same table.
    */
   cursor(
     chunkSize = 1000,
   ): AsyncGenerator<Record<string, unknown>, void, unknown> {
-    return this.#cursorPages(chunkSize);
+    return this.#cursorRows(chunkSize);
+  }
+
+  async *#cursorRows(
+    chunkSize: number,
+  ): AsyncGenerator<Record<string, unknown>, void, unknown> {
+    const connection = this.#connection;
+    if (!connection.stream) {
+      yield* this.#cursorPages(chunkSize);
+      return;
+    }
+    const { sql, params } = this.#compileSelect();
+    let hasCasts = false;
+    for (const _ in this.#casts) {
+      hasCasts = true;
+      break;
+    }
+    const size = Math.max(1, Math.floor(chunkSize));
+    for await (const row of connection.stream(sql, params, { chunkSize: size })) {
+      yield hasCasts ? this.#applyCasts(row) : row;
+    }
   }
 
   async *#cursorPages(
@@ -1813,9 +1835,9 @@ export class QueryBuilder {
     }
   }
 
-  /** Same as cursor (lazy chunked iteration). */
+  /** `lazy()` — chunked `LIMIT/OFFSET` iteration (one query per chunk). */
   lazy(chunkSize = 1000): AsyncGenerator<Record<string, unknown>, void, unknown> {
-    return this.cursor(chunkSize);
+    return this.#cursorPages(chunkSize);
   }
 
   lazyById(

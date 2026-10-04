@@ -9,6 +9,7 @@ import {
   shouldCaptureQueryCallerStack,
 } from "../../query-exception.ts";
 import { dateTimeForStorage } from "../../dates.ts";
+import { postgresCursorRows, streamChunkSize } from "../../streaming.ts";
 import {
   attachConnectionContract,
   affectedRowsFromResult,
@@ -16,6 +17,7 @@ import {
   type Connection,
   type ConnectionIdentity,
   type PostgresOptions,
+  type StreamOptions,
 } from "../../connection-contract.ts";
 import {
   postgresConnectionUrl,
@@ -176,6 +178,41 @@ function createNodePostgresConnection(
       ): Promise<T[]> {
         const result = await runQuery(query, params);
         return result.rows as T[];
+      },
+      /**
+       * Server-side cursor on one session: reuses the open transaction, else
+       * borrows a pooled client for a short read transaction.
+       */
+      async *stream<T extends Record<string, unknown> = Record<string, unknown>>(
+        query: string,
+        params: unknown[] = [],
+        options?: StreamOptions,
+      ): AsyncGenerator<T, void, unknown> {
+        const bound = dialect.bindSql(query);
+        const values = coerceParams(params);
+        const callerStack = shouldCaptureQueryCallerStack()
+          ? new Error().stack
+          : null;
+        const reserved = reservedSql(txKey) as PoolClient | undefined;
+        const client = reserved ?? (await pool.connect());
+        const exec = async (text: string, binds?: unknown[]) =>
+          (await client.query(text, binds)).rows as Record<string, unknown>[];
+        try {
+          if (!reserved) await client.query("BEGIN");
+          yield* postgresCursorRows(
+            exec,
+            bound,
+            values,
+            streamChunkSize(options),
+          ) as AsyncGenerator<T, void, unknown>;
+        } catch (error) {
+          throw QueryException.wrap(error, { sql: bound, bindings: values, callerStack });
+        } finally {
+          if (!reserved) {
+            await client.query("ROLLBACK").catch(() => undefined);
+            client.release();
+          }
+        }
       },
       async exec(query: string) {
         await runQuery(query);

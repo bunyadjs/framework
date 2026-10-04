@@ -118,6 +118,12 @@ export function createReadWriteConnection(
       }
       return target.allSync(sql, params);
     },
+    stream:
+      read.stream && write.stream
+        ? (async function* (sql, params, options) {
+            yield* forRead().stream!(sql, params, options);
+          } as NonNullable<Connection["stream"]>)
+        : undefined,
     async exec(sql) {
       return forWrite().exec(sql);
     },

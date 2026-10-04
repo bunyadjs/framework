@@ -17,11 +17,13 @@ import {
   type MariadbOptions,
   type MysqlOptions,
   type PostgresOptions,
+  type StreamOptions,
 } from "../../connection-contract.ts";
 import {
   sanitizePostgresUrl,
   postgresConnectionUrl,
 } from "../../postgres-url.ts";
+import { postgresCursorRows, streamChunkSize } from "../../streaming.ts";
 
 /** Bun SQL stringifies `Date` binds (`GMT+0500 …`); send driver-native datetime text instead. */
 function coerceParams(
@@ -139,6 +141,53 @@ return attachConnectionContract(
       const rows = await runUnsafe(query, params);
       return [...rows] as T[];
     },
+    /**
+     * Postgres only: Bun SQL has no cursor API, so use a server-side cursor on
+     * one reserved session (reusing the open transaction when there is one).
+     * MySQL/MariaDB have no equivalent here and fall back to chunked paging.
+     */
+    ...(driver === "postgres"
+      ? {
+          async *stream<
+            T extends Record<string, unknown> = Record<string, unknown>,
+          >(
+            query: string,
+            rawParams: unknown[] = [],
+            options?: StreamOptions,
+          ): AsyncGenerator<T, void, unknown> {
+            const params = coerceParams(driver, rawParams);
+            const bound = dialect.bindSql(query);
+            const callerStack = shouldCaptureQueryCallerStack()
+              ? new Error().stack
+              : null;
+            const inTransaction = reservedSql(txKey) as ReservedSQL | undefined;
+            const session = inTransaction ?? (await client.reserve());
+            const exec = async (text: string, binds: unknown[] = []) => [
+              ...((await session.unsafe(text, binds)) as Record<string, unknown>[]),
+            ];
+            try {
+              if (!inTransaction) await exec("BEGIN");
+              yield* postgresCursorRows(
+                exec,
+                bound,
+                params,
+                streamChunkSize(options),
+              ) as AsyncGenerator<T, void, unknown>;
+            } catch (error) {
+              throw QueryException.wrap(error, {
+                sql: bound,
+                bindings: params,
+                callerStack,
+              });
+            } finally {
+              if (!inTransaction) {
+                await exec("ROLLBACK").catch(() => undefined);
+                session.release();
+              }
+            }
+          },
+        }
+      : {}),
     async exec(query: string) {
       await runUnsafe(query);
     },

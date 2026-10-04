@@ -3550,6 +3550,38 @@ export class ModelQuery<
     }
   }
 
+  /**
+   * `cursor($chunkSize)` — hydrate models one at a time from a single streamed
+   * query, so memory stays flat on large tables. `with()` relations are loaded
+   * per batch of `chunkSize` models rather than per row.
+   */
+  async *cursor(chunkSize = 1000): AsyncGenerator<T, void, unknown> {
+    const size = Math.max(1, Math.floor(chunkSize));
+    const fireRetrieved = hasModelEventListeners(this.model, "retrieved");
+    const eager = this.#eagerLoad.length > 0;
+    let batch: T[] = [];
+    for await (const row of this.#buildQuery().cursor(size)) {
+      const model = this.#makeModel(row);
+      if (fireRetrieved) {
+        await fireModelEvent(model, "retrieved");
+      }
+      if (!eager) {
+        yield model;
+        continue;
+      }
+      batch.push(model);
+      if (batch.length >= size) {
+        await this.#loadEager(batch);
+        yield* batch;
+        batch = [];
+      }
+    }
+    if (batch.length > 0) {
+      await this.#loadEager(batch);
+      yield* batch;
+    }
+  }
+
   /** `lazy($chunkSize)`. */
   async *lazy(chunkSize = 1000): AsyncGenerator<T, void, unknown> {
     let page = 1;
