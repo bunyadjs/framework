@@ -1,4 +1,4 @@
-import { Collection, collect } from "@bunyad/common";
+import { Collection, LazyCollection, collect } from "@bunyad/common";
 import type { Connection } from "./connection.ts";
 import type { DriverName } from "./dialect.ts";
 import { isMysqlFamily, wrapSqlName } from "./dialect.ts";
@@ -1795,10 +1795,8 @@ export class QueryBuilder {
    * keep one statement/cursor open; others fall back to `lazy()` chunking.
    * Prefer `lazyById()` when the loop body writes to the same table.
    */
-  cursor(
-    chunkSize = 1000,
-  ): AsyncGenerator<Record<string, unknown>, void, unknown> {
-    return this.#cursorRows(chunkSize);
+  cursor(chunkSize = 1000): LazyCollection<Record<string, unknown>> {
+    return new LazyCollection(() => this.#cursorRows(chunkSize));
   }
 
   async *#cursorRows(
@@ -1836,22 +1834,22 @@ export class QueryBuilder {
   }
 
   /** `lazy()` — chunked `LIMIT/OFFSET` iteration (one query per chunk). */
-  lazy(chunkSize = 1000): AsyncGenerator<Record<string, unknown>, void, unknown> {
-    return this.#cursorPages(chunkSize);
+  lazy(chunkSize = 1000): LazyCollection<Record<string, unknown>> {
+    return new LazyCollection(() => this.#cursorPages(chunkSize));
   }
 
   lazyById(
     chunkSize = 1000,
     column = "id",
-  ): AsyncGenerator<Record<string, unknown>, void, unknown> {
-    return this.#lazyById(chunkSize, column, "asc");
+  ): LazyCollection<Record<string, unknown>> {
+    return new LazyCollection(() => this.#lazyById(chunkSize, column, "asc"));
   }
 
   lazyByIdDesc(
     chunkSize = 1000,
     column = "id",
-  ): AsyncGenerator<Record<string, unknown>, void, unknown> {
-    return this.#lazyById(chunkSize, column, "desc");
+  ): LazyCollection<Record<string, unknown>> {
+    return new LazyCollection(() => this.#lazyById(chunkSize, column, "desc"));
   }
 
   async *#lazyById(

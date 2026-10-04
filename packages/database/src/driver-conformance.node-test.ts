@@ -117,7 +117,7 @@ async function assertStreamConformance(connection: Connection, table: string) {
   });
   const db = new DatabaseManager(connection);
   const total = 30;
-  const collect = async <T>(rows: AsyncGenerator<T, void, unknown>) => {
+  const collect = async <T>(rows: AsyncIterable<T>) => {
     const out: T[] = [];
     for await (const row of rows) out.push(row);
     return out;
@@ -156,6 +156,17 @@ async function assertStreamConformance(connection: Connection, table: string) {
       }
       assert.equal(taken, 2);
     }
+    assert.equal(Number(await db.table(table).count()), total);
+
+    // Chaining + early termination (first / take) also releases the connection.
+    for (let i = 0; i < 6; i++) {
+      assert.ok(await db.table(table).orderBy("id").cursor(4).first());
+      assert.equal(await db.table(table).orderBy("id").cursor(4).take(2).count(), 2);
+    }
+    assert.deepEqual(
+      await db.table(table).orderBy("id").cursor(4).filter((r) => r.qty === 0).take(3).pluck("name").toArray(),
+      ["n3", "n6", "n9"],
+    );
     assert.equal(Number(await db.table(table).count()), total);
 
     // Inside a transaction: sees its own writes, and an abandoned stream

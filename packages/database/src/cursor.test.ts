@@ -27,7 +27,7 @@ async function seeded(connection: Connection, table = "cursor_items") {
   return db;
 }
 
-async function collectRows<T>(iterator: AsyncGenerator<T, void, unknown>) {
+async function collectRows<T>(iterator: AsyncIterable<T>) {
   const out: T[] = [];
   for await (const row of iterator) out.push(row);
   return out;
@@ -95,6 +95,45 @@ test("writing to the table while streaming it works", async () => {
   }
   expect(seen).toBe(ROWS);
   expect(await db.table("cursor_items").where("qty", 99).count()).toBe(ROWS);
+});
+
+test("cursor/lazy return a LazyCollection you can chain", async () => {
+  const { LazyCollection } = await import("@bunyad/common");
+  const db = await seeded(connectSqlite());
+  const cursor = db.table("cursor_items").orderBy("id").cursor(4);
+  expect(cursor).toBeInstanceOf(LazyCollection);
+  expect(db.table("cursor_items").lazy()).toBeInstanceOf(LazyCollection);
+
+  const names = await db
+    .table("cursor_items")
+    .orderBy("id")
+    .cursor(4)
+    .filter((row) => row.qty === 0)
+    .map((row) => row.name)
+    .take(3)
+    .toArray();
+  expect(names).toEqual(["item-5", "item-10", "item-15"]);
+
+  expect(await db.table("cursor_items").cursor().sum("qty")).toBe(
+    (await db.table("cursor_items").get()).all().reduce((t, r) => t + Number(r.qty), 0),
+  );
+  expect(await db.table("cursor_items").orderBy("id").cursor().first()).toMatchObject({ id: 1 });
+  const chunks = await db.table("cursor_items").orderBy("id").cursor(4).chunk(10).toArray();
+  expect(chunks.map((c) => c.count())).toEqual([10, 10, 5]);
+});
+
+test("take() on a cursor stops pulling rows", async () => {
+  const db = await seeded(connectSqlite());
+  let seen = 0;
+  const rows = await db
+    .table("cursor_items")
+    .orderBy("id")
+    .cursor()
+    .tap(() => void seen++)
+    .take(5)
+    .toArray();
+  expect(rows).toHaveLength(5);
+  expect(seen).toBe(5);
 });
 
 test("an empty result ends cleanly", async () => {
@@ -173,6 +212,12 @@ livePostgres("postgres cursor streams through a server-side cursor", async () =>
       const rows = await collectRows(db.table("cursor_items_pg").where("qty", 7).cursor());
       expect(rows).toHaveLength(1);
     });
+
+    // Chained, early-stopping use releases the session each time (pool is 4).
+    for (let i = 0; i < 10; i++) {
+      expect(await db.table("cursor_items_pg").orderBy("id").cursor(3).first()).not.toBeNull();
+      expect(await db.table("cursor_items_pg").orderBy("id").cursor(3).take(2).count()).toBe(2);
+    }
 
     // A failing query still frees the session.
     await expect(collectRows(db.table("no_such_table_pg").cursor())).rejects.toThrow();

@@ -41,13 +41,22 @@ Don't call `close()` or `pool.end()` while a transaction still holds a reserved 
 
 ## Iterating large result sets
 
-`cursor()` runs one query and yields rows as they arrive, so memory stays flat on big tables. `lazy()` and `lazyById()` page through the table with one query per chunk.
+`cursor()` runs one query and yields rows as they arrive, so memory stays flat on big tables. `lazy()` and `lazyById()` page through the table with one query per chunk. All of them return a `LazyCollection` (from `@bunyad/common`): loop over it with `for await`, or chain on it.
 
 ```ts
 for await (const row of DB.table("orders").where("status", "open").cursor()) {
   // one row at a time
 }
+
+const ids = await DB.table("orders")
+  .cursor()
+  .filter((row) => row.total > 100)
+  .map((row) => row.id)
+  .take(50)
+  .toArray();
 ```
+
+`LazyCollection` transforms (`map`, `filter`, `reject`, `flatMap`, `tap`, `take`, `skip`, `takeWhile`, `takeUntil`, `skipWhile`, `chunk`, `pluck`, `unique`) are lazy and accept async callbacks. Terminal methods (`each`, `first`, `last`, `count`, `sum`, `avg`, `min`, `max`, `reduce`, `contains`, `every`, `isEmpty`, `toArray`, `collect`) return a promise. Stopping early (`take`, `first`, `each` returning `false`) releases the cursor. Iterating a `LazyCollection` twice runs the query twice.
 
 | Driver | `cursor()` |
 |---|---|

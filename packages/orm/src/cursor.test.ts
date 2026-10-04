@@ -53,7 +53,7 @@ async function setup(connection: Connection, prefix: string) {
   return { Author, Post };
 }
 
-async function collect<T>(rows: AsyncGenerator<T, void, unknown>) {
+async function collect<T>(rows: AsyncIterable<T>) {
   const out: T[] = [];
   for await (const row of rows) out.push(row);
   return out;
@@ -97,6 +97,27 @@ test("cursor runs a single query while lazy pages", async () => {
 
   expect(cursorQueries).toBe(1);
   expect(seen.length).toBeGreaterThan(1);
+});
+
+test("model cursor chains like a LazyCollection", async () => {
+  const { LazyCollection } = await import("@bunyad/common");
+  const { Post } = await setup(connectSqlite(), "c9");
+  expect(Post.cursor()).toBeInstanceOf(LazyCollection);
+  expect(Post.query().lazy()).toBeInstanceOf(LazyCollection);
+
+  const titles = await Post.query()
+    .orderBy("id")
+    .cursor(4)
+    .filter((post) => Number(post.id) % 3 === 0)
+    .map((post) => post.title)
+    .toArray();
+  expect(titles).toEqual(["post-3", "post-6", "post-9", "post-12"]);
+
+  const first = await Post.query().orderBy("id").cursor().first();
+  expect(first).toBeInstanceOf(Post);
+  expect(first!.title).toBe("post-1");
+  expect(await Post.cursor().count()).toBe(12);
+  expect((await Post.query().orderBy("id").cursor(5).chunk(5).toArray()).map((c) => c.count())).toEqual([5, 5, 2]);
 });
 
 test("cursor fires retrieved for every model", async () => {
