@@ -29,6 +29,7 @@ Every response carries an `X-Debugbar-Id` header. The bar patches `fetch` and `X
 | Timeline | Request, `Debugbar.measure()` spans and queries on one time axis |
 | Queries | SQL, bindings and timing; duplicate, slow and possible N+1 queries flagged, each with the file and line that issued it; filter chips |
 | Request | General, route, query, body, headers, cookies, response headers |
+| Events | Events dispatched during the request, with listener counts, timing and a redacted payload; events nobody listens to are called out |
 | Logs | `@bunyad/log` calls made during the request |
 | Cache | Hits, misses, writes and forgets |
 | Exceptions | Server errors (status 500 and up) with stack traces |
@@ -66,6 +67,7 @@ export default {
   slowQueryMs: 100,
   nPlusOneThreshold: 5, // flag a read repeated this many times with different bindings
   queryOrigin: true,    // record the file:line that issued each query
+  eventsIgnore: ["CacheHit"], // names the Events tab skips (trailing * = prefix); cache events are skipped by default
   maxRecords: 500,      // per collector, per request
   except: ["/health"],  // path prefixes the bar ignores
   redact: [/ssn/i],     // extra key patterns to mask

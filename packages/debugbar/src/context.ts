@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { Request } from "@bunyad/http";
 import type {
   CacheRecord,
+  EventRecord,
   ExceptionRecord,
   LogRecord,
   MessageLevel,
@@ -22,6 +23,7 @@ export class RequestContext {
   readonly messages: MessageRecord[] = [];
   readonly logs: LogRecord[] = [];
   readonly cache: CacheRecord[] = [];
+  readonly events: EventRecord[] = [];
   readonly exceptions: ExceptionRecord[] = [];
 
   response?: Response;

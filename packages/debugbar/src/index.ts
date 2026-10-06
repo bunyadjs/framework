@@ -11,6 +11,7 @@ export type {
   CacheRecord,
   DebugbarOptions,
   DebugbarStore,
+  EventRecord,
   ExceptionRecord,
   LogRecord,
   MessageLevel,

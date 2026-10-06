@@ -11,6 +11,7 @@ export function resolveOptions(options: DebugbarOptions = {}): ResolvedDebugbarO
     slowQueryMs: options.slowQueryMs ?? 100,
     nPlusOneThreshold: options.nPlusOneThreshold ?? 5,
     queryOrigin: options.queryOrigin ?? true,
+    eventsIgnore: options.eventsIgnore ?? ["CacheHit", "CacheMissed", "KeyWritten", "KeyForgotten", "CacheFlushed"],
     maxRecords: options.maxRecords ?? 500,
     except: options.except ?? [],
     redact: options.redact ?? [],
