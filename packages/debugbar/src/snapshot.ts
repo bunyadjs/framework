@@ -1,5 +1,5 @@
 import type { RequestContext } from "./context.ts";
-import { analyzeQueries } from "./queries.ts";
+import { analyzeQueries, wallTimeMs } from "./queries.ts";
 import { sanitizeRecord, sanitizeStrings } from "./redact.ts";
 import type { ResolvedDebugbarOptions, Snapshot } from "./types.ts";
 
@@ -72,6 +72,7 @@ export async function buildSnapshot(
     queries: {
       count: context.queries.length,
       totalMs,
+      wallMs: wallTimeMs(context.queries),
       duplicates: analysis.duplicates,
       nPlusOne: analysis.nPlusOne,
       groups: analysis.groups,

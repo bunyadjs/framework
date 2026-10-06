@@ -32,7 +32,8 @@ const row = (s: Snapshot) => ({
   status: s.request.status,
   ms: Math.round(s.request.durationMs * 10) / 10,
   queries: s.queries.count,
-  queryMs: Math.round(s.queries.totalMs * 10) / 10,
+  /** Elapsed time in queries (parallel queries counted once). */
+  queryMs: Math.round((s.queries.wallMs ?? s.queries.totalMs) * 10) / 10,
   nPlusOne: s.queries.nPlusOne,
   exceptions: s.exceptions.length,
   events: s.events?.count ?? 0,
@@ -78,6 +79,7 @@ export function summarize(s: Snapshot) {
     ...row(s),
     url: s.request.url,
     route: s.request.route.name,
+    queryMsSummed: Math.round(s.queries.totalMs * 10) / 10,
     issues,
     counts: {
       queries: s.queries.count,
@@ -93,7 +95,7 @@ export function summarize(s: Snapshot) {
 
 const SECTIONS: Record<string, (s: Snapshot) => unknown> = {
   request: (s) => ({ ...s.request, headers: s.request.headers, cookies: s.request.cookies }),
-  queries: (s) => ({ summary: { count: s.queries.count, totalMs: s.queries.totalMs, duplicates: s.queries.duplicates, slow: s.queries.slow, nPlusOne: s.queries.nPlusOne }, groups: s.queries.groups, items: s.queries.items.slice(0, 50).map((q, i) => queryRow(q, i + 1)) }),
+  queries: (s) => ({ summary: { count: s.queries.count, elapsedMs: s.queries.wallMs ?? s.queries.totalMs, summedMs: s.queries.totalMs, duplicates: s.queries.duplicates, slow: s.queries.slow, nPlusOne: s.queries.nPlusOne }, groups: s.queries.groups, items: s.queries.items.slice(0, 50).map((q, i) => queryRow(q, i + 1)) }),
   events: (s) => s.events?.items.slice(0, 50) ?? [],
   logs: (s) => s.logs.slice(0, 100),
   cache: (s) => ({ hits: s.cache.hits, misses: s.cache.misses, writes: s.cache.writes, items: s.cache.items.slice(0, 100) }),
@@ -193,7 +195,7 @@ export function debugbarTools(store: () => DebugbarStore): McpTool[] {
           .filter(({ q }) => filter === "all" || (filter === "duplicates" && q.duplicate) || (filter === "slow" && q.slow) || (filter === "nplusone" && q.nPlusOne));
         return {
           request: `${snapshot.request.method} ${snapshot.request.path} (${snapshot.id})`,
-          summary: { count: snapshot.queries.count, totalMs: Math.round(snapshot.queries.totalMs * 10) / 10, duplicates: snapshot.queries.duplicates, slow: snapshot.queries.slow, nPlusOne: snapshot.queries.nPlusOne },
+          summary: { count: snapshot.queries.count, elapsedMs: Math.round((snapshot.queries.wallMs ?? snapshot.queries.totalMs) * 10) / 10, summedMs: Math.round(snapshot.queries.totalMs * 10) / 10, duplicates: snapshot.queries.duplicates, slow: snapshot.queries.slow, nPlusOne: snapshot.queries.nPlusOne },
           nPlusOneGroups: snapshot.queries.groups.map((g) => ({ count: g.count, totalMs: Math.round(g.totalMs * 10) / 10, sql: cut(g.sql), ...(g.origin ? { at: `${g.origin.file}:${g.origin.line}` } : {}) })),
           matching: items.length,
           queries: items.slice(0, limit).map(({ q, n }) => queryRow(q, n)),

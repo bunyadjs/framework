@@ -101,7 +101,10 @@ export type Snapshot = {
   };
   queries: {
     count: number;
+    /** Sum of every query's duration. Exceeds the request time when queries ran in parallel. */
     totalMs: number;
+    /** Time actually spent in queries: overlapping queries counted once. Absent in older stored snapshots. */
+    wallMs: number;
     duplicates: number;
     slow: number;
     /** Queries flagged as part of an N+1 pattern. */

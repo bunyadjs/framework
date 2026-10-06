@@ -60,6 +60,17 @@ const seed = async (...items: Snapshot[]) => {
   await store.flush();
 };
 
+test("request rows report elapsed query time, with the summed time in the summary", async () => {
+  const parallel = snapshot({ queries: { count: 2, totalMs: 10, wallMs: 5, duplicates: 0, slow: 0, nPlusOne: 0, groups: [], items: [] } });
+  const oldStored = snapshot({ queries: { count: 1, totalMs: 3, duplicates: 0, slow: 0, nPlusOne: 0, groups: [], items: [] } } as any); // no wallMs
+  await seed(parallel, oldStored);
+  const rows = (await call("debugbar_list_requests")).json().requests;
+  expect(rows.find((r: any) => r.id === parallel.id).queryMs).toBe(5);
+  expect(rows.find((r: any) => r.id === oldStored.id).queryMs).toBe(3); // falls back for older snapshots
+  expect((await call("debugbar_get_request", { id: parallel.id })).json().queryMsSummed).toBe(10);
+  expect((await call("debugbar_queries", { id: parallel.id })).json().summary).toMatchObject({ elapsedMs: 5, summedMs: 10 });
+});
+
 test("registers five namespaced tools", () => {
   expect(debugbarTools(() => store).map((t) => t.name)).toEqual([
     "debugbar_list_requests", "debugbar_get_request", "debugbar_queries", "debugbar_exceptions", "debugbar_logs",
