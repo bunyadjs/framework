@@ -25,6 +25,7 @@
     "@bunyad/contracts": "workspace:*",
     "@bunyad/core": "workspace:*",
     "@bunyad/database": "workspace:*",
+    "@bunyad/debugbar": "workspace:*",
     "@bunyad/events": "workspace:*",
     "@bunyad/filesystem": "workspace:*",
     "@bunyad/framework": "workspace:*",

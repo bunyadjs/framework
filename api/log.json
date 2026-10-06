@@ -6,6 +6,7 @@
   "StackChannel",
   "getLogChannel",
   "levelWeight",
+  "listenLog",
   "parseLevel",
   "resetLogChannelsForTests",
   "setDefaultLogChannel",

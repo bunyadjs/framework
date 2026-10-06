@@ -47,6 +47,8 @@ export {
   pickEditorFrame,
   groupStackFrames,
   exceptionChain,
+  listenException,
+  type ExceptionListener,
   queryExceptionInfo,
   type StackFrame,
   type ExceptionContext,
