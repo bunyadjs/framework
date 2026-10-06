@@ -14,6 +14,7 @@ import {
   acquireMutex,
   releaseMutex,
   zonedParts,
+  wrapScheduledRuns,
 } from "../src/index.ts";
 
 test("cronMatches every minute and hourly", () => {
@@ -453,4 +454,69 @@ test("dailyAt weeklyOn yearlyOn frequency expressions", async () => {
   expect(s.call(() => {}).daysOfMonth(1, 15).getExpression()).toBe(
     "* * 1,15 * *",
   );
+});
+
+test("wrapScheduledRuns wraps each task's callback, outermost first, and can be removed", async () => {
+  setScheduleMutexStore(undefined);
+  const s = new Schedule();
+  setSchedule(s);
+  const log: string[] = [];
+
+  schedule()
+    .call(async () => {
+      log.push("task");
+      return undefined;
+    })
+    .everyMinute()
+    .name("alpha");
+
+  const stopA = wrapScheduledRuns(async (info, run) => {
+    log.push(`A+ ${info.name} ${info.expression}`);
+    try {
+      return await run();
+    } finally {
+      log.push("A-");
+    }
+  });
+  const stopB = wrapScheduledRuns(async (_info, run) => {
+    log.push("B+");
+    const result = await run();
+    log.push("B-");
+    return result;
+  });
+
+  const at = new Date(2026, 0, 1, 10, 5, 0);
+  await s.run(at);
+  expect(log).toEqual(["A+ alpha * * * * *", "B+", "task", "B-", "A-"]);
+
+  stopA();
+  stopB();
+  log.length = 0;
+  await s.run(new Date(2026, 0, 1, 10, 6, 0)); // a new minute: a task runs once per minute
+  expect(log).toEqual(["task"]);
+});
+
+test("a wrapper sees the failure of a task, which still propagates", async () => {
+  setScheduleMutexStore(undefined);
+  const s = new Schedule();
+  setSchedule(s);
+  schedule()
+    .call(() => {
+      throw new Error("kaput");
+    })
+    .everyMinute()
+    .name("boom");
+
+  const seen: string[] = [];
+  const stop = wrapScheduledRuns(async (info, run) => {
+    try {
+      return await run();
+    } catch (error) {
+      seen.push(`${info.name}: ${(error as Error).message}`);
+      throw error;
+    }
+  });
+  await expect(s.run(new Date(2026, 0, 1, 10, 5, 0))).rejects.toThrow("kaput");
+  stop();
+  expect(seen).toEqual(["boom: kaput"]);
 });

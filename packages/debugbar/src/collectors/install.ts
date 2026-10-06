@@ -2,9 +2,10 @@ import { CacheHit, CacheMissed, KeyForgotten, KeyWritten, CacheFlushed } from "@
 import { listen as listenQueries } from "@bunyad/database";
 import { getEventDispatcher, listenDispatched } from "@bunyad/events";
 import { listenLog } from "@bunyad/log";
+import { wrapScheduledRuns } from "@bunyad/schedule";
 import { listenException, statusFromError } from "@bunyad/core";
 import { currentContext } from "../context.ts";
-import { toExceptionRecord } from "../debugbar.ts";
+import { Debugbar, toExceptionRecord } from "../debugbar.ts";
 import { captureOrigin } from "../origin.ts";
 import { createHash } from "node:crypto";
 import { MASK, isSecretKey, redactText, sanitize, sanitizeRecord, truncate } from "../redact.ts";
@@ -76,6 +77,9 @@ export function installCollectors(options: ResolvedDebugbarOptions): () => void 
       ctx.push(ctx.exceptions, toExceptionRecord(error, ctx.now()));
     }),
   );
+
+  // Scheduled tasks run outside any request: give each run its own history entry.
+  disposers.push(wrapScheduledRuns((info, run) => Debugbar.profile(info.name, run, { kind: "schedule" })));
 
   disposers.push(listenCacheEvents());
 

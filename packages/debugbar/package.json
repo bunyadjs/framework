@@ -41,7 +41,8 @@
     "@bunyad/events": "workspace:^",
     "@bunyad/http": "workspace:^",
     "@bunyad/log": "workspace:^",
-    "@bunyad/mcp": "workspace:^"
+    "@bunyad/mcp": "workspace:^",
+    "@bunyad/schedule": "workspace:^"
   },
   "scripts": {
     "test": "bun test",

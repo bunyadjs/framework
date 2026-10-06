@@ -45,6 +45,25 @@ type OutputCallback = (
 
 let jobRunner: ScheduleJobRunner | undefined;
 let commandRunner: ScheduleCommandRunner | undefined;
+/** Describes the task a wrapper is asked to run. */
+export type ScheduledRunInfo = { name: string; expression: string };
+
+/** Runs around a task's callback; call `run()` exactly once and return what it returns. */
+export type ScheduledRunWrapper = (info: ScheduledRunInfo, run: () => Promise<unknown>) => Promise<unknown>;
+
+const runWrappers = new Set<ScheduledRunWrapper>();
+
+/**
+ * Wrap every scheduled task's callback (timing, tracing, async context). Wrappers nest in the
+ * order they were added, the first outermost. Returns a function that removes this wrapper.
+ */
+export function wrapScheduledRuns(wrapper: ScheduledRunWrapper): () => void {
+  runWrappers.add(wrapper);
+  return () => {
+    runWrappers.delete(wrapper);
+  };
+}
+
 let mutexStore: ScheduleMutexStore | undefined;
 let mailSender: ScheduleMailSender | undefined;
 let maintenanceMode = false;
@@ -885,7 +904,13 @@ export class ScheduledEvent {
       for (const cb of this.#before) await cb(this);
 
       const execute = async () => {
-        const result = await this.callback();
+        let call: () => Promise<unknown> = async () => this.callback();
+        const info = { name: this.description || this.expression, expression: this.expression };
+        for (const wrapper of [...runWrappers].reverse()) {
+          const inner = call;
+          call = () => wrapper(info, inner);
+        }
+        const result = (await call()) as Awaited<ReturnType<ScheduleCallback>>;
         await this.#writeOutput(result);
         for (const cb of this.#onSuccess) await cb(this);
         for (const cb of this.#onSuccessWithOutput) {

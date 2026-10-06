@@ -8,6 +8,7 @@ import type {
   MessageLevel,
   MessageRecord,
   QueryRecord,
+  SnapshotKind,
   TimelineRecord,
 } from "./types.ts";
 
@@ -32,9 +33,14 @@ export class RequestContext {
 
   readonly #open = new Map<string, number>();
 
+  /**
+   * `request` is absent for profiled work (jobs, scheduled tasks, commands); `label` names it.
+   */
   constructor(
-    readonly request: Request,
+    readonly request: Request | undefined,
     private readonly maxRecords: number,
+    readonly kind: SnapshotKind = "http",
+    readonly label: string = "",
   ) {}
 
   /** Milliseconds since the request started. */

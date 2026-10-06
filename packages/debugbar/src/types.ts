@@ -86,8 +86,12 @@ export type ExceptionRecord = {
   at: number;
 };
 
+/** What produced a snapshot. Snapshots stored before this field existed are HTTP requests. */
+export type SnapshotKind = "http" | "job" | "schedule" | "command";
+
 export type Snapshot = {
   id: string;
+  kind: SnapshotKind;
   collectedAt: string;
   request: {
     method: string;

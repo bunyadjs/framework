@@ -84,7 +84,7 @@ test("list_requests is newest first, compact, and filterable", async () => {
 
   const all = (await call("debugbar_list_requests")).json();
   expect(all.count).toBe(4);
-  expect(Object.keys(all.requests[0]).sort()).toEqual(["at", "events", "exceptions", "id", "method", "ms", "nPlusOne", "path", "queries", "queryMs", "status"]);
+  expect(Object.keys(all.requests[0]).sort()).toEqual(["at", "events", "exceptions", "id", "kind", "method", "ms", "nPlusOne", "path", "queries", "queryMs", "status"]);
 
   expect((await call("debugbar_list_requests", { minDurationMs: 500 })).json().requests.map((r: any) => r.path)).toEqual(["/reports"]);
   expect((await call("debugbar_list_requests", { hasExceptions: true })).json().requests.map((r: any) => r.path)).toEqual(["/boom"]);

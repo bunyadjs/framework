@@ -22,5 +22,6 @@
   "setScheduleMaintenanceMode",
   "setScheduleMutexStore",
   "setSchedulePaused",
+  "wrapScheduledRuns",
   "zonedParts"
 ]
