@@ -1,12 +1,12 @@
 import { CacheHit, CacheMissed, KeyForgotten, KeyWritten, CacheFlushed } from "@bunyad/cache";
 import { listen as listenQueries } from "@bunyad/database";
-import { getEventDispatcher } from "@bunyad/events";
+import { getEventDispatcher, listenDispatched } from "@bunyad/events";
 import { listenLog } from "@bunyad/log";
 import { listenException, statusFromError } from "@bunyad/core";
 import { currentContext } from "../context.ts";
 import { toExceptionRecord } from "../debugbar.ts";
 import { captureOrigin } from "../origin.ts";
-import { sanitize, sanitizeRecord } from "../redact.ts";
+import { sanitize, sanitizeRecord, truncate } from "../redact.ts";
 import type { CacheRecord, ResolvedDebugbarOptions } from "../types.ts";
 
 /**
@@ -45,6 +45,21 @@ export function installCollectors(options: ResolvedDebugbarOptions): () => void 
         message,
         at: ctx.now(),
         context: context ? sanitizeRecord(context, options.redact) : undefined,
+      });
+    }),
+  );
+
+  disposers.push(
+    listenDispatched((event) => {
+      const ctx = currentContext();
+      if (!ctx || ignored(event.name, options.eventsIgnore)) return;
+      ctx.push(ctx.events, {
+        name: event.name,
+        listeners: event.listeners,
+        timeMs: event.timeMs,
+        at: ctx.now(),
+        failed: event.failed,
+        payload: payloadJson(event.payload, options),
       });
     }),
   );
@@ -98,4 +113,18 @@ function listenCacheEvents(): () => void {
   return () => {
     cacheEnabled = false;
   };
+}
+
+function ignored(name: string, patterns: string[]): boolean {
+  return patterns.some((pattern) =>
+    pattern.endsWith("*") ? name.startsWith(pattern.slice(0, -1)) : name === pattern,
+  );
+}
+
+function payloadJson(payload: object, options: ResolvedDebugbarOptions): string {
+  try {
+    return truncate(JSON.stringify(sanitize(payload, options.redact)) ?? "", 1500);
+  } catch {
+    return "[unserializable]";
+  }
 }

@@ -197,6 +197,20 @@ export const CLIENT_JS = String.raw`
           section("Response headers", kv(r.responseHeaders))
         ];
       } },
+      { id: "events", label: "Events", count: s.events.count, render: function () {
+        if (!s.events.items.length) return empty("No events dispatched.");
+        return [h("div", { class: "sub" }, s.events.count + " events" + (s.events.unhandled ? " \u00b7 " + s.events.unhandled + " with no listeners" : "")),
+          h("table", null,
+            h("tr", null, h("th", null, "Time"), h("th", null, "Event"), h("th", null, "Listeners")),
+            s.events.items.map(function (e) {
+              var detail = h("tr", { style: "display:none" }, h("td"), h("td", { colspan: 2 }, h("pre", null, e.payload || "{}")));
+              var row = h("tr", { class: "row", onclick: function () { detail.style.display = detail.style.display === "none" ? "" : "none"; } },
+                h("td", { class: "k" }, ms(e.timeMs)),
+                h("td", null, h("pre", null, e.name), e.failed ? h("span", { class: "tag bad" }, "failed") : null),
+                h("td", { class: "k" + (e.listeners === 0 ? " dup" : "") }, e.listeners));
+              return [row, detail];
+            }))];
+      } },
       { id: "logs", label: "Logs", count: s.logs.length, render: function () {
         if (!s.logs.length) return empty("No log entries.");
         return h("table", null, s.logs.map(function (l) {
@@ -248,6 +262,7 @@ export const CLIENT_JS = String.raw`
       item("time", ms(s.request.durationMs), { onclick: function () { toggle("timeline"); }, on: state.tab === "timeline" }),
       item("memory", bytes(s.request.memoryBytes)),
       item("exceptions", s.exceptions.length, { cls: s.exceptions.length ? "bad" : "", onclick: function () { toggle("exceptions"); }, on: state.tab === "exceptions" }),
+      item("events", s.events.count, { onclick: function () { toggle("events"); }, on: state.tab === "events" }),
       item("logs", s.logs.length, { onclick: function () { toggle("logs"); }, on: state.tab === "logs" }),
       item("cache", s.cache.items.length, { onclick: function () { toggle("cache"); }, on: state.tab === "cache" }),
       h("span", { class: "spacer" }),

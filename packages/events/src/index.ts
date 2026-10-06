@@ -4,6 +4,7 @@ export {
   Dispatcher,
   ShouldDispatchAfterCommit,
   setEventDispatcher,
+  listenDispatched,
   getEventDispatcher,
   setShouldBroadcastHandler,
   event,
@@ -17,4 +18,6 @@ export {
   type DispatchOptions,
   type EventSubscriber,
   type EventSubscriberClass,
+  type DispatchedEvent,
+  type DispatchTap,
 } from "./dispatcher.ts";

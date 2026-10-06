@@ -62,6 +62,18 @@ export type CacheRecord = {
   at: number;
 };
 
+export type EventRecord = {
+  name: string;
+  /** Listeners registered when it fired (0 means nothing handled it). */
+  listeners: number;
+  timeMs: number;
+  /** Milliseconds from request start to when the event finished. */
+  at: number;
+  failed: boolean;
+  /** Redacted, length-capped JSON of the event payload. */
+  payload: string;
+};
+
 export type ExceptionRecord = {
   name: string;
   message: string;
@@ -101,6 +113,7 @@ export type Snapshot = {
   messages: MessageRecord[];
   logs: LogRecord[];
   cache: { hits: number; misses: number; writes: number; items: CacheRecord[] };
+  events: { count: number; unhandled: number; items: EventRecord[] };
   exceptions: ExceptionRecord[];
 };
 
@@ -115,6 +128,8 @@ export type DebugbarOptions = {
   slowQueryMs?: number;
   /** Flag a read as N+1 when its shape repeats this many times with different bindings. Default 5. */
   nPlusOneThreshold?: number;
+  /** Event names the Events tab skips; a trailing `*` matches a prefix. Default: cache events (see the Cache tab). */
+  eventsIgnore?: string[];
   /** Record which application code issued each query. Default true. */
   queryOrigin?: boolean;
   /** Max records kept per collector per request. Default 500. */
