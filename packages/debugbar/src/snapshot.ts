@@ -82,6 +82,11 @@ export async function buildSnapshot(
     messages: context.messages,
     logs: context.logs,
     cache: { hits, misses, writes, items: context.cache },
+    events: {
+      count: context.events.length,
+      unhandled: context.events.filter((item) => item.listeners === 0).length,
+      items: context.events,
+    },
     exceptions: context.exceptions,
   };
 }

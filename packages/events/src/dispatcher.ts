@@ -27,6 +27,43 @@ function eventWantsAfterCommit(
   return false;
 }
 
+/** Reported after an event has run through its listeners. */
+export type DispatchedEvent = {
+  /** Class name, or the string name for named events. */
+  name: string;
+  payload: object;
+  /** Exact plus wildcard listeners that were registered when it fired. */
+  listeners: number;
+  timeMs: number;
+  /** A listener threw. */
+  failed: boolean;
+};
+
+export type DispatchTap = (event: DispatchedEvent) => void;
+
+const dispatchTaps = new Set<DispatchTap>();
+
+/**
+ * Observe every dispatched event (class and named, with or without listeners) after it ran.
+ * Used by dev tooling; a throwing tap never affects dispatch. Returns unsubscribe.
+ */
+export function listenDispatched(tap: DispatchTap): () => void {
+  dispatchTaps.add(tap);
+  return () => {
+    dispatchTaps.delete(tap);
+  };
+}
+
+function notifyDispatched(event: DispatchedEvent): void {
+  for (const tap of dispatchTaps) {
+    try {
+      tap(event);
+    } catch {
+      // A broken observer must never break dispatching.
+    }
+  }
+}
+
 /**
  * Detect class listeners (`handle` on prototype or static `handle`).
  * Plain function listeners are left as-is.
@@ -435,6 +472,33 @@ export class Dispatcher {
   }
 
   async #invoke(
+    eventOrPayload: object,
+    listKey: EventClass | string,
+    halt: boolean,
+  ): Promise<unknown> {
+    if (dispatchTaps.size === 0) return this.#run(eventOrPayload, listKey, halt);
+
+    const start = performance.now();
+    const listeners =
+      (this.#listeners.get(listKey)?.length ?? 0) +
+      (typeof listKey === "string" ? this.#wildcardMatches(listKey).length : 0);
+    let failed = true;
+    try {
+      const result = await this.#run(eventOrPayload, listKey, halt);
+      failed = false;
+      return result;
+    } finally {
+      notifyDispatched({
+        name: typeof listKey === "string" ? listKey : listKey.name,
+        payload: eventOrPayload,
+        listeners,
+        timeMs: performance.now() - start,
+        failed,
+      });
+    }
+  }
+
+  async #run(
     eventOrPayload: object,
     listKey: EventClass | string,
     halt: boolean,

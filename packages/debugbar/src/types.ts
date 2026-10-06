@@ -62,6 +62,18 @@ export type CacheRecord = {
   at: number;
 };
 
+export type EventRecord = {
+  name: string;
+  /** Listeners registered when it fired (0 means nothing handled it). */
+  listeners: number;
+  timeMs: number;
+  /** Milliseconds from request start to when the event finished. */
+  at: number;
+  failed: boolean;
+  /** Redacted, length-capped JSON of the event payload. */
+  payload: string;
+};
+
 export type ExceptionRecord = {
   name: string;
   message: string;
@@ -101,6 +113,7 @@ export type Snapshot = {
   messages: MessageRecord[];
   logs: LogRecord[];
   cache: { hits: number; misses: number; writes: number; items: CacheRecord[] };
+  events: { count: number; unhandled: number; items: EventRecord[] };
   exceptions: ExceptionRecord[];
 };
 
@@ -115,6 +128,8 @@ export type DebugbarOptions = {
   slowQueryMs?: number;
   /** Flag a read as N+1 when its shape repeats this many times with different bindings. Default 5. */
   nPlusOneThreshold?: number;
+  /** Event names the Events tab skips; a trailing `*` matches a prefix. Default: cache events (see the Cache tab). */
+  eventsIgnore?: string[];
   /** Record which application code issued each query. Default true. */
   queryOrigin?: boolean;
   /** Max records kept per collector per request. Default 500. */
@@ -123,20 +138,27 @@ export type DebugbarOptions = {
   except?: string[];
   /** Extra key patterns to mask, on top of the built-in secret list. */
   redact?: RegExp[];
-  /** Replace the default in-memory store. */
+  /** `memory` (default) or `file`: keep snapshots on disk so restarts and other processes see them. */
+  driver?: "memory" | "file";
+  /** Directory for the file driver, relative to the app base path. Default `storage/debugbar`. */
+  storagePath?: string;
+  /** File driver: delete snapshots older than this many hours. Default 24. */
+  maxAgeHours?: number;
+  /** Replace the store entirely (wins over `driver`). */
   store?: DebugbarStore;
   /** Inject the bar into HTML responses. Default true; false keeps history/headers only. */
   inject?: boolean;
 };
 
 export type ResolvedDebugbarOptions = Required<
-  Omit<DebugbarOptions, "enabled" | "store">
+  Omit<DebugbarOptions, "enabled" | "store" | "driver" | "storagePath" | "maxAgeHours">
 > & { enabled: boolean | undefined; store: DebugbarStore };
 
+/** Methods may be sync or async; callers always `await`. `put` must not throw. */
 export interface DebugbarStore {
-  put(snapshot: Snapshot): void;
-  get(id: string): Snapshot | undefined;
+  put(snapshot: Snapshot): void | Promise<void>;
+  get(id: string): Snapshot | undefined | Promise<Snapshot | undefined>;
   /** Newest first. */
-  list(limit?: number): Snapshot[];
-  clear(): void;
+  list(limit?: number): Snapshot[] | Promise<Snapshot[]>;
+  clear(): void | Promise<void>;
 }

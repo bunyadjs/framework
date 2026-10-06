@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { Application, createFetchHandler } from "@bunyad/core";
+import { getProviderCommandHandlers } from "@bunyad/core";
 import { json } from "@bunyad/http";
 import { Router } from "@bunyad/router";
 import { CacheHit, CacheMissed } from "@bunyad/cache";
@@ -175,6 +176,47 @@ test("queryOrigin: false skips the stack capture", async () => {
   expect(snap.queries.items[0]!.origin).toBeNull();
 });
 
+test("records dispatched events, skipping cache events by default", async () => {
+  setEventDispatcher(new Dispatcher());
+  const { router, fetch } = await boot();
+  class OrderPlaced {
+    constructor(readonly id: number, readonly token: string) {}
+  }
+  getEventDispatcher().listen(OrderPlaced, () => {});
+  router.get("/order", async () => {
+    await getEventDispatcher().dispatch(new OrderPlaced(7, "secret-token"));
+    await getEventDispatcher().dispatch(new CacheHit("k", 1, "memory"));
+    await getEventDispatcher().dispatchAs("audit.logged", { who: "me" });
+    return json({});
+  });
+
+  const res = await fetch(new Request("http://localhost/order"));
+  const snap = (await (
+    await fetch(new Request(`http://localhost/_debugbar/${res.headers.get("X-Debugbar-Id")}`))
+  ).json()) as Snapshot;
+
+  expect(snap.events.items.map((e) => e.name)).toEqual(["OrderPlaced", "audit.logged"]);
+  expect(snap.events.items[0]).toMatchObject({ listeners: 1, failed: false });
+  expect(snap.events.items[0]!.payload).toContain('"id":7');
+  expect(snap.events.items[0]!.payload).not.toContain("secret-token");
+  expect(snap.events).toMatchObject({ count: 2, unhandled: 1 });
+});
+
+test("eventsIgnore supports prefix patterns", async () => {
+  setEventDispatcher(new Dispatcher());
+  const { router, fetch } = await boot({ enabled: true, eventsIgnore: ["noisy.*"] });
+  router.get("/e", async () => {
+    await getEventDispatcher().dispatchAs("noisy.a", {});
+    await getEventDispatcher().dispatchAs("quiet", {});
+    return json({});
+  });
+  const res = await fetch(new Request("http://localhost/e"));
+  const snap = (await (
+    await fetch(new Request(`http://localhost/_debugbar/${res.headers.get("X-Debugbar-Id")}`))
+  ).json()) as Snapshot;
+  expect(snap.events.items.map((e) => e.name)).toEqual(["quiet"]);
+});
+
 test("queries outside a request are ignored", async () => {
   await boot();
   expect(() =>
@@ -223,4 +265,46 @@ test("memory store evicts oldest", () => {
   for (const id of ["a", "b", "c"]) store.put({ id } as Snapshot);
   expect(store.get("a")).toBeUndefined();
   expect(store.list().map((s) => s.id)).toEqual(["c", "b"]);
+});
+
+test("the file driver keeps history across app instances and debugbar:clear empties it", async () => {
+  const { mkdtemp, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "debugbar-app-"));
+  try {
+    const config = { enabled: true, driver: "file", storagePath: dir };
+    const first = await boot(config);
+    first.router.get("/keep", () => json({}));
+    const res = await first.fetch(new Request("http://localhost/keep"));
+    const id = res.headers.get("X-Debugbar-Id")!;
+    await (first.app.make("debugbar.options") as { store: { flush(): Promise<void> } }).store.flush();
+
+    const second = await boot(config); // a "restart"
+    const snap = (await (await second.fetch(new Request(`http://localhost/_debugbar/${id}`))).json()) as Snapshot;
+    expect(snap.request.path).toBe("/keep");
+
+    await getProviderCommandHandlers()["debugbar:clear"]!([]);
+    expect((await second.fetch(new Request(`http://localhost/_debugbar/${id}`))).status).toBe(404);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("a failing store does not fail the request", async () => {
+  const { router, fetch } = await boot({
+    enabled: true,
+    store: {
+      put() {
+        throw new Error("disk full");
+      },
+      get: () => undefined,
+      list: () => [],
+      clear() {},
+    },
+  });
+  router.get("/ok", () => json({ ok: true }));
+  const res = await fetch(new Request("http://localhost/ok"));
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ ok: true });
 });
