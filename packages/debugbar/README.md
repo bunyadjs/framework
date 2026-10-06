@@ -102,6 +102,22 @@ By default history lives in memory and is lost when the server restarts. With `d
 
 `bunyad debugbar:clear` empties the history. Pass your own object as `store` to replace the storage entirely (`put`, `get`, `list`, `clear`; sync or async).
 
+## Jobs, scheduled tasks and commands
+
+Work that is not an HTTP request gets its own history entry too, with its queries, logs, events and errors:
+
+```ts
+import { Debugbar } from "@bunyad/debugbar";
+
+await Debugbar.profile("SendReceipt", () => sendReceipt(order), { kind: "job" }); // or "schedule" / "command"
+```
+
+- **Scheduled tasks** (`@bunyad/schedule`) are recorded automatically, named after the task.
+- **Queued jobs, commands and other work** are recorded when you wrap them in `Debugbar.profile()`, for example in the code that runs your queue payloads. `@bunyad/queue` does not do this for you yet.
+- `profile()` returns what your function returns and rethrows what it throws. When the bar is off it only runs your function. Inside a request it adds a Timeline span instead of a separate entry.
+- Entries appear on the history page as `JOB` / `SCHEDULE` / `COMMAND` rows, and `debugbar_list_requests` takes a `kind` filter. They have no page, so there is no bar to show.
+- A worker or scheduler is a separate process from your web server, so use `driver: "file"` for them to share one history.
+
 ## Privacy
 
 The bar records SQL, request bodies, headers, logs and events. Everything is masked **before** it reaches the bar, the history files or an MCP agent:
@@ -118,7 +134,7 @@ This is pattern-based and best-effort. It cannot recognise a secret in a column 
 
 - **Duplicate:** identical SQL and bindings ran more than once in the request.
 - **Possible N+1:** a `select`/`with` statement whose shape (values stripped) ran `nPlusOneThreshold` or more times with different bindings. Writes are never flagged. The Queries tab lists each pattern with its count, total time and origin.
-- **Origin:** the first stack frame outside `node_modules`, the runtime and the framework's own `src/`. It is captured only while the bar is on; set `queryOrigin: false` to skip the stack capture.
+- **Origin:** the first stack frame outside `node_modules`, the runtime and the framework's own `src/`. It is captured only while the bar is on; set `queryOrigin: false` to skip the stack capture. **It is best-effort.** Bun does not keep async stack frames, so with an async driver (PostgreSQL, for example) the stack at execution time often no longer contains your code, and the origin is left blank. It works reliably with synchronous drivers such as SQLite.
 
 ## Notes
 

@@ -1,5 +1,6 @@
 export { Debugbar } from "./debugbar.ts";
-export { DebugbarServiceProvider, activeDebugbar } from "./provider.ts";
+export { DebugbarServiceProvider } from "./provider.ts";
+export { activeDebugbar } from "./state.ts";
 export { DebugbarMiddleware } from "./middleware.ts";
 export { MemoryDebugbarStore } from "./store.ts";
 export { debugbarTools, registerDebugbarTools } from "./mcp-tools.ts";
@@ -20,5 +21,6 @@ export type {
   MessageRecord,
   QueryRecord,
   Snapshot,
+  SnapshotKind,
   TimelineRecord,
 } from "./types.ts";

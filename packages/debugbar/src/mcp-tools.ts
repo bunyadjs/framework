@@ -26,6 +26,7 @@ async function missing(store: DebugbarStore, id: unknown) {
 
 const row = (s: Snapshot) => ({
   id: s.id,
+  kind: s.kind ?? "http",
   at: s.collectedAt,
   method: s.request.method,
   path: s.request.path,
@@ -111,11 +112,12 @@ export function debugbarTools(store: () => DebugbarStore): McpTool[] {
     {
       name: "debugbar_list_requests",
       description:
-        "List recent HTTP requests the debug bar recorded, newest first, with status, time, query count and problem counts. Start here to find a request id.",
+        "List recent work the debug bar recorded, newest first: HTTP requests, queued jobs and scheduled tasks (see `kind`), with status, time, query count and problem counts. Start here to find an id.",
       inputSchema: {
         type: "object",
         properties: {
           limit: { type: "integer", minimum: 1, maximum: 50, description: "How many to return (default 20)." },
+          kind: { type: "string", enum: ["http", "job", "schedule", "command"], description: "Only this kind of work. Jobs and scheduled tasks are listed with method JOB or SCHEDULE and their name as the path." },
           method: { type: "string", description: "Only this HTTP method, e.g. GET." },
           status: { type: "integer", description: "Only this exact status code." },
           pathContains: { type: "string", description: "Only paths containing this text." },
@@ -130,6 +132,7 @@ export function debugbarTools(store: () => DebugbarStore): McpTool[] {
         const all = await s.list(50);
         if (all.length === 0) return missing(s, undefined);
         const rows = all
+          .filter((x) => !args.kind || (x.kind ?? "http") === args.kind)
           .filter((x) => !args.method || x.request.method === String(args.method).toUpperCase())
           .filter((x) => args.status === undefined || x.request.status === args.status)
           .filter((x) => !args.pathContains || x.request.path.includes(String(args.pathContains)))

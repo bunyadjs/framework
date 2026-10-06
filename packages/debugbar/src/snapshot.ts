@@ -37,6 +37,7 @@ export async function buildSnapshot(
   options: ResolvedDebugbarOptions,
 ): Promise<Snapshot> {
   const { request, response } = context;
+  if (!request) throw new Error("buildSnapshot needs an HTTP request; use buildProfileSnapshot for jobs and tasks.");
   const extra = options.redact;
 
   let body: Record<string, unknown> = {};
@@ -65,22 +66,16 @@ export async function buildSnapshot(
     // Not behind a server that exposes the peer address.
   }
 
-  const analysis = analyzeQueries(context.queries, options.nPlusOneThreshold);
-  const totalMs = context.queries.reduce((sum, query) => sum + query.timeMs, 0);
-  const durationMs = context.now();
-  const hits = context.cache.filter((item) => item.type === "hit").length;
-  const misses = context.cache.filter((item) => item.type === "miss").length;
-  const writes = context.cache.filter((item) => item.type === "write").length;
-
   return {
     id: context.id,
+    kind: "http",
     collectedAt: new Date(context.startedWall).toISOString(),
     request: {
       method: request.method,
       url: location.url,
       path: location.path,
       status: response?.status ?? (context.failed ? 500 : 0),
-      durationMs,
+      durationMs: context.now(),
       memoryBytes: process.memoryUsage().heapUsed,
       ip,
       route: { name: request.routeName ?? null, params: location.params },
@@ -92,9 +87,50 @@ export async function buildSnapshot(
         ? sanitizeStrings(headersOf(response.headers), extra)
         : {},
     },
+    ...sections(context, options),
+  };
+}
+
+/**
+ * Snapshot for work that is not an HTTP request: a queued job, a scheduled task, a command.
+ * It reuses the request section so every consumer (history page, MCP tools) can list it:
+ * `method` is the kind in capitals and `path` is the label.
+ */
+export function buildProfileSnapshot(context: RequestContext, options: ResolvedDebugbarOptions): Snapshot {
+  return {
+    id: context.id,
+    kind: context.kind,
+    collectedAt: new Date(context.startedWall).toISOString(),
+    request: {
+      method: context.kind.toUpperCase(),
+      url: context.label,
+      path: context.label,
+      status: context.failed ? 500 : 200,
+      durationMs: context.now(),
+      memoryBytes: process.memoryUsage().heapUsed,
+      ip: null,
+      route: { name: null, params: {} },
+      query: {},
+      body: {},
+      headers: {},
+      cookies: {},
+      responseHeaders: {},
+    },
+    ...sections(context, options),
+  };
+}
+
+/** Everything collected while the work ran: queries (analysed), timeline, logs, cache, events, errors. */
+function sections(context: RequestContext, options: ResolvedDebugbarOptions) {
+  const analysis = analyzeQueries(context.queries, options.nPlusOneThreshold);
+  const hits = context.cache.filter((item) => item.type === "hit").length;
+  const misses = context.cache.filter((item) => item.type === "miss").length;
+  const writes = context.cache.filter((item) => item.type === "write").length;
+
+  return {
     queries: {
       count: context.queries.length,
-      totalMs,
+      totalMs: context.queries.reduce((sum, query) => sum + query.timeMs, 0),
       wallMs: wallTimeMs(context.queries),
       duplicates: analysis.duplicates,
       nPlusOne: analysis.nPlusOne,

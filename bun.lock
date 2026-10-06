@@ -436,6 +436,7 @@
         "@bunyad/http": "workspace:^",
         "@bunyad/log": "workspace:^",
         "@bunyad/mcp": "workspace:^",
+        "@bunyad/schedule": "workspace:^",
       },
       "devDependencies": {
         "@bunyad/router": "workspace:^",

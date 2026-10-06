@@ -6,6 +6,7 @@ export {
   type CronDateParts,
 } from "./cron.ts";
 export { acquireMutex, releaseMutex, mutexFilename } from "./mutex.ts";
+export { wrapScheduledRuns, type ScheduledRunInfo, type ScheduledRunWrapper } from "./schedule.ts";
 export {
   Schedule,
   ScheduledEvent,

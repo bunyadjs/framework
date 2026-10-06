@@ -13,7 +13,7 @@ import {
 } from "../src/index.ts";
 import { isSecretKey, maskValue, redactText } from "../src/redact.ts";
 import { bindingColumns, redactBindings, redactLiterals } from "../src/sql-redact.ts";
-import { activeDebugbar } from "../src/provider.ts";
+import { activeDebugbar } from "../src/state.ts";
 import { Mcp } from "@bunyad/mcp";
 
 const sensitive = (column: string) => isSecretKey(column, resolveOptions({}).redact);
