@@ -5,6 +5,7 @@
   "ShouldDispatchAfterCommit",
   "event",
   "getEventDispatcher",
+  "listenDispatched",
   "setEventDispatcher",
   "setShouldBroadcastHandler"
 ]

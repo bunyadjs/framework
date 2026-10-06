@@ -347,7 +347,7 @@ test("afterCommit event waits for schedule hook", async () => {
 
 test("dispatch options afterCommit and ShouldDispatchAfterCommit", async () => {
   const { connectSqlite } = await import("@bunyad/database");
-  const { ShouldDispatchAfterCommit } = await import("../src/index.ts");
+  const { ShouldDispatchAfterCommit } = await import("./index.ts");
   const connection = connectSqlite();
   const ran: string[] = [];
 
@@ -384,4 +384,47 @@ test("dispatch options afterCommit and ShouldDispatchAfterCommit", async () => {
   expect(ran).toEqual(["paid:3"]);
 
   await connection.close();
+});
+
+test("listenDispatched reports class and named events with listener counts and failures", async () => {
+  const { Dispatcher, listenDispatched } = await import("./index.ts");
+  const dispatcher = new Dispatcher();
+  class Ping {}
+  dispatcher.listen(Ping, () => {});
+  dispatcher.listen("order.*", () => {});
+  dispatcher.listen("boom", () => {
+    throw new Error("x");
+  });
+
+  const seen: Array<{ name: string; listeners: number; failed: boolean }> = [];
+  const stop = listenDispatched((e) => seen.push({ name: e.name, listeners: e.listeners, failed: e.failed }));
+
+  await dispatcher.dispatch(new Ping());
+  await dispatcher.dispatchAs("order.created", { id: 1 });
+  await dispatcher.dispatchAs("nobody", {});
+  await dispatcher.dispatchAs("boom", {}).catch(() => {});
+  stop();
+  await dispatcher.dispatch(new Ping());
+
+  expect(seen).toEqual([
+    { name: "Ping", listeners: 1, failed: false },
+    { name: "order.created", listeners: 1, failed: false },
+    { name: "nobody", listeners: 0, failed: false },
+    { name: "boom", listeners: 1, failed: true },
+  ]);
+});
+
+test("a throwing tap does not break dispatch", async () => {
+  const { Dispatcher, listenDispatched } = await import("./index.ts");
+  const dispatcher = new Dispatcher();
+  let ran = false;
+  dispatcher.listen("x", () => {
+    ran = true;
+  });
+  const stop = listenDispatched(() => {
+    throw new Error("tap");
+  });
+  await dispatcher.dispatchAs("x", {});
+  stop();
+  expect(ran).toBe(true);
 });
