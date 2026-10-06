@@ -8,9 +8,11 @@
   "activeDebugbar",
   "buildSnapshot",
   "currentContext",
+  "debugbarTools",
   "installCollectors",
   "isDebugbarEnabled",
   "isSecretKey",
+  "registerDebugbarTools",
   "resolveOptions",
   "runWithContext",
   "sanitize"

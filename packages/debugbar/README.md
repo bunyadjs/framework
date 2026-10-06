@@ -78,6 +78,22 @@ export default {
 };
 ```
 
+## AI agents (MCP)
+
+With `@bunyad/mcp`, the history is also available to an AI agent in your editor, which can answer questions like "what was the slowest request in the last hour?" or "is there an N+1 on the products page?" from real recorded requests. The tools are registered when the bar is on:
+
+| Tool | Use |
+|---|---|
+| `debugbar_list_requests` | Recent requests with status, time and problem counts; filter by method, status, path, slowness, exceptions or N+1. Start here for an id. |
+| `debugbar_get_request` | One request summarized with what looks wrong; pass `sections` for detail or a JSON Pointer for one exact value. |
+| `debugbar_queries` | The SQL with timing, bindings and the file:line that ran it; filter to duplicates, slow or N+1. |
+| `debugbar_exceptions` | Server errors with stack traces, for one request or the recent ones. |
+| `debugbar_logs` | Log lines from one request, from a minimum level up. |
+
+**Use `driver: "file"`.** The MCP server is a separate process, so it can only see history on disk; with the default memory driver every tool answers that no history is visible and says how to fix it. See the [`@bunyad/mcp`](../mcp/README.md) README for connecting an editor.
+
+Responses are summaries, with SQL cut at 300 characters and stacks at 15 lines, so a question doesn't flood the agent's context. Everything was redacted before it was stored.
+
 ## History storage
 
 By default history lives in memory and is lost when the server restarts. With `driver: "file"` each request is written as one JSON file under `storage/debugbar` (directory `0700`, files `0600`), so history survives `--watch` restarts and other processes, such as a future MCP server, can read it. Writes happen after the response is sent and never fail a request. Add the directory to `.gitignore`.
