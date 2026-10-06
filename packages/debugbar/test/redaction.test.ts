@@ -136,14 +136,14 @@ test("a request's stored snapshot contains no raw secrets or personal data", asy
     fire("update users set password = ?, name = ? where id = ?", ["$2b$10$SECRETHASHVALUE", "Bob", 3]);
     fire('select * from contacts where "email" = ? and phone = ?', ["bob@example.com", "+8801700000000"]);
     fire("select * from users where email = 'inline@example.com'", []);
-    Log.error("charge failed token=tok_live_12345 for bob");
+    Log.error("charge failed token=aaaaaaaa1111 for bob");
     Debugbar.message("debug password=letmein");
     return json({});
   });
   const snap = await snapshotOf(await fetch(new Request("http://localhost/leak")));
   const blob = JSON.stringify(snap);
 
-  for (const secret of ["SECRETHASHVALUE", "bob@example.com", "+8801700000000", "inline@example.com", "tok_live_12345", "letmein"]) {
+  for (const secret of ["SECRETHASHVALUE", "bob@example.com", "+8801700000000", "inline@example.com", "aaaaaaaa1111", "letmein"]) {
     expect(blob).not.toContain(secret);
   }
   expect(blob).not.toContain("fingerprint");

@@ -2,3 +2,5 @@
 05d0b89df6be5aad0a0659391870f0a84ccebd96:packages/auth/src/two-factor.test.ts:generic-api-key:13
 cb86b0d2175aaab4d1966c9f18d9e031b78980cb:packages/auth/src/two-factor.test.ts:generic-api-key:13
 packages/auth/src/two-factor.test.ts:generic-api-key:13
+# Fake `token=<value>` in a log line of a redaction test fixture (value replaced in the next commit)
+ae39d3fea5c1ea22a4b23665d4866998ae07bfd2:packages/debugbar/test/redaction.test.ts:generic-api-key:139
