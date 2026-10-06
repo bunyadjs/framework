@@ -1,4 +1,4 @@
-import { ServiceProvider } from "@bunyad/core";
+import { ServiceProvider, registerProviderCommand } from "@bunyad/core";
 import { installCollectors } from "./collectors/install.ts";
 import { DebugbarMiddleware } from "./middleware.ts";
 import { isDebugbarEnabled, resolveOptions } from "./options.ts";
@@ -17,8 +17,13 @@ export class DebugbarServiceProvider extends ServiceProvider {
 
   register(): void {
     const configured = this.app.config.get("debugbar") as DebugbarOptions | undefined;
-    const options = resolveOptions(configured ?? {});
+    const options = resolveOptions(configured ?? {}, this.app.basePath());
     this.app.instance("debugbar.options", options);
+
+    registerProviderCommand("debugbar:clear", async () => {
+      await options.store.clear();
+      console.log("Debugbar history cleared.");
+    });
   }
 
   boot(): void {

@@ -138,20 +138,27 @@ export type DebugbarOptions = {
   except?: string[];
   /** Extra key patterns to mask, on top of the built-in secret list. */
   redact?: RegExp[];
-  /** Replace the default in-memory store. */
+  /** `memory` (default) or `file`: keep snapshots on disk so restarts and other processes see them. */
+  driver?: "memory" | "file";
+  /** Directory for the file driver, relative to the app base path. Default `storage/debugbar`. */
+  storagePath?: string;
+  /** File driver: delete snapshots older than this many hours. Default 24. */
+  maxAgeHours?: number;
+  /** Replace the store entirely (wins over `driver`). */
   store?: DebugbarStore;
   /** Inject the bar into HTML responses. Default true; false keeps history/headers only. */
   inject?: boolean;
 };
 
 export type ResolvedDebugbarOptions = Required<
-  Omit<DebugbarOptions, "enabled" | "store">
+  Omit<DebugbarOptions, "enabled" | "store" | "driver" | "storagePath" | "maxAgeHours">
 > & { enabled: boolean | undefined; store: DebugbarStore };
 
+/** Methods may be sync or async; callers always `await`. `put` must not throw. */
 export interface DebugbarStore {
-  put(snapshot: Snapshot): void;
-  get(id: string): Snapshot | undefined;
+  put(snapshot: Snapshot): void | Promise<void>;
+  get(id: string): Snapshot | undefined | Promise<Snapshot | undefined>;
   /** Newest first. */
-  list(limit?: number): Snapshot[];
-  clear(): void;
+  list(limit?: number): Snapshot[] | Promise<Snapshot[]>;
+  clear(): void | Promise<void>;
 }

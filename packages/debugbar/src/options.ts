@@ -1,8 +1,13 @@
 import type { Application } from "@bunyad/core";
+import { resolve } from "node:path";
+import { FileDebugbarStore } from "./file-store.ts";
 import { MemoryDebugbarStore } from "./store.ts";
 import type { DebugbarOptions, ResolvedDebugbarOptions } from "./types.ts";
 
-export function resolveOptions(options: DebugbarOptions = {}): ResolvedDebugbarOptions {
+export function resolveOptions(
+  options: DebugbarOptions = {},
+  basePath = process.cwd(),
+): ResolvedDebugbarOptions {
   const history = options.history ?? 50;
   return {
     enabled: options.enabled,
@@ -16,7 +21,7 @@ export function resolveOptions(options: DebugbarOptions = {}): ResolvedDebugbarO
     except: options.except ?? [],
     redact: options.redact ?? [],
     inject: options.inject ?? true,
-    store: options.store ?? new MemoryDebugbarStore(history),
+    store: options.store ?? createStore(options, history, basePath),
   };
 }
 
@@ -40,4 +45,14 @@ export function isDebugbarEnabled(
   return (
     app.hasDebugModeEnabled() && !app.isProduction() && !app.runningUnitTests()
   );
+}
+
+function createStore(options: DebugbarOptions, history: number, basePath: string) {
+  if (options.driver === "file") {
+    return new FileDebugbarStore(resolve(basePath, options.storagePath ?? "storage/debugbar"), {
+      capacity: history,
+      maxAgeMs: (options.maxAgeHours ?? 24) * 60 * 60 * 1000,
+    });
+  }
+  return new MemoryDebugbarStore(history);
 }

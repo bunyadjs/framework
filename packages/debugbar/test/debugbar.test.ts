@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { Application, createFetchHandler } from "@bunyad/core";
+import { getProviderCommandHandlers } from "@bunyad/core";
 import { json } from "@bunyad/http";
 import { Router } from "@bunyad/router";
 import { CacheHit, CacheMissed } from "@bunyad/cache";
@@ -264,4 +265,46 @@ test("memory store evicts oldest", () => {
   for (const id of ["a", "b", "c"]) store.put({ id } as Snapshot);
   expect(store.get("a")).toBeUndefined();
   expect(store.list().map((s) => s.id)).toEqual(["c", "b"]);
+});
+
+test("the file driver keeps history across app instances and debugbar:clear empties it", async () => {
+  const { mkdtemp, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "debugbar-app-"));
+  try {
+    const config = { enabled: true, driver: "file", storagePath: dir };
+    const first = await boot(config);
+    first.router.get("/keep", () => json({}));
+    const res = await first.fetch(new Request("http://localhost/keep"));
+    const id = res.headers.get("X-Debugbar-Id")!;
+    await (first.app.make("debugbar.options") as { store: { flush(): Promise<void> } }).store.flush();
+
+    const second = await boot(config); // a "restart"
+    const snap = (await (await second.fetch(new Request(`http://localhost/_debugbar/${id}`))).json()) as Snapshot;
+    expect(snap.request.path).toBe("/keep");
+
+    await getProviderCommandHandlers()["debugbar:clear"]!([]);
+    expect((await second.fetch(new Request(`http://localhost/_debugbar/${id}`))).status).toBe(404);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("a failing store does not fail the request", async () => {
+  const { router, fetch } = await boot({
+    enabled: true,
+    store: {
+      put() {
+        throw new Error("disk full");
+      },
+      get: () => undefined,
+      list: () => [],
+      clear() {},
+    },
+  });
+  router.get("/ok", () => json({ ok: true }));
+  const res = await fetch(new Request("http://localhost/ok"));
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ ok: true });
 });
