@@ -50,10 +50,10 @@ export class DebugbarMiddleware {
 
   async handle(request: Request, next: Next): Promise<Response> {
     const path = pathOf(request);
-    const { path: base, store } = this.options;
+    const { path: base } = this.options;
 
     if (path === base || path.startsWith(`${base}/`)) {
-      return this.serve(path.slice(base.length).replace(/^\/+/, ""));
+      return await this.serve(path.slice(base.length).replace(/^\/+/, ""));
     }
     if (this.options.except.some((prefix) => path.startsWith(prefix))) {
       return next();
@@ -66,16 +66,25 @@ export class DebugbarMiddleware {
     } catch (error) {
       context.failed = true;
       context.exceptions.push(toExceptionRecord(error, context.now()));
-      store.put(await buildSnapshot(context, this.options));
+      await this.save(await buildSnapshot(context, this.options));
       throw error;
     }
 
     context.response = response;
     const snapshot = await buildSnapshot(context, this.options);
-    store.put(snapshot);
+    await this.save(snapshot);
 
     response = setHeader(response, "X-Debugbar-Id", snapshot.id);
     return this.options.inject ? await this.inject(response, snapshot) : response;
+  }
+
+  /** A failing store must never fail the request being debugged. */
+  private async save(snapshot: Snapshot): Promise<void> {
+    try {
+      await this.options.store.put(snapshot);
+    } catch {
+      // Dev tooling only; the bar still shows this request from the injected data.
+    }
   }
 
   private async inject(response: Response, snapshot: Snapshot): Promise<Response> {
@@ -91,14 +100,14 @@ export class DebugbarMiddleware {
     return withBody(response, html.slice(0, at) + bar + html.slice(at));
   }
 
-  private serve(rest: string): Response {
+  private async serve(rest: string): Promise<Response> {
     const { store, path } = this.options;
     if (rest === "") {
-      return new Response(renderHistoryPage(store.list(), path), {
+      return new Response(renderHistoryPage(await store.list(), path), {
         headers: { "Content-Type": "text/html; charset=utf-8", ...NO_STORE },
       });
     }
-    const snapshot = rest === "latest" ? store.list(1)[0] : store.get(rest);
+    const snapshot = rest === "latest" ? (await store.list(1))[0] : await store.get(rest);
     if (!snapshot) {
       return Response.json({ message: "Snapshot not found." }, { status: 404, headers: NO_STORE });
     }

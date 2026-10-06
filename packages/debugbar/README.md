@@ -72,8 +72,17 @@ export default {
   except: ["/health"],  // path prefixes the bar ignores
   redact: [/ssn/i],     // extra key patterns to mask
   inject: true,         // false: keep history and the header, skip the bar
+  driver: "memory",     // "file": keep history on disk (see below)
+  storagePath: "storage/debugbar", // file driver, relative to the app base path
+  maxAgeHours: 24,      // file driver: delete older snapshots
 };
 ```
+
+## History storage
+
+By default history lives in memory and is lost when the server restarts. With `driver: "file"` each request is written as one JSON file under `storage/debugbar` (directory `0700`, files `0600`), so history survives `--watch` restarts and other processes, such as a future MCP server, can read it. Writes happen after the response is sent and never fail a request. Add the directory to `.gitignore`.
+
+`bunyad debugbar:clear` empties the history. Pass your own object as `store` to replace the storage entirely (`put`, `get`, `list`, `clear`; sync or async).
 
 ## Query insights
 

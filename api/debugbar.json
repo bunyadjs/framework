@@ -2,6 +2,7 @@
   "Debugbar",
   "DebugbarMiddleware",
   "DebugbarServiceProvider",
+  "FileDebugbarStore",
   "MemoryDebugbarStore",
   "RequestContext",
   "activeDebugbar",
