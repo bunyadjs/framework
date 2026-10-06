@@ -71,3 +71,25 @@ export function analyzeQueries(queries: QueryRecord[], threshold: number): Query
 
   return { duplicates, nPlusOne, groups };
 }
+
+/**
+ * Time actually spent waiting on queries: the union of their [start, end] spans.
+ * Queries that overlap (loaded in parallel) count once, so this can never exceed the
+ * request time, unlike the sum of their durations.
+ */
+export function wallTimeMs(queries: QueryRecord[]): number {
+  const spans = queries.map((query) => [query.at, query.at + query.timeMs] as const).sort((a, b) => a[0] - b[0]);
+  let total = 0;
+  let end = -Infinity;
+  let start = 0;
+  for (const [from, to] of spans) {
+    if (from > end) {
+      if (end > -Infinity) total += end - start;
+      start = from;
+      end = to;
+    } else if (to > end) {
+      end = to;
+    }
+  }
+  return end > -Infinity ? total + (end - start) : 0;
+}

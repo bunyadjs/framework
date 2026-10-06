@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { originFromStack } from "../src/origin.ts";
-import { analyzeQueries, normalizeSql } from "../src/queries.ts";
+import { analyzeQueries, normalizeSql, wallTimeMs } from "../src/queries.ts";
 import type { QueryRecord } from "../src/types.ts";
 
 const query = (sql: string, bindings: unknown[] = [], timeMs = 1): QueryRecord => ({
@@ -77,4 +77,42 @@ test("originFromStack returns null when every frame is internal", () => {
 test("originFromStack handles anonymous frames", () => {
   const origin = originFromStack("Error\n    at /app/routes/web.ts:5:9", "/app");
   expect(origin).toEqual({ file: "routes/web.ts", line: 5, function: null });
+});
+
+const span = (at: number, timeMs: number) => ({ ...query("select 1", [], timeMs), at });
+
+test("wallTimeMs counts overlapping queries once", () => {
+  expect(wallTimeMs([])).toBe(0);
+  expect(wallTimeMs([span(0, 2)])).toBe(2);
+  expect(wallTimeMs([span(0, 2), span(5, 3)])).toBe(5); // sequential: same as the sum
+  expect(wallTimeMs([span(0, 4), span(2, 4)])).toBe(6); // partial overlap: 0..6
+  expect(wallTimeMs([span(0, 10), span(2, 3)])).toBe(10); // one inside another
+  expect(wallTimeMs([span(5, 3), span(0, 2)])).toBe(5); // unsorted input
+  expect(wallTimeMs([span(0, 2), span(2, 2)])).toBe(4); // touching
+});
+
+test("wallTimeMs matches a real parallel-loading request", () => {
+  // Recorded from karobar's products list: 12 queries summing to 10.6ms in a 9.6ms request.
+  const real = [
+    [0.14, 0.91], [0.19, 0.96], [1.22, 0.85], [1.27, 0.85], [2.89, 0.98], [3.98, 0.78],
+    [5.02, 0.84], [5.13, 2.14], [7.68, 0.54], [7.57, 0.75], [7.79, 0.62], [8.59, 0.39],
+  ].map(([at, ms]) => span(at!, ms!));
+  const summed = real.reduce((total, q) => total + q.timeMs, 0);
+  expect(summed).toBeCloseTo(10.61, 1);
+  expect(wallTimeMs(real)).toBeCloseTo(7.16, 1);
+});
+
+test("originFromStack skips runtime frames that are not files", () => {
+  const stack = [
+    "Error",
+    "    at processTicksAndRejections (native:7:39)",
+    "    at <anonymous> (<anonymous>:1:1)",
+    "    at async load (/app/app/Services/ProductService.ts:31:9)",
+  ].join("\n");
+  expect(originFromStack(stack, "/app")).toEqual({
+    file: "app/Services/ProductService.ts",
+    line: 31,
+    function: "load",
+  });
+  expect(originFromStack("Error\n    at processTicksAndRejections (native:7:39)", "/app")).toBeNull();
 });

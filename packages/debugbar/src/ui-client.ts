@@ -123,6 +123,12 @@ export const CLIENT_JS = String.raw`
   function section(title, body) { return [h("div", { class: "sec" }, title), body]; }
   function badgeFor(status) { return status >= 500 ? "bad" : status >= 400 ? "warn" : status >= 200 && status < 400 ? "ok" : ""; }
 
+  function wall(s) { return s.queries.wallMs != null ? s.queries.wallMs : s.queries.totalMs; }
+  function overlaps(s) { return s.queries.totalMs - wall(s) > 0.05; }
+  function overlapNote(s) {
+    return overlaps(s) ? ms(s.queries.totalMs) + " summed across queries; " + ms(wall(s)) + " elapsed because some ran in parallel" : "";
+  }
+
   function snap() { return state.snaps[state.index]; }
 
   function tabs(s) {
@@ -152,7 +158,7 @@ export const CLIENT_JS = String.raw`
         var chips = h("div", { class: "chips" }, filters.map(function (f) {
           return h("button", { class: "chip" + (state.qfilter === f[0] ? " on" : ""), onclick: function () { state.qfilter = f[0]; render(); } }, f[1] + " (" + f[2] + ")");
         }));
-        var head = h("div", { class: "sub" }, q.count + " statements in " + ms(q.totalMs));
+        var head = h("div", { class: "sub" }, q.count + " statements, " + ms(wall(s)) + " elapsed" + (overlaps(s) ? " (" + ms(q.totalMs) + " summed: some ran in parallel)" : ""));
         var groups = q.groups.map(function (g) {
           return h("div", { class: "np" },
             h("b", null, "Possible N+1: "), g.count + " similar queries, " + ms(g.totalMs) + " total",
@@ -258,7 +264,7 @@ export const CLIENT_JS = String.raw`
       item(s.request.method, s.request.path + " ", { cls: badgeFor(s.request.status), onclick: function () { toggle("request"); }, on: state.tab === "request", title: s.request.url }),
       item("status", s.request.status, { cls: badgeFor(s.request.status), onclick: function () { toggle("request"); } }),
       item("route", s.request.route.name || "—", { onclick: function () { toggle("request"); } }),
-      item("queries", s.queries.count + " · " + ms(s.queries.totalMs), { cls: s.queries.nPlusOne ? "bad" : s.queries.duplicates || s.queries.slow ? "warn" : "", title: s.queries.nPlusOne ? "Possible N+1 queries detected" : "", onclick: function () { toggle("queries"); }, on: state.tab === "queries" }),
+      item("queries", s.queries.count + " · " + ms(wall(s)), { cls: s.queries.nPlusOne ? "bad" : s.queries.duplicates || s.queries.slow ? "warn" : "", title: (s.queries.nPlusOne ? "Possible N+1 queries detected. " : "") + overlapNote(s), onclick: function () { toggle("queries"); }, on: state.tab === "queries" }),
       item("time", ms(s.request.durationMs), { onclick: function () { toggle("timeline"); }, on: state.tab === "timeline" }),
       item("memory", bytes(s.request.memoryBytes)),
       item("exceptions", s.exceptions.length, { cls: s.exceptions.length ? "bad" : "", onclick: function () { toggle("exceptions"); }, on: state.tab === "exceptions" }),

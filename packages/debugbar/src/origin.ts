@@ -4,6 +4,9 @@ import type { QueryOrigin } from "./types.ts";
 /** Directory holding the `@bunyad/*` packages when they are linked from a checkout. */
 const FRAMEWORK_ROOT = resolve(import.meta.dir, "..", "..");
 
+/** A real source file: POSIX or Windows absolute path. */
+const ABSOLUTE = /^(\/|[A-Za-z]:[\\/])/;
+
 const FRAME = /^\s*at (?:(.+?) \()?(.+?):(\d+):(\d+)\)?$/;
 
 /** `<root>/<package>/src/...` — a linked `@bunyad/*` package's own code, not its tests. */
@@ -30,7 +33,8 @@ export function originFromStack(stack: string, cwd = process.cwd()): QueryOrigin
     const match = FRAME.exec(line);
     if (!match) continue;
     const file = match[2]!.replace(/^file:\/\//, "");
-    if (isInternal(file)) continue;
+    // Runtime frames such as `native:7` or `<anonymous>` are not files; skip them.
+    if (!ABSOLUTE.test(file) || isInternal(file)) continue;
     return {
       file: relative(file, cwd),
       line: Number(match[3]),

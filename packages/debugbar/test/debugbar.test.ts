@@ -217,6 +217,25 @@ test("eventsIgnore supports prefix patterns", async () => {
   expect(snap.events.items.map((e) => e.name)).toEqual(["quiet"]);
 });
 
+test("overlapping queries report elapsed time below the summed time", async () => {
+  const { router, fetch } = await boot();
+  router.get("/parallel", async () => {
+    const connection = {} as never;
+    // Two 5ms queries that finish together ran in parallel.
+    fireQueryExecuted({ sql: "select 1", bindings: [], timeMs: 5, connection });
+    fireQueryExecuted({ sql: "select 2", bindings: [], timeMs: 5, connection });
+    return json({});
+  });
+  const res = await fetch(new Request("http://localhost/parallel"));
+  const snap = (await (
+    await fetch(new Request(`http://localhost/_debugbar/${res.headers.get("X-Debugbar-Id")}`))
+  ).json()) as Snapshot;
+
+  expect(snap.queries.totalMs).toBe(10);
+  expect(snap.queries.wallMs).toBeGreaterThan(4.9);
+  expect(snap.queries.wallMs).toBeLessThan(5.5);
+});
+
 test("queries outside a request are ignored", async () => {
   await boot();
   expect(() =>

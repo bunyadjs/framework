@@ -1,5 +1,6 @@
 import { ServiceProvider, registerProviderCommand } from "@bunyad/core";
 import { installCollectors } from "./collectors/install.ts";
+import { registerDebugbarTools } from "./mcp-tools.ts";
 import { DebugbarMiddleware } from "./middleware.ts";
 import { isDebugbarEnabled, resolveOptions } from "./options.ts";
 import type { DebugbarOptions, ResolvedDebugbarOptions } from "./types.ts";
@@ -33,6 +34,7 @@ export class DebugbarServiceProvider extends ServiceProvider {
     this.#dispose?.();
     this.#dispose = installCollectors(options);
     active = options;
+    registerDebugbarTools(() => options.store);
 
     const middleware = new DebugbarMiddleware(options);
     const existing = this.app.getMiddleware();
