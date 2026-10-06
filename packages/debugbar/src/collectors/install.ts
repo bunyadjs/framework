@@ -5,6 +5,7 @@ import { listenLog } from "@bunyad/log";
 import { listenException, statusFromError } from "@bunyad/core";
 import { currentContext } from "../context.ts";
 import { toExceptionRecord } from "../debugbar.ts";
+import { captureOrigin } from "../origin.ts";
 import { sanitize, sanitizeRecord } from "../redact.ts";
 import type { CacheRecord, ResolvedDebugbarOptions } from "../types.ts";
 
@@ -28,6 +29,9 @@ export function installCollectors(options: ResolvedDebugbarOptions): () => void 
         at: Math.max(0, ctx.now() - event.timeMs),
         duplicate: false,
         slow: event.timeMs >= options.slowQueryMs,
+        nPlusOne: false,
+        repeats: 0,
+        origin: options.queryOrigin ? captureOrigin() : null,
       });
     }),
   );

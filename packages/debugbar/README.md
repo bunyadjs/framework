@@ -27,7 +27,7 @@ Every response carries an `X-Debugbar-Id` header. The bar patches `fetch` and `X
 |---|---|
 | Messages | Lines you add with `Debugbar.message()` |
 | Timeline | Request, `Debugbar.measure()` spans and queries on one time axis |
-| Queries | SQL, bindings and timing; duplicates and slow queries flagged |
+| Queries | SQL, bindings and timing; duplicate, slow and possible N+1 queries flagged, each with the file and line that issued it; filter chips |
 | Request | General, route, query, body, headers, cookies, response headers |
 | Logs | `@bunyad/log` calls made during the request |
 | Cache | Hits, misses, writes and forgets |
@@ -64,12 +64,20 @@ export default {
   path: "/_debugbar",
   history: 50,          // requests kept in memory
   slowQueryMs: 100,
+  nPlusOneThreshold: 5, // flag a read repeated this many times with different bindings
+  queryOrigin: true,    // record the file:line that issued each query
   maxRecords: 500,      // per collector, per request
   except: ["/health"],  // path prefixes the bar ignores
   redact: [/ssn/i],     // extra key patterns to mask
   inject: true,         // false: keep history and the header, skip the bar
 };
 ```
+
+## Query insights
+
+- **Duplicate:** identical SQL and bindings ran more than once in the request.
+- **Possible N+1:** a `select`/`with` statement whose shape (values stripped) ran `nPlusOneThreshold` or more times with different bindings. Writes are never flagged. The Queries tab lists each pattern with its count, total time and origin.
+- **Origin:** the first stack frame outside `node_modules`, the runtime and the framework's own `src/`. It is captured only while the bar is on; set `queryOrigin: false` to skip the stack capture.
 
 ## Notes
 
