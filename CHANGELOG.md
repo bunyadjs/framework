@@ -18,6 +18,7 @@ The first beta. Published under the `beta` npm tag; `latest` does not move until
 
 ### Added
 
+- **`@bunyad/mcp`:** one MCP server per app. Packages register tools with `Mcp.tool()`; `bunyad mcp` boots the app and serves them to an AI agent over stdio. Includes argument validation, output caps and stdout protection.
 - Live PostgreSQL and MySQL test suites on Bun and Node 20, 22 and 24; a `tls` option on `connectMysql` (MySQL 8+ needs TLS for its default login).
 - `bunyad --help`, `bunyad <command> --help`, app-name validation in `create-bunyad`, and a clear message when Bun is missing or too old.
 - Real READMEs, with examples that were run, for every package.

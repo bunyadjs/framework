@@ -311,6 +311,7 @@
         "@bunyad/database": "workspace:^",
         "@bunyad/events": "workspace:^",
         "@bunyad/features": "workspace:^",
+        "@bunyad/mcp": "workspace:^",
         "@bunyad/migrate": "workspace:^",
         "@bunyad/orm": "workspace:^",
         "@bunyad/queue": "workspace:^",
@@ -548,6 +549,10 @@
       "dependencies": {
         "@bunyad/contracts": "workspace:*",
       },
+    },
+    "packages/mcp": {
+      "name": "@bunyad/mcp",
+      "version": "0.2.0-beta.0",
     },
     "packages/metrics": {
       "name": "@bunyad/metrics",
@@ -992,6 +997,8 @@
     "@bunyad/log": ["@bunyad/log@workspace:packages/log"],
 
     "@bunyad/mail": ["@bunyad/mail@workspace:packages/mail"],
+
+    "@bunyad/mcp": ["@bunyad/mcp@workspace:packages/mcp"],
 
     "@bunyad/metrics": ["@bunyad/metrics@workspace:packages/metrics"],
 
