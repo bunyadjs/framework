@@ -59,7 +59,9 @@ run(["bun", "install"], app);
 
 // 4. Migrate, serve, request.
 console.log(run(["bun", "./bunyad", "migrate"], app).trim());
-const port = 40000 + Math.floor(Math.random() * 1000);
+// Below Linux's ephemeral range (32768-60999): `bun install` has just opened hundreds of outbound
+// connections that take source ports from that range, so a port picked inside it often collides.
+const port = 20000 + Math.floor(Math.random() * 10000);
 const server = Bun.spawn(["bun", "./bunyad", "serve"], { cwd: app, stdout: "pipe", stderr: "pipe", env: { ...process.env, PORT: String(port) } });
 let status = 0;
 for (let i = 0; i < 50 && !status; i++) {
