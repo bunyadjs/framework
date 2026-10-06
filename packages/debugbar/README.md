@@ -34,7 +34,7 @@ Every response carries an `X-Debugbar-Id` header. The bar patches `fetch` and `X
 | Cache | Hits, misses, writes and forgets |
 | Exceptions | Server errors (status 500 and up) with stack traces |
 
-Secrets (`password`, `token`, `authorization`, `cookie`, `csrf`, …) are masked before anything is stored.
+Secrets and personal data are masked before anything is stored or sent to an agent; see [Privacy](#privacy).
 
 ## Your own code
 
@@ -70,7 +70,9 @@ export default {
   eventsIgnore: ["CacheHit"], // names the Events tab skips (trailing * = prefix); cache events are skipped by default
   maxRecords: 500,      // per collector, per request
   except: ["/health"],  // path prefixes the bar ignores
-  redact: [/ssn/i],     // extra key patterns to mask
+  redact: [/loyalty/i], // extra key patterns to mask (columns, fields, query and route parameters)
+  redactPii: true,      // also mask email, phone, address, ids and bank details by name (default)
+  captureBindings: true, // false: hide every query value; SQL, timing and N+1 detection still work
   inject: true,         // false: keep history and the header, skip the bar
   driver: "memory",     // "file": keep history on disk (see below)
   storagePath: "storage/debugbar", // file driver, relative to the app base path
@@ -99,6 +101,18 @@ Responses are summaries, with SQL cut at 300 characters and stacks at 15 lines, 
 By default history lives in memory and is lost when the server restarts. With `driver: "file"` each request is written as one JSON file under `storage/debugbar` (directory `0700`, files `0600`), so history survives `--watch` restarts and other processes, such as a future MCP server, can read it. Writes happen after the response is sent and never fail a request. Add the directory to `.gitignore`.
 
 `bunyad debugbar:clear` empties the history. Pass your own object as `store` to replace the storage entirely (`put`, `get`, `list`, `clear`; sync or async).
+
+## Privacy
+
+The bar records SQL, request bodies, headers, logs and events. Everything is masked **before** it reaches the bar, the history files or an MCP agent:
+
+- **By name:** `password`, `token`, `secret`, `authorization`, `cookie`, `csrf`, `api key`, `card` and similar, plus personal data (email, phone, address, national id, bank details) unless `redactPii: false`. This applies to request bodies, headers, cookies, query strings, event payloads, log context and your own `redact` patterns.
+- **SQL bindings by column.** A binding is a bare value, so the bar works out which column each `?` or `$1` belongs to: `WHERE email = ?`, `SET password = ?`, `INSERT INTO t (email, phone) VALUES (...)` (including several rows), `IN (...)` lists, `BETWEEN` and `LIKE`. Inline string literals for those columns are masked in the SQL text too. Duplicate and N+1 detection still work on the real values.
+- **By shape:** JWTs, password hashes, `Bearer`/`Basic` credentials and long opaque tokens are masked in any field. UUIDs are not.
+- **Free text:** log lines, error messages and stacks have `password=...`, `token: ...` and `Bearer ...` values masked.
+- **URLs:** secret query values (`?token=...`) and secret route parameters (`/reset/{token}`) are masked in the stored url and path.
+
+This is pattern-based and best-effort. It cannot recognise a secret in a column it does not know, or in SQL it cannot parse (a few vendor-specific forms). If that is not enough for your data, add your own `redact` patterns, or set `captureBindings: false` so no query value is kept at all.
 
 ## Query insights
 

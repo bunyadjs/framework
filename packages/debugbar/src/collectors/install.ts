@@ -6,7 +6,9 @@ import { listenException, statusFromError } from "@bunyad/core";
 import { currentContext } from "../context.ts";
 import { toExceptionRecord } from "../debugbar.ts";
 import { captureOrigin } from "../origin.ts";
-import { sanitize, sanitizeRecord, truncate } from "../redact.ts";
+import { createHash } from "node:crypto";
+import { MASK, isSecretKey, redactText, sanitize, sanitizeRecord, truncate } from "../redact.ts";
+import { redactBindings, redactLiterals } from "../sql-redact.ts";
 import type { CacheRecord, ResolvedDebugbarOptions } from "../types.ts";
 
 /**
@@ -22,13 +24,16 @@ export function installCollectors(options: ResolvedDebugbarOptions): () => void 
     listenQueries((event) => {
       const ctx = currentContext();
       if (!ctx) return;
+      const sensitive = (column: string) => isSecretKey(column, options.redact);
+      const masked = redactBindings(event.sql, event.bindings, sensitive).map((value) => sanitize(value, options.redact));
       ctx.push(ctx.queries, {
-        sql: event.sql,
-        bindings: sanitize(event.bindings, options.redact) as unknown[],
+        sql: redactLiterals(event.sql, sensitive),
+        bindings: options.captureBindings ? masked : masked.map(() => "[hidden]"),
         timeMs: event.timeMs,
         at: Math.max(0, ctx.now() - event.timeMs),
         duplicate: false,
         slow: event.timeMs >= options.slowQueryMs,
+        fingerprint: fingerprint(event.bindings),
         nPlusOne: false,
         repeats: 0,
         origin: options.queryOrigin ? captureOrigin() : null,
@@ -42,7 +47,7 @@ export function installCollectors(options: ResolvedDebugbarOptions): () => void 
       if (!ctx) return;
       ctx.push(ctx.logs, {
         level,
-        message,
+        message: redactText(message),
         at: ctx.now(),
         context: context ? sanitizeRecord(context, options.redact) : undefined,
       });
@@ -127,4 +132,10 @@ function payloadJson(payload: object, options: ResolvedDebugbarOptions): string 
   } catch {
     return "[unserializable]";
   }
+}
+
+/** Stable, non-reversible-by-eye id of the original bindings, used only to compare queries in memory. */
+function fingerprint(bindings: unknown[]): string {
+  const json = JSON.stringify(bindings, (_key, value) => (typeof value === "bigint" ? value.toString() : value)) ?? "";
+  return createHash("sha1").update(json).digest("hex").slice(0, 12);
 }

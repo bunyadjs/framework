@@ -30,6 +30,11 @@ export type QueryRecord = {
   at: number;
   duplicate: boolean;
   slow: boolean;
+  /**
+   * Internal: fingerprint of the original bindings, so duplicate and N+1 detection still tell values
+   * apart after masking. Never stored or sent anywhere.
+   */
+  fingerprint?: string;
   /** Same read shape repeated with different bindings (see `nPlusOneThreshold`). */
   nPlusOne: boolean;
   /** How many times this query's shape ran in the request, when flagged as N+1. */
@@ -141,6 +146,10 @@ export type DebugbarOptions = {
   except?: string[];
   /** Extra key patterns to mask, on top of the built-in secret list. */
   redact?: RegExp[];
+  /** Also mask personal data (email, phone, address, ids, bank details) by column or field name. Default true. */
+  redactPii?: boolean;
+  /** Record query bindings. `false` hides every value (the SQL, timing and N+1 detection still work). Default true. */
+  captureBindings?: boolean;
   /** `memory` (default) or `file`: keep snapshots on disk so restarts and other processes see them. */
   driver?: "memory" | "file";
   /** Directory for the file driver, relative to the app base path. Default `storage/debugbar`. */
@@ -154,7 +163,7 @@ export type DebugbarOptions = {
 };
 
 export type ResolvedDebugbarOptions = Required<
-  Omit<DebugbarOptions, "enabled" | "store" | "driver" | "storagePath" | "maxAgeHours">
+  Omit<DebugbarOptions, "enabled" | "store" | "driver" | "storagePath" | "maxAgeHours" | "redactPii">
 > & { enabled: boolean | undefined; store: DebugbarStore };
 
 /** Methods may be sync or async; callers always `await`. `put` must not throw. */

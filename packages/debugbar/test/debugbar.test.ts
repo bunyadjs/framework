@@ -114,7 +114,8 @@ test("redacts secrets in request data", async () => {
     await fetch(new Request(`http://localhost/_debugbar/${res.headers.get("X-Debugbar-Id")}`))
   ).json()) as Snapshot;
 
-  expect(snap.request.body).toEqual({ email: "a@b.c", password: "********" });
+  // Personal data is masked by default, like secrets (redactPii: false turns that off).
+  expect(snap.request.body).toEqual({ email: "********", password: "********" });
   expect(snap.request.headers.authorization).toBe("********");
   expect(JSON.stringify(snap)).not.toContain("hunter2");
 });

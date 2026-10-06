@@ -1,6 +1,7 @@
 import type { Application } from "@bunyad/core";
 import { resolve } from "node:path";
 import { FileDebugbarStore } from "./file-store.ts";
+import { PII_KEYS } from "./redact.ts";
 import { MemoryDebugbarStore } from "./store.ts";
 import type { DebugbarOptions, ResolvedDebugbarOptions } from "./types.ts";
 
@@ -19,7 +20,9 @@ export function resolveOptions(
     eventsIgnore: options.eventsIgnore ?? ["CacheHit", "CacheMissed", "KeyWritten", "KeyForgotten", "CacheFlushed"],
     maxRecords: options.maxRecords ?? 500,
     except: options.except ?? [],
-    redact: options.redact ?? [],
+    // Personal-data patterns ride along with the caller's own, so every redaction path honours them.
+    redact: [...(options.redact ?? []), ...(options.redactPii === false ? [] : PII_KEYS)],
+    captureBindings: options.captureBindings ?? true,
     inject: options.inject ?? true,
     store: options.store ?? createStore(options, history, basePath),
   };

@@ -1,4 +1,5 @@
 import { currentContext } from "./context.ts";
+import { redactText } from "./redact.ts";
 import type { MessageLevel } from "./types.ts";
 
 /**
@@ -14,7 +15,7 @@ export const Debugbar = {
   /** Add a line to the Messages tab. */
   message(message: unknown, level: MessageLevel = "info"): void {
     const text = typeof message === "string" ? message : safeJson(message);
-    currentContext()?.message(text, level);
+    currentContext()?.message(redactText(text), level);
   },
 
   startMeasure(label: string): void {
@@ -45,9 +46,9 @@ export const Debugbar = {
 
 export function toExceptionRecord(error: unknown, at: number) {
   if (error instanceof Error) {
-    return { name: error.name, message: error.message, stack: error.stack ?? "", at };
+    return { name: error.name, message: redactText(error.message), stack: redactText(error.stack ?? ""), at };
   }
-  return { name: "Error", message: safeJson(error), stack: "", at };
+  return { name: "Error", message: redactText(safeJson(error)), stack: "", at };
 }
 
 function safeJson(value: unknown): string {
