@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   connectFromEnv,
@@ -1322,13 +1323,33 @@ export async function run(argv = process.argv.slice(2)): Promise<void> {
   }
 
   const command = argv[0] ?? "list";
-  const handler = merged[command];
+  let handler: ((args: string[]) => Promise<void>) | undefined = merged[command];
+  if (!handler) {
+    // Providers register their commands while the app boots, which hasn't happened yet.
+    handler = await providerCommandAfterBoot(command);
+  }
   if (!handler) {
     console.error(`Command "${command}" is not defined.`);
     process.exitCode = 1;
     return;
   }
   await handler(argv.slice(1));
+}
+
+/**
+ * Boot the app and look the command up again. Returns undefined outside an app
+ * (no `bootstrap/app.ts`) or when no provider registered it.
+ */
+async function providerCommandAfterBoot(
+  command: string,
+): Promise<((args: string[]) => Promise<void>) | undefined> {
+  if (!existsSync(resolve(process.cwd(), "bootstrap/app.ts"))) return undefined;
+  try {
+    await bootApp();
+  } catch {
+    return undefined;
+  }
+  return getProviderCommandHandlers()[command];
 }
 
 function flagNumber(args: string[], name: string, fallback: number): number {
@@ -1345,7 +1366,7 @@ function flagNumber(args: string[], name: string, fallback: number): number {
  * are read anew.
  */
 async function watchTypes(): Promise<void> {
-  const { existsSync, watch } = await import("node:fs");
+  const { watch } = await import("node:fs");
   const root = process.cwd();
   const run = async () => {
     const child = Bun.spawn([process.execPath, resolve(root, "bunyad"), "types:generate"], { cwd: root, stdout: "pipe", stderr: "inherit" });
