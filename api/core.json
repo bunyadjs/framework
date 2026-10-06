@@ -27,6 +27,7 @@
   "isCompiledBootMode",
   "isHtmlResponse",
   "isVendorPath",
+  "listenException",
   "onShutdown",
   "parseStack",
   "pathnameOf",

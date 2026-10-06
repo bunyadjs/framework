@@ -1,0 +1,16 @@
+[
+  "Debugbar",
+  "DebugbarMiddleware",
+  "DebugbarServiceProvider",
+  "MemoryDebugbarStore",
+  "RequestContext",
+  "activeDebugbar",
+  "buildSnapshot",
+  "currentContext",
+  "installCollectors",
+  "isDebugbarEnabled",
+  "isSecretKey",
+  "resolveOptions",
+  "runWithContext",
+  "sanitize"
+]

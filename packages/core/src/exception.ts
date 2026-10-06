@@ -853,3 +853,28 @@ export function renderException(
     },
   );
 }
+
+export type ExceptionListener = (error: unknown, request: Request) => void;
+
+const exceptionListeners = new Set<ExceptionListener>();
+
+/**
+ * Observe every error the HTTP kernel turns into a response (before rendering).
+ * Runs synchronously inside the request's async context. Returns unsubscribe.
+ */
+export function listenException(listener: ExceptionListener): () => void {
+  exceptionListeners.add(listener);
+  return () => {
+    exceptionListeners.delete(listener);
+  };
+}
+
+export function notifyException(error: unknown, request: Request): void {
+  for (const listener of exceptionListeners) {
+    try {
+      listener(error, request);
+    } catch {
+      // A broken observer must never mask the original error.
+    }
+  }
+}

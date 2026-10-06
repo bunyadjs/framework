@@ -1,0 +1,61 @@
+{
+  "name": "@bunyad/debugbar",
+  "version": "0.2.0-beta.0",
+  "description": "Development debug bar for Bunyad: queries, timeline, logs, cache, exceptions and request history.",
+  "license": "MIT",
+  "author": "Shah Khalid",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunyadjs/framework.git",
+    "directory": "packages/debugbar"
+  },
+  "homepage": "https://github.com/bunyadjs/framework#readme",
+  "bugs": {
+    "url": "https://github.com/bunyadjs/framework/issues"
+  },
+  "keywords": [
+    "bunyad",
+    "bun",
+    "typescript",
+    "debugbar"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.4.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@bunyad/cache": "workspace:^",
+    "@bunyad/core": "workspace:^",
+    "@bunyad/database": "workspace:^",
+    "@bunyad/events": "workspace:^",
+    "@bunyad/http": "workspace:^",
+    "@bunyad/log": "workspace:^"
+  },
+  "scripts": {
+    "test": "bun test",
+    "build": "bun ../../scripts/build-package.ts ."
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "devDependencies": {
+    "@bunyad/router": "workspace:^"
+  }
+}
