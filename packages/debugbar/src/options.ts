@@ -9,6 +9,8 @@ export function resolveOptions(options: DebugbarOptions = {}): ResolvedDebugbarO
     path: (options.path ?? "/_debugbar").replace(/\/+$/, "") || "/_debugbar",
     history,
     slowQueryMs: options.slowQueryMs ?? 100,
+    nPlusOneThreshold: options.nPlusOneThreshold ?? 5,
+    queryOrigin: options.queryOrigin ?? true,
     maxRecords: options.maxRecords ?? 500,
     except: options.except ?? [],
     redact: options.redact ?? [],
