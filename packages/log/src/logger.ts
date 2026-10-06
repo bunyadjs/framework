@@ -70,10 +70,44 @@ function enqueueWrite(work: () => void | Promise<void>): void {
   });
 }
 
+export type LogListener = (
+  level: LogLevel,
+  message: string,
+  context?: Record<string, unknown>,
+) => void;
+
+const logListeners = new Set<LogListener>();
+
+/** Observe every log call synchronously (before it is queued). Returns unsubscribe. */
+export function listenLog(listener: LogListener): () => void {
+  logListeners.add(listener);
+  return () => {
+    logListeners.delete(listener);
+  };
+}
+
+function emitLog(
+  channel: LogChannel,
+  level: LogLevel,
+  message: string,
+  context?: Record<string, unknown>,
+): void {
+  if (logListeners.size > 0) {
+    for (const listener of logListeners) {
+      try {
+        listener(level, message, context);
+      } catch {
+        // A broken observer must never break logging.
+      }
+    }
+  }
+  enqueueWrite(() => channel.log(level, message, context));
+}
+
 function write(level: LogLevel, message: string, context?: Record<string, unknown>): void {
   const channel = getLogChannel();
   const merged = mergeContext(context);
-  enqueueWrite(() => channel.log(level, message, merged));
+  emitLog(channel, level, message, merged);
 }
 
 function flushWrites(): Promise<void> {
@@ -84,39 +118,39 @@ function channelApi(channel: LogChannel) {
   return {
     debug: ((message, context) => {
       const merged = mergeContext(context);
-      enqueueWrite(() => channel.log("debug", message, merged));
+      emitLog(channel, "debug", message, merged);
     }) as LogMethod,
     info: ((message, context) => {
       const merged = mergeContext(context);
-      enqueueWrite(() => channel.log("info", message, merged));
+      emitLog(channel, "info", message, merged);
     }) as LogMethod,
     notice: ((message, context) => {
       const merged = mergeContext(context);
-      enqueueWrite(() => channel.log("notice", message, merged));
+      emitLog(channel, "notice", message, merged);
     }) as LogMethod,
     warning: ((message, context) => {
       const merged = mergeContext(context);
-      enqueueWrite(() => channel.log("warning", message, merged));
+      emitLog(channel, "warning", message, merged);
     }) as LogMethod,
     error: ((message, context) => {
       const merged = mergeContext(context);
-      enqueueWrite(() => channel.log("error", message, merged));
+      emitLog(channel, "error", message, merged);
     }) as LogMethod,
     critical: ((message, context) => {
       const merged = mergeContext(context);
-      enqueueWrite(() => channel.log("critical", message, merged));
+      emitLog(channel, "critical", message, merged);
     }) as LogMethod,
     alert: ((message, context) => {
       const merged = mergeContext(context);
-      enqueueWrite(() => channel.log("alert", message, merged));
+      emitLog(channel, "alert", message, merged);
     }) as LogMethod,
     emergency: ((message, context) => {
       const merged = mergeContext(context);
-      enqueueWrite(() => channel.log("emergency", message, merged));
+      emitLog(channel, "emergency", message, merged);
     }) as LogMethod,
     log(level: LogLevel, message: string, context?: Record<string, unknown>): void {
       const merged = mergeContext(context);
-      enqueueWrite(() => channel.log(level, message, merged));
+      emitLog(channel, level, message, merged);
     },
     shareContext(context: Record<string, unknown>) {
       sharedContext = { ...sharedContext, ...context };

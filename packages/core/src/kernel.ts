@@ -25,7 +25,7 @@ import {
 } from "@bunyad/common";
 import type { InjectSlot, RouteAction, RouteDefinition, ControllerClass } from "@bunyad/router";
 import type { Application } from "./application.ts";
-import { renderException, shouldReturnJson, statusFromError } from "./exception.ts";
+import { notifyException, renderException, shouldReturnJson, statusFromError } from "./exception.ts";
 import { resolveFormRequest } from "./form-request-action.ts";
 import { stampControllerConstructorInject } from "./controller-constructor.ts";
 import {
@@ -477,6 +477,7 @@ export class HttpKernel {
     error: unknown,
     request: Request,
   ): Response | Promise<Response> {
+    notifyException(error, request);
     const renderers = this.app.exceptionRenderers();
     if (renderers.length === 0) {
       return this.#defaultErrorResponse(error, request);

@@ -18,6 +18,7 @@ The first beta. Published under the `beta` npm tag; `latest` does not move until
 
 ### Added
 
+- **`@bunyad/debugbar`:** a development debug bar with queries, timeline, request, logs, cache and exceptions tabs, retained request history, and a `/_debugbar` JSON API. Adds `listenLog()` to `@bunyad/log` and `listenException()` to `@bunyad/core`.
 - Live PostgreSQL and MySQL test suites on Bun and Node 20, 22 and 24; a `tls` option on `connectMysql` (MySQL 8+ needs TLS for its default login).
 - `bunyad --help`, `bunyad <command> --help`, app-name validation in `create-bunyad`, and a clear message when Bun is missing or too old.
 - Real READMEs, with examples that were run, for every package.

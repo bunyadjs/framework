@@ -17,4 +17,6 @@ export {
   setDefaultLogChannel,
   getLogChannel,
   resetLogChannelsForTests,
+  listenLog,
+  type LogListener,
 } from "./logger.ts";
