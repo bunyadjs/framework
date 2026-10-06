@@ -177,6 +177,8 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     );
     console.log("  list           List commands");
     console.log("  about          Environment information (--json)");
+    console.log("  mcp            Serve this app's tools to an AI agent over stdio (MCP)");
+    console.log('                 Editor config: { "command": "bun", "args": ["bunyad", "mcp"] }');
     console.log("  new            Create an app from a starter kit (views|live|react|vue|svelte|api)");
     console.log("  migrate:report Scan PHP project for Bunyad compatibility");
     console.log("  migrate:convert Emit TS controller stub from a PHP file");
@@ -1198,6 +1200,14 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     }
   },
 
+  async mcp() {
+    // stdout is the protocol channel: keep boot logs and app output on stderr from the start.
+    const { protectStdout, registerBuiltinTools, serveStdio } = await import("@bunyad/mcp");
+    protectStdout();
+    await bootApp();
+    registerBuiltinTools();
+    await serveStdio();
+  },
   async about(args) {
     const asJson = args.includes("--json");
     let pkg: Record<string, unknown> = {};

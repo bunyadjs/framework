@@ -55,6 +55,7 @@
     "@bunyad/database": "workspace:^",
     "@bunyad/events": "workspace:^",
     "@bunyad/features": "workspace:^",
+    "@bunyad/mcp": "workspace:^",
     "@bunyad/migrate": "workspace:^",
     "@bunyad/orm": "workspace:^",
     "@bunyad/queue": "workspace:^",

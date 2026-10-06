@@ -23,6 +23,7 @@
   "orm",
   "queue",
   "schedule",
+  "mcp",
   "cli",
   "head",
   "inertia",
