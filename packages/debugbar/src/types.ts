@@ -8,6 +8,20 @@ export type MessageLevel =
   | "alert"
   | "emergency";
 
+export type QueryOrigin = {
+  /** Path relative to the working directory when possible. */
+  file: string;
+  line: number;
+  function: string | null;
+};
+
+export type QueryGroup = {
+  sql: string;
+  count: number;
+  totalMs: number;
+  origin: QueryOrigin | null;
+};
+
 export type QueryRecord = {
   sql: string;
   bindings: unknown[];
@@ -16,6 +30,12 @@ export type QueryRecord = {
   at: number;
   duplicate: boolean;
   slow: boolean;
+  /** Same read shape repeated with different bindings (see `nPlusOneThreshold`). */
+  nPlusOne: boolean;
+  /** How many times this query's shape ran in the request, when flagged as N+1. */
+  repeats: number;
+  /** Application code that issued the query; null when it cannot be determined. */
+  origin: QueryOrigin | null;
 };
 
 export type TimelineRecord = {
@@ -72,6 +92,9 @@ export type Snapshot = {
     totalMs: number;
     duplicates: number;
     slow: number;
+    /** Queries flagged as part of an N+1 pattern. */
+    nPlusOne: number;
+    groups: QueryGroup[];
     items: QueryRecord[];
   };
   timeline: TimelineRecord[];
@@ -90,6 +113,10 @@ export type DebugbarOptions = {
   history?: number;
   /** Queries at or above this duration are flagged slow. Default 100ms. */
   slowQueryMs?: number;
+  /** Flag a read as N+1 when its shape repeats this many times with different bindings. Default 5. */
+  nPlusOneThreshold?: number;
+  /** Record which application code issued each query. Default true. */
+  queryOrigin?: boolean;
   /** Max records kept per collector per request. Default 500. */
   maxRecords?: number;
   /** Request paths (prefix match) the bar ignores, e.g. health checks. */

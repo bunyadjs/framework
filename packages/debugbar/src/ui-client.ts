@@ -27,6 +27,7 @@ select{background:#202531;color:inherit;border:1px solid #2f3646;border-radius:4
 .collapse{margin-left:auto;padding:0 14px;border:0;background:none;color:#9aa3b5;font:inherit;font-size:14px;cursor:pointer}
 .collapse:hover{color:#fff;background:#202531}
 .body{overflow:auto;padding:10px 14px;flex:1}
+table,th,td,pre,button,select{font:inherit}
 table{border-collapse:collapse;width:100%}
 th{text-align:left;color:#8a93a6;font-weight:600;padding:4px 8px;border-bottom:1px solid #232834}
 td{padding:4px 8px;border-bottom:1px solid #1a1f29;vertical-align:top}
@@ -50,6 +51,15 @@ pre{margin:0;white-space:pre-wrap;word-break:break-word;font:inherit}
 .btn{background:#202531;color:inherit;border:1px solid #2f3646;border-radius:4px;padding:1px 8px;font:inherit;cursor:pointer}
 .min{position:fixed;right:12px;bottom:12px;z-index:2147483000;background:#0b6bcb;color:#fff;border:0;border-radius:18px;padding:7px 12px;font:700 12px ui-monospace,Menlo,monospace;cursor:pointer}
 .dup{color:#ffd166}
+.chips{display:flex;gap:6px;margin-bottom:8px}
+.chip{background:#202531;color:#9aa3b5;border:1px solid #2f3646;border-radius:12px;padding:2px 10px;font:inherit;cursor:pointer}
+.chip.on{background:#0b6bcb;border-color:#0b6bcb;color:#fff}
+.origin{color:#8a93a6;margin-top:2px}
+.tag{display:inline-block;margin:2px 6px 0 0;padding:0 6px;border-radius:3px;font-size:10px;text-transform:uppercase}
+.tag.bad{background:#8a1f2b;color:#ffd5da}
+.tag.warn{background:#7a5a00;color:#ffe08a}
+.np{border:1px solid #6b2630;background:#1d1217;border-radius:4px;padding:8px 10px;margin:6px 0}
+.np b{color:#ff9aa6}
 .slow{color:#ff7b8a}
 `;
 
@@ -75,6 +85,7 @@ export const CLIENT_JS = String.raw`
     snaps: [JSON.parse(dataEl.textContent)],
     index: 0,
     tab: pref("tab"),
+    qfilter: "all",
     height: parseInt(pref("height") || "320", 10),
     hidden: pref("hidden") === "1"
   };
@@ -99,6 +110,7 @@ export const CLIENT_JS = String.raw`
   function ms(n) { return n < 1 ? n.toFixed(2) + "ms" : n < 1000 ? n.toFixed(1) + "ms" : (n / 1000).toFixed(2) + "s"; }
   function bytes(n) { return n < 1048576 ? (n / 1024).toFixed(0) + "KB" : (n / 1048576).toFixed(1) + "MB"; }
   function pretty(v) { return typeof v === "string" ? v : JSON.stringify(v, null, 2); }
+  function where(o) { return o.file + ":" + o.line + (o.function ? "  \u00b7  " + o.function : ""); }
   function empty(text) { return h("div", { class: "empty" }, text); }
 
   function kv(obj) {
@@ -136,23 +148,44 @@ export const CLIENT_JS = String.raw`
       { id: "queries", label: "Queries", count: s.queries.count, render: function () {
         if (!s.queries.items.length) return empty("No queries.");
         var q = s.queries;
-        var head = h("div", { class: "sub" }, q.count + " statements in " + ms(q.totalMs) +
-          (q.duplicates ? " · " + q.duplicates + " duplicated" : "") + (q.slow ? " · " + q.slow + " slow" : ""));
-        var body = h("table", null,
-          h("tr", null, h("th", null, "#"), h("th", null, "Time"), h("th", null, "SQL")),
-          q.items.map(function (item, i) {
-            var detail = h("tr", { style: "display:none" }, h("td"), h("td"), h("td", null,
-              h("pre", null, "Bindings: " + JSON.stringify(item.bindings)),
-              h("button", { class: "btn", onclick: function () {
-                try { navigator.clipboard.writeText(item.sql + "\n-- " + JSON.stringify(item.bindings)); } catch (e) {}
-              } }, "Copy")));
-            var row = h("tr", { class: "row", onclick: function () { detail.style.display = detail.style.display === "none" ? "" : "none"; } },
-              h("td", { class: "k" }, i + 1),
-              h("td", { class: "k" + (item.slow ? " slow" : "") }, ms(item.timeMs)),
-              h("td", null, h("pre", { class: "sql" }, item.sql), item.duplicate ? h("span", { class: "dup" }, "duplicate ") : null));
-            return [row, detail];
-          }));
-        return [head, body];
+        var filters = [["all", "All", q.count], ["duplicate", "Duplicates", q.duplicates], ["slow", "Slow", q.slow], ["nplus", "N+1", q.nPlusOne]];
+        var chips = h("div", { class: "chips" }, filters.map(function (f) {
+          return h("button", { class: "chip" + (state.qfilter === f[0] ? " on" : ""), onclick: function () { state.qfilter = f[0]; render(); } }, f[1] + " (" + f[2] + ")");
+        }));
+        var head = h("div", { class: "sub" }, q.count + " statements in " + ms(q.totalMs));
+        var groups = q.groups.map(function (g) {
+          return h("div", { class: "np" },
+            h("b", null, "Possible N+1: "), g.count + " similar queries, " + ms(g.totalMs) + " total",
+            h("pre", { class: "sql" }, g.sql),
+            g.origin ? h("div", { class: "origin" }, where(g.origin)) : null);
+        });
+        var rows = [];
+        q.items.forEach(function (item, i) {
+          var keep = state.qfilter === "all" || (state.qfilter === "duplicate" && item.duplicate) ||
+            (state.qfilter === "slow" && item.slow) || (state.qfilter === "nplus" && item.nPlusOne);
+          if (!keep) return;
+          var detail = h("tr", { style: "display:none" }, h("td"), h("td"), h("td", null,
+            h("pre", null, "Bindings: " + JSON.stringify(item.bindings)),
+            h("button", { class: "btn", onclick: function () {
+              try { navigator.clipboard.writeText(item.sql + "\n-- " + JSON.stringify(item.bindings)); } catch (e) {}
+            } }, "Copy SQL"),
+            item.origin ? h("button", { class: "btn", style: "margin-left:6px", onclick: function () {
+              try { navigator.clipboard.writeText(item.origin.file + ":" + item.origin.line); } catch (e) {}
+            } }, "Copy location") : null));
+          var tags = [];
+          if (item.nPlusOne) tags.push(h("span", { class: "tag bad" }, "N+1 \u00d7" + item.repeats));
+          if (item.duplicate) tags.push(h("span", { class: "tag warn" }, "duplicate"));
+          var row = h("tr", { class: "row", onclick: function () { detail.style.display = detail.style.display === "none" ? "" : "none"; } },
+            h("td", { class: "k" }, i + 1),
+            h("td", { class: "k" + (item.slow ? " slow" : "") }, ms(item.timeMs)),
+            h("td", null, h("pre", { class: "sql" }, item.sql), tags,
+              item.origin ? h("div", { class: "origin" }, where(item.origin)) : null));
+          rows.push(row, detail);
+        });
+        var table = rows.length
+          ? h("table", null, h("tr", null, h("th", null, "#"), h("th", null, "Time"), h("th", null, "SQL")), rows)
+          : empty("No queries match this filter.");
+        return [chips, head, state.qfilter === "all" || state.qfilter === "nplus" ? groups : null, table];
       } },
       { id: "request", label: "Request", count: s.request.status, render: function () {
         var r = s.request;
@@ -211,7 +244,7 @@ export const CLIENT_JS = String.raw`
       item(s.request.method, s.request.path + " ", { cls: badgeFor(s.request.status), onclick: function () { toggle("request"); }, on: state.tab === "request", title: s.request.url }),
       item("status", s.request.status, { cls: badgeFor(s.request.status), onclick: function () { toggle("request"); } }),
       item("route", s.request.route.name || "—", { onclick: function () { toggle("request"); } }),
-      item("queries", s.queries.count + " · " + ms(s.queries.totalMs), { cls: s.queries.duplicates || s.queries.slow ? "warn" : "", onclick: function () { toggle("queries"); }, on: state.tab === "queries" }),
+      item("queries", s.queries.count + " · " + ms(s.queries.totalMs), { cls: s.queries.nPlusOne ? "bad" : s.queries.duplicates || s.queries.slow ? "warn" : "", title: s.queries.nPlusOne ? "Possible N+1 queries detected" : "", onclick: function () { toggle("queries"); }, on: state.tab === "queries" }),
       item("time", ms(s.request.durationMs), { onclick: function () { toggle("timeline"); }, on: state.tab === "timeline" }),
       item("memory", bytes(s.request.memoryBytes)),
       item("exceptions", s.exceptions.length, { cls: s.exceptions.length ? "bad" : "", onclick: function () { toggle("exceptions"); }, on: state.tab === "exceptions" }),

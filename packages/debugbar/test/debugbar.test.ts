@@ -142,6 +142,39 @@ test("collects queries (flagging duplicates and slow) and cache activity", async
   expect(snap.cache).toMatchObject({ hits: 1, misses: 1 });
 });
 
+test("reports N+1 groups and where the query came from", async () => {
+  const { router, fetch } = await boot();
+  router.get("/n1", async () => {
+    const connection = {} as never;
+    for (let id = 1; id <= 6; id++) {
+      fireQueryExecuted({ sql: "select * from stock where product_id = ?", bindings: [id], timeMs: 1, connection });
+    }
+    return json({});
+  });
+
+  const res = await fetch(new Request("http://localhost/n1"));
+  const snap = (await (
+    await fetch(new Request(`http://localhost/_debugbar/${res.headers.get("X-Debugbar-Id")}`))
+  ).json()) as Snapshot;
+
+  expect(snap.queries.nPlusOne).toBe(6);
+  expect(snap.queries.groups[0]).toMatchObject({ count: 6 });
+  expect(snap.queries.items[0]!.origin?.file).toContain("debugbar.test.ts");
+});
+
+test("queryOrigin: false skips the stack capture", async () => {
+  const { router, fetch } = await boot({ enabled: true, queryOrigin: false });
+  router.get("/q", () => {
+    fireQueryExecuted({ sql: "select 1", bindings: [], timeMs: 1, connection: {} as never });
+    return json({});
+  });
+  const res = await fetch(new Request("http://localhost/q"));
+  const snap = (await (
+    await fetch(new Request(`http://localhost/_debugbar/${res.headers.get("X-Debugbar-Id")}`))
+  ).json()) as Snapshot;
+  expect(snap.queries.items[0]!.origin).toBeNull();
+});
+
 test("queries outside a request are ignored", async () => {
   await boot();
   expect(() =>

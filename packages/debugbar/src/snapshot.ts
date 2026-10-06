@@ -1,4 +1,5 @@
 import type { RequestContext } from "./context.ts";
+import { analyzeQueries } from "./queries.ts";
 import { sanitizeRecord, sanitizeStrings } from "./redact.ts";
 import type { ResolvedDebugbarOptions, Snapshot } from "./types.ts";
 
@@ -8,24 +9,6 @@ function headersOf(source: Headers): Record<string, string> {
     out[key] = value;
   });
   return out;
-}
-
-/** Duplicate = identical SQL + bindings executed more than once in the request. */
-function flagDuplicates(context: RequestContext): number {
-  const seen = new Map<string, number>();
-  for (const query of context.queries) {
-    const key = `${query.sql}\u0000${JSON.stringify(query.bindings)}`;
-    seen.set(key, (seen.get(key) ?? 0) + 1);
-  }
-  let duplicates = 0;
-  for (const query of context.queries) {
-    const key = `${query.sql}\u0000${JSON.stringify(query.bindings)}`;
-    if ((seen.get(key) ?? 0) > 1) {
-      query.duplicate = true;
-      duplicates++;
-    }
-  }
-  return duplicates;
 }
 
 export async function buildSnapshot(
@@ -59,7 +42,7 @@ export async function buildSnapshot(
     // Not behind a server that exposes the peer address.
   }
 
-  const duplicates = flagDuplicates(context);
+  const analysis = analyzeQueries(context.queries, options.nPlusOneThreshold);
   const totalMs = context.queries.reduce((sum, query) => sum + query.timeMs, 0);
   const durationMs = context.now();
   const hits = context.cache.filter((item) => item.type === "hit").length;
@@ -89,7 +72,9 @@ export async function buildSnapshot(
     queries: {
       count: context.queries.length,
       totalMs,
-      duplicates,
+      duplicates: analysis.duplicates,
+      nPlusOne: analysis.nPlusOne,
+      groups: analysis.groups,
       slow: context.queries.filter((query) => query.slow).length,
       items: context.queries,
     },
