@@ -1,6 +1,6 @@
 import type { RequestContext } from "./context.ts";
 import { analyzeQueries, wallTimeMs } from "./queries.ts";
-import { sanitizeRecord, sanitizeStrings } from "./redact.ts";
+import { MASK, isSecretKey, sanitizeRecord, sanitizeStrings } from "./redact.ts";
 import type { ResolvedDebugbarOptions, Snapshot } from "./types.ts";
 
 function headersOf(source: Headers): Record<string, string> {
@@ -11,12 +11,32 @@ function headersOf(source: Headers): Record<string, string> {
   return out;
 }
 
+/** URL and path with secret query values and secret route parameters (reset tokens) masked. */
+function maskedLocation(rawUrl: string, params: Record<string, string>, extra: RegExp[]) {
+  const url = new URL(rawUrl, "http://localhost");
+  for (const key of [...new Set(url.searchParams.keys())]) {
+    if (isSecretKey(key, extra)) url.searchParams.set(key, MASK);
+  }
+  const secrets = new Set(Object.entries(params).filter(([key, value]) => value && isSecretKey(key, extra)).map(([, value]) => value));
+  const path = secrets.size
+    ? url.pathname.split("/").map((segment) => (secrets.has(safeDecode(segment)) ? MASK : segment)).join("/")
+    : url.pathname;
+  return { path, url: `${url.origin}${path}${url.search}`, params: sanitizeStrings(params, extra) };
+}
+
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export async function buildSnapshot(
   context: RequestContext,
   options: ResolvedDebugbarOptions,
 ): Promise<Snapshot> {
   const { request, response } = context;
-  const url = new URL(request.url);
   const extra = options.redact;
 
   let body: Record<string, unknown> = {};
@@ -34,6 +54,9 @@ export async function buildSnapshot(
   } catch {
     // No matched route (404).
   }
+
+  const location = maskedLocation(request.url, params, extra);
+  const search = new URL(request.url, "http://localhost").searchParams;
 
   let ip: string | null = null;
   try {
@@ -54,14 +77,14 @@ export async function buildSnapshot(
     collectedAt: new Date(context.startedWall).toISOString(),
     request: {
       method: request.method,
-      url: `${url.origin}${url.pathname}${url.search}`,
-      path: url.pathname,
+      url: location.url,
+      path: location.path,
       status: response?.status ?? (context.failed ? 500 : 0),
       durationMs,
       memoryBytes: process.memoryUsage().heapUsed,
       ip,
-      route: { name: request.routeName ?? null, params },
-      query: sanitizeRecord(Object.fromEntries(url.searchParams), extra),
+      route: { name: request.routeName ?? null, params: location.params },
+      query: sanitizeRecord(Object.fromEntries(search), extra),
       body,
       headers: sanitizeStrings(headersOf(request.raw.headers), extra),
       cookies: sanitizeStrings(request.cookies(), extra),
@@ -77,7 +100,8 @@ export async function buildSnapshot(
       nPlusOne: analysis.nPlusOne,
       groups: analysis.groups,
       slow: context.queries.filter((query) => query.slow).length,
-      items: context.queries,
+      // The fingerprint only exists to compare queries in memory; it is never stored.
+      items: context.queries.map(({ fingerprint: _fingerprint, ...query }) => query),
     },
     timeline: context.timeline,
     messages: context.messages,

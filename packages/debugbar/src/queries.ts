@@ -16,7 +16,8 @@ function isRead(sql: string): boolean {
   return /^\s*(select|with)\b/i.test(sql);
 }
 
-const key = (query: QueryRecord) => `${query.sql}\u0000${JSON.stringify(query.bindings)}`;
+const values = (query: QueryRecord) => query.fingerprint ?? JSON.stringify(query.bindings);
+const key = (query: QueryRecord) => `${query.sql}\u0000${values(query)}`;
 
 export type QueryAnalysis = {
   duplicates: number;
@@ -53,7 +54,7 @@ export function analyzeQueries(queries: QueryRecord[], threshold: number): Query
   let nPlusOne = 0;
   const groups: QueryGroup[] = [];
   for (const [, list] of shapes) {
-    const distinct = new Set(list.map((query) => JSON.stringify(query.bindings))).size;
+    const distinct = new Set(list.map(values)).size;
     if (list.length < threshold || distinct < 2) continue;
     for (const query of list) {
       query.nPlusOne = true;
