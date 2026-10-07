@@ -2,7 +2,7 @@ import { ErrorCode, SUPPORTED_PROTOCOL_VERSIONS, type JsonRpcId, type JsonRpcRes
 import { type McpTool, type ToolContent, type ToolRegistry, type ToolResult } from "./registry.ts";
 import { validateArguments } from "./schema.ts";
 
-export const SERVER_VERSION = "0.2.0-beta.0";
+export const SERVER_VERSION = "0.2.0-beta.1";
 
 export type McpServerOptions = {
   name?: string;

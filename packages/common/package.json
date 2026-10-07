@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/common",
-  "version": "0.2.0-beta.0",
+  "version": "0.2.0-beta.1",
   "description": "Collections, string/array helpers and errors shared across Bunyad packages.",
   "license": "MIT",
   "author": "Shah Khalid",
