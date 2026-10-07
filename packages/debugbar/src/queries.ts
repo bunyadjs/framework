@@ -94,3 +94,23 @@ export function wallTimeMs(queries: QueryRecord[]): number {
   }
   return end > -Infinity ? total + (end - start) : 0;
 }
+
+/**
+ * The most queries in flight at the same moment. With a small connection pool, anything above the
+ * pool size is waiting for a free connection, and its measured time includes that wait.
+ */
+export function peakInFlight(queries: QueryRecord[]): number {
+  const events: Array<[number, number]> = [];
+  for (const query of queries) {
+    events.push([query.at, 1], [query.at + query.timeMs, -1]);
+  }
+  // At the same instant a query that ends is not concurrent with one that starts.
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let current = 0;
+  let peak = 0;
+  for (const [, delta] of events) {
+    current += delta;
+    if (current > peak) peak = current;
+  }
+  return peak;
+}

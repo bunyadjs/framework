@@ -158,7 +158,7 @@ export const CLIENT_JS = String.raw`
         var chips = h("div", { class: "chips" }, filters.map(function (f) {
           return h("button", { class: "chip" + (state.qfilter === f[0] ? " on" : ""), onclick: function () { state.qfilter = f[0]; render(); } }, f[1] + " (" + f[2] + ")");
         }));
-        var head = h("div", { class: "sub" }, q.count + " statements, " + ms(wall(s)) + " elapsed" + (overlaps(s) ? " (" + ms(q.totalMs) + " summed: some ran in parallel)" : ""));
+        var head = h("div", { class: "sub" }, q.count + " statements, " + ms(wall(s)) + " elapsed" + (overlaps(s) ? " (" + ms(q.totalMs) + " summed: some ran in parallel)" : "") + (q.peakInFlight >= 8 ? " \u00b7 up to " + q.peakInFlight + " at once: with a small connection pool, queries wait, and their times include that wait" : ""));
         var groups = q.groups.map(function (g) {
           return h("div", { class: "np" },
             h("b", null, "Possible N+1: "), g.count + " similar queries, " + ms(g.totalMs) + " total",

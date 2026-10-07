@@ -71,9 +71,10 @@ test("request rows report elapsed query time, with the summed time in the summar
   expect((await call("debugbar_queries", { id: parallel.id })).json().summary).toMatchObject({ elapsedMs: 5, summedMs: 10 });
 });
 
-test("registers five namespaced tools", () => {
+test("registers the namespaced tools", () => {
   expect(debugbarTools(() => store).map((t) => t.name)).toEqual([
-    "debugbar_list_requests", "debugbar_get_request", "debugbar_queries", "debugbar_exceptions", "debugbar_logs",
+    "debugbar_list_requests", "debugbar_get_request", "debugbar_queries", "debugbar_exceptions",
+    "debugbar_hot_queries", "debugbar_routes", "debugbar_logs",
   ]);
 });
 
@@ -229,11 +230,99 @@ export async function createApplication() {
     await child.exited;
     const messages = stdout.trim().split("\n").map((line) => JSON.parse(line));
     const byId = (id: number) => messages.find((m) => m.id === id);
-    expect(byId(2).result.tools.map((t: any) => t.name)).toEqual(expect.arrayContaining(["debugbar_list_requests", "debugbar_get_request", "debugbar_queries", "debugbar_exceptions", "debugbar_logs", "mcp_info"]));
+    expect(byId(2).result.tools.map((t: any) => t.name)).toEqual(expect.arrayContaining(["debugbar_list_requests", "debugbar_get_request", "debugbar_queries", "debugbar_exceptions", "debugbar_hot_queries", "debugbar_routes", "debugbar_logs", "mcp_info"]));
     const summary = JSON.parse(byId(3).result.content[0].text);
     expect(summary.id).toBe(bad.id);
     expect(summary.issues[0]).toContain("possible N+1");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+// ---- cross-request tools --------------------------------------------------------------------
+
+const authQueries = (bindingId: number) =>
+  [
+    "select id, owner_contact_id from tenants where id = ?",
+    "select * from contacts where tenant_id = ? and id = ?",
+    'select "roles".* from roles inner join model_has_roles on 1 = 1',
+    'select "permissions".* from permissions inner join model_has_permissions on 1 = 1',
+  ].map((sql, i) => ({
+    sql, bindings: [bindingId], timeMs: 3, at: i, duplicate: false, slow: false,
+    nPlusOne: false, repeats: 0, origin: i === 0 ? { file: "app/Services/PermissionResolverService.ts", line: 82, function: "resolveSubject" } : null,
+  }));
+
+function routeSnapshot(path: string, name: string | null, over: Record<string, unknown> = {}, extra: any[] = []) {
+  const items = [...authQueries(1), ...extra];
+  const base = snapshot({ path, ms: 20, queries: { count: items.length, totalMs: items.length * 3, wallMs: 10, peakInFlight: 4, duplicates: 0, slow: 0, nPlusOne: 0, groups: [], items } });
+  base.request.route.name = name;
+  Object.assign(base.request, over);
+  return base;
+}
+
+test("hot_queries finds the shape that runs in every request, however the values differ", async () => {
+  const pages = Array.from({ length: 10 }, (_, i) => routeSnapshot(`/api/p${i}`, `p${i}`));
+  pages[0]!.queries.items.push({ sql: "select * from products", bindings: [], timeMs: 40, at: 5, duplicate: false, slow: false, nPlusOne: false, repeats: 0, origin: null });
+  await seed(...pages);
+
+  const out = (await call("debugbar_hot_queries", { sortBy: "requests" })).json();
+  expect(out.window).toMatchObject({ requests: 10, queries: 41 });
+  const owner = out.shapes.find((s: any) => s.sql.includes("owner_contact_id"));
+  expect(owner).toMatchObject({ runs: 10, requests: 10, requestShare: 1, totalMs: 30, avgMs: 3, at: "app/Services/PermissionResolverService.ts:82" });
+
+  const byTime = (await call("debugbar_hot_queries", { limit: 1 })).json();
+  expect(byTime.shapes[0].sql).toBe("select * from products"); // one slow query beats four cheap repeated ones by time...
+  const everywhere = (await call("debugbar_hot_queries", { minRequests: 5, sortBy: "totalMs" })).json();
+  expect(everywhere.shapes.every((s: any) => s.requests >= 5)).toBe(true); // ...unless you ask what repeats everywhere
+  expect(everywhere.shapes).toHaveLength(4);
+});
+
+test("hot_queries respects kind and path filters and explains an empty result", async () => {
+  await seed(routeSnapshot("/api/a", "a"), routeSnapshot("/api/b", "b"));
+  expect((await call("debugbar_hot_queries", { pathContains: "/api/a" })).json().window.requests).toBe(1);
+  expect((await call("debugbar_hot_queries", { kind: "job" })).json().note).toContain("No recorded requests match");
+});
+
+test("routes groups by route name, ranks, and counts errors", async () => {
+  const slow = routeSnapshot("/api/v1/dashboard", "dashboard.summary", { durationMs: 80 });
+  const slow2 = routeSnapshot("/api/v1/dashboard", "dashboard.summary", { durationMs: 40 });
+  const boom = routeSnapshot("/api/v1/boom", "boom", { status: 500, durationMs: 5 });
+  const unnamed = routeSnapshot("/legacy", null, { durationMs: 10 });
+  await seed(slow, slow2, boom, unnamed);
+
+  const out = (await call("debugbar_routes")).json();
+  expect(out.requests).toBe(4);
+  expect(out.routes[0]).toMatchObject({ route: "GET dashboard.summary", hits: 2, avgMs: 60, maxMs: 80, example: "/api/v1/dashboard" });
+  expect(out.routes.map((r: any) => r.route)).toContain("GET /legacy"); // no route name: falls back to the path
+  const errors = (await call("debugbar_routes", { sortBy: "errors", limit: 1 })).json().routes[0];
+  expect(errors).toMatchObject({ route: "GET boom", errors: 1 });
+});
+
+test("routes tolerates snapshots stored before wallMs and peakInFlight existed", async () => {
+  const old: any = routeSnapshot("/old", "old");
+  delete old.queries.wallMs;
+  delete old.queries.peakInFlight;
+  await seed(old);
+  const row = (await call("debugbar_routes")).json().routes[0];
+  expect(row).toMatchObject({ route: "GET old", peakInFlight: 0 });
+  expect(row.avgQueryMs).toBe(12); // falls back to the summed time
+});
+
+test("get_request warns when many queries were in flight at once", async () => {
+  const busy: any = routeSnapshot("/api/v1/dashboard", "dashboard.summary");
+  busy.queries.peakInFlight = 20;
+  await seed(busy);
+  const out = (await call("debugbar_get_request", { id: busy.id })).json();
+  expect(out.issues.join(" ")).toContain("up to 20 queries in flight at once");
+  expect((await call("debugbar_queries", { id: busy.id })).json().summary.peakInFlight).toBe(20);
+});
+
+test("the cross-request tools say how to fix an empty or in-memory history", async () => {
+  expect((await call("debugbar_hot_queries")).json().note).toContain("No requests recorded");
+  expect((await call("debugbar_routes")).json().note).toContain("No requests recorded");
+});
+
+test("cross-request tools reject bad arguments", async () => {
+  expect((await call("debugbar_hot_queries", { sortBy: "bananas" })).isError).toBe(true);
+  expect((await call("debugbar_routes", { limit: 0 })).isError).toBe(true);
 });
