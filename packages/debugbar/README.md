@@ -57,13 +57,13 @@ These are no-ops when the bar is off, so they are safe to leave in.
 
 ## Configuration
 
-Put these in `config/debugbar.ts` (all optional):
+Create `config/debugbar.ts` (every option is optional) and include it in the `config` object in `bootstrap/app.ts`, the same way as your other config files: `config: { app: appConfig, debugbar: debugbarConfig }`. An application that loads its whole `config/` folder reads it automatically.
 
 ```ts
 export default {
   enabled: undefined,   // force on/off; default follows debug mode
   path: "/_debugbar",
-  history: 50,          // requests kept in memory
+  history: 50,          // requests kept
   slowQueryMs: 100,
   nPlusOneThreshold: 5, // flag a read repeated this many times with different bindings
   queryOrigin: true,    // record the file:line that issued each query
@@ -100,7 +100,7 @@ Responses are summaries, with SQL cut at 300 characters and stacks at 15 lines, 
 
 ## History storage
 
-By default history lives in memory and is lost when the server restarts. With `driver: "file"` each request is written as one JSON file under `storage/debugbar` (directory `0700`, files `0600`), so history survives `--watch` restarts and other processes, such as a future MCP server, can read it. Writes happen after the response is sent and never fail a request. Add the directory to `.gitignore`.
+By default history lives in memory and is lost when the server restarts. With `driver: "file"` each request is written as one JSON file under `storage/debugbar` (directory `0700`, files `0600`), so history survives `--watch` restarts and other processes, such as the MCP server, can read it. Writes happen after the response is sent and never fail a request. Add the directory to `.gitignore`.
 
 `bunyad debugbar:clear` empties the history. Pass your own object as `store` to replace the storage entirely (`put`, `get`, `list`, `clear`; sync or async).
 

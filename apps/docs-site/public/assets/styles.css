@@ -277,7 +277,9 @@ main {
 .heading-anchor:hover { text-decoration: underline; }
 .prose p, .prose ul, .prose ol { margin: 0 0 1rem; }
 .prose li + li { margin-top: 0.25rem; }
-.prose table { width: 100%; border-collapse: collapse; margin: 0 0 1.25rem; font-size: 0.95rem; }
+.table-wrap { overflow-x: auto; margin: 0 0 1.25rem; }
+.table-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.prose table { width: 100%; border-collapse: collapse; margin: 0; font-size: 0.95rem; }
 .prose th, .prose td { text-align: left; border-bottom: 1px solid var(--border); padding: 0.55rem 0.7rem; vertical-align: top; }
 .prose th { color: var(--muted); font-weight: 600; }
 .prose code {

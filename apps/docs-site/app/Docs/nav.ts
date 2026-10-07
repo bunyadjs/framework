@@ -132,6 +132,13 @@ export const nav: DocGroup[] = [
     ],
   },
   {
+    title: "Developer Tools",
+    pages: [
+      { slug: "debugbar", title: "Debug Bar", file: "debugbar.md" },
+      { slug: "mcp", title: "MCP Server", file: "mcp.md" },
+    ],
+  },
+  {
     title: "Performance",
     pages: [
       { slug: "performance", title: "Benchmarks", file: "performance.md" },
