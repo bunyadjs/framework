@@ -141,7 +141,9 @@ This is pattern-based and best-effort. It cannot recognise a secret in a column 
 
 - **Duplicate:** identical SQL and bindings ran more than once in the request.
 - **Possible N+1:** a `select`/`with` statement whose shape (values stripped) ran `nPlusOneThreshold` or more times with different bindings. Writes are never flagged. The Queries tab lists each pattern with its count, total time and origin.
-- **Origin:** the first stack frame outside `node_modules`, the runtime and the framework's own `src/`. It is captured only while the bar is on; set `queryOrigin: false` to skip the stack capture. **It is best-effort.** Bun does not keep async stack frames, so with an async driver (PostgreSQL, for example) the stack at execution time often no longer contains your code, and the origin is left blank. It works reliably with synchronous drivers such as SQLite.
+- **Origin:** the file and line of your code that issued each query, taken from the stack captured at the moment the query was issued (the database layer hands it over; by the time a query finishes, an async driver's stack no longer contains your code). Frames inside `node_modules`, the runtime and the framework's own `src/` are skipped. It is captured only while the bar is on; set `queryOrigin: false` to skip the capture. **Best-effort, with known gaps:**
+  - Batched **eager-load** queries (`with('brand')`) are issued by the ORM after the parent query returns, so they have no origin. The parent query does.
+  - A function that ends with `return Model.query().get()` right after an earlier `await` loses its own frame (JavaScriptCore drops the caller of a tail call). Write `const rows = await ...; return rows;` to keep it.
 
 ## Notes
 

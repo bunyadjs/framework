@@ -44,11 +44,14 @@ export {
 } from "./query-hooks.ts";
 export {
   listen,
+  wantsCallSites,
+  captureCallSite,
   clearQueryListeners,
   fireQueryExecuted,
   hasQueryListeners,
   type QueryExecutedEvent,
   type QueryExecutedListener,
+  type ListenOptions,
 } from "./query-listen.ts";
 export { affectedRowsFromResult } from "./connection-contract.ts";
 export {

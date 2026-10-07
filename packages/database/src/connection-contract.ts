@@ -1,7 +1,9 @@
 import type { Dialect, DriverName } from "./dialect.ts";
 import {
+  captureCallSite,
   fireQueryExecuted,
   hasQueryListeners,
+  wantsCallSites,
 } from "./query-listen.ts";
 
 /** Normalize driver write results to an affected-row count. */
@@ -69,6 +71,8 @@ export function attachConnectionContract(
         if (!hasQueryListeners()) return fn(...args);
         const sql = sqlOf(...args);
         const bindings = bindingsOf(...args);
+        // Captured here, as the query is issued: when it finishes, an async driver's stack is gone.
+        const callSite = wantsCallSites() ? captureCallSite() : undefined;
         const start = performance.now();
         const finish = () => {
           fireQueryExecuted({
@@ -76,6 +80,7 @@ export function attachConnectionContract(
             bindings,
             timeMs: performance.now() - start,
             connection,
+            ...(callSite !== undefined ? { callSite } : {}),
           });
         };
         try {
@@ -109,6 +114,7 @@ export function attachConnectionContract(
         options?: StreamOptions,
       ): AsyncGenerator<Record<string, unknown>, void, unknown> {
         const listening = hasQueryListeners();
+        const callSite = listening && wantsCallSites() ? captureCallSite() : undefined;
         const start = performance.now();
         try {
           yield* coreStream(sql, params, options);
@@ -119,6 +125,7 @@ export function attachConnectionContract(
               bindings: params,
               timeMs: performance.now() - start,
               connection,
+              ...(callSite !== undefined ? { callSite } : {}),
             });
           }
         }

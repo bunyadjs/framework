@@ -6,7 +6,7 @@ import { wrapScheduledRuns } from "@bunyad/schedule";
 import { listenException, statusFromError } from "@bunyad/core";
 import { currentContext } from "../context.ts";
 import { Debugbar, toExceptionRecord } from "../debugbar.ts";
-import { captureOrigin } from "../origin.ts";
+import { captureOrigin, originFromStack } from "../origin.ts";
 import { createHash } from "node:crypto";
 import { MASK, isSecretKey, redactText, sanitize, sanitizeRecord, truncate } from "../redact.ts";
 import { redactBindings, redactLiterals } from "../sql-redact.ts";
@@ -37,9 +37,10 @@ export function installCollectors(options: ResolvedDebugbarOptions): () => void 
         fingerprint: fingerprint(event.bindings),
         nPlusOne: false,
         repeats: 0,
-        origin: options.queryOrigin ? captureOrigin() : null,
+        // The stack from when the query was issued; by now (in a promise callback) it has lost the caller.
+        origin: !options.queryOrigin ? null : event.callSite !== undefined ? originFromStack(event.callSite) : captureOrigin(),
       });
-    }),
+    }, { callSites: options.queryOrigin }),
   );
 
   disposers.push(
