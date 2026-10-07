@@ -1,10 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
+import { resolve } from "node:path";
 import { Application, createFetchHandler } from "@bunyad/core";
 import { getProviderCommandHandlers } from "@bunyad/core";
 import { json } from "@bunyad/http";
 import { Router } from "@bunyad/router";
 import { CacheHit, CacheMissed } from "@bunyad/cache";
-import { fireQueryExecuted } from "@bunyad/database";
+import { fireQueryExecuted, wantsCallSites } from "@bunyad/database";
 import { Dispatcher, getEventDispatcher, setEventDispatcher } from "@bunyad/events";
 import { Log, setLogChannel } from "@bunyad/log";
 import {
@@ -327,4 +328,31 @@ test("a failing store does not fail the request", async () => {
   const res = await fetch(new Request("http://localhost/ok"));
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ ok: true });
+});
+
+test("query origin comes from the stack captured when the query was issued", async () => {
+  const { router, fetch } = await boot();
+  router.get("/site", async () => {
+    // The listener runs after the query finishes, where an async driver has lost the caller;
+    // the database layer hands over the stack it captured at issue time.
+    fireQueryExecuted({
+      sql: "select 1",
+      bindings: [],
+      timeMs: 1,
+      connection: {} as never,
+      callSite: `Error\n    at timed (${resolve(import.meta.dir, "../../database/src/connection-contract.ts")}:75:45)\n    at load (/srv/app/app/Services/StockService.ts:42:11)`,
+    });
+    return json({});
+  });
+  const res = await fetch(new Request("http://localhost/site"));
+  const snap = (await (await fetch(new Request(`http://localhost/_debugbar/${res.headers.get("X-Debugbar-Id")}`))).json()) as Snapshot;
+  expect(snap.queries.items[0]!.origin).toMatchObject({ line: 42, function: "load" });
+  expect(snap.queries.items[0]!.origin!.file).toContain("app/Services/StockService.ts");
+});
+
+test("call-site capture is requested only while query origin is on", async () => {
+  await boot({ enabled: true, queryOrigin: false });
+  expect(wantsCallSites()).toBe(false);
+  await boot({ enabled: true, queryOrigin: true });
+  expect(wantsCallSites()).toBe(true);
 });
