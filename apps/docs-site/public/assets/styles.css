@@ -328,8 +328,12 @@ main {
   font-size: 0.84rem;
   line-height: 1.55;
 }
+/* The highlighter puts a newline between lines. With display:block lines that newline renders as an
+   empty row between every pair and doubles the spacing. Inline-block lines at full width keep the
+   newline as the only break, so there is one row per line, and selecting a block copies exactly its
+   source (indentation and blank lines included). */
 .shiki code { counter-reset: ln; }
-.shiki .line { display: block; }
+.shiki .line { display: inline-block; width: 100%; }
 .shiki .line::before {
   counter-increment: ln;
   content: counter(ln);

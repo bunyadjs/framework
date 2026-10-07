@@ -4,7 +4,7 @@ import { flatPages } from "../app/Docs/nav.ts";
 import { searchIndex, type BuiltPage } from "../app/Docs/site.ts";
 import DocsController from "../app/Http/Controllers/DocsController.ts";
 import { warm } from "../app/Docs/cache.ts";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 test("heading slugs match GitHub style", () => {
@@ -45,6 +45,18 @@ test("tables scroll inside their own box so a wide one cannot widen the page", a
   const once = wrapTables("<p>x</p><table><tr><td>x</td></tr></table>");
   expect(wrapTables(once)).toBe(once);
   expect(once.match(/table-wrap/g)).toHaveLength(1);
+});
+
+test("code lines are not display:block, because the highlighter separates lines with a newline", async () => {
+  // Shiki emits `<span class="line">a</span>\n<span class="line">b</span>`. Inside a <pre>, a newline
+  // between two block-level lines renders as an empty row, which doubled the spacing of every sample.
+  const { html } = await renderMarkdown("```ts\nconst a = 1;\nconst b = 2;\n```\n");
+  expect(html).toContain('</span>\n<span class="line">');
+
+  const css = readFileSync(join(import.meta.dir, "../public/assets/styles.css"), "utf8");
+  const rule = css.match(/\.shiki \.line\s*\{[^}]*\}/)?.[0] ?? "";
+  expect(rule).not.toBe("");
+  expect(rule).not.toMatch(/display:\s*block/);
 });
 
 test("search index includes heading anchors", () => {
