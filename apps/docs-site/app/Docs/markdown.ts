@@ -183,6 +183,16 @@ const labels: Record<string, string> = {
   warning: "Warning",
 };
 
+/** A wide table scrolls inside its own box instead of widening the whole page on a phone. */
+export function wrapTables(html: string): string {
+  const open = '<div class="table-wrap" tabindex="0">';
+  // The lookbehind keeps a second pass from wrapping a table that is already in its box.
+  return html.replace(
+    /(?<!<div class="table-wrap" tabindex="0">)<table>[\s\S]*?<\/table>/g,
+    (table) => `${open}${table}</div>`,
+  );
+}
+
 export async function renderMarkdown(body: string): Promise<{
   html: string;
   headings: Heading[];
@@ -204,7 +214,7 @@ export async function renderMarkdown(body: string): Promise<{
     },
   });
 
-  let html = await marked.parse(blocks.markdown);
+  let html = wrapTables(await marked.parse(blocks.markdown));
   html = html.replace(
     /<p>\s*%%((?:CODE|TABS|CALLOUT)_\d+)%%\s*<\/p>/g,
     "%%$1%%",
@@ -236,7 +246,7 @@ export async function renderMarkdown(body: string): Promise<{
 
   for (let i = 0; i < blocks.callouts.length; i++) {
     const callout = blocks.callouts[i]!;
-    const inner = await marked.parse(callout.markdown);
+    const inner = wrapTables(await marked.parse(callout.markdown));
     html = html.replace(
       `%%CALLOUT_${i}%%`,
       `<aside class="callout callout-${callout.type}"><p class="callout-label">${labels[callout.type] ?? "Note"}</p>${inner}</aside>`,

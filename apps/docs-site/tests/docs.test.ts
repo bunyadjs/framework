@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { extractHeadings, parseFrontmatter, renderMarkdown, slugify } from "../app/Docs/markdown.ts";
+import { extractHeadings, parseFrontmatter, renderMarkdown, slugify, wrapTables } from "../app/Docs/markdown.ts";
 import { flatPages } from "../app/Docs/nav.ts";
 import { searchIndex, type BuiltPage } from "../app/Docs/site.ts";
 import DocsController from "../app/Http/Controllers/DocsController.ts";
@@ -31,6 +31,20 @@ test("markdown renders callouts and highlighted code", async () => {
   expect(rendered.html).toContain("callout-note");
   expect(rendered.html).toContain("config/app.ts");
   expect(rendered.html).toContain("shiki");
+});
+
+test("tables scroll inside their own box so a wide one cannot widen the page", async () => {
+  const table = "| Option | Default |\n| --- | --- |\n| `storagePath` | `storage/debugbar` |\n";
+  const rendered = await renderMarkdown(`${table}\nText between.\n\n${table}`);
+  expect(rendered.html.match(/<div class="table-wrap" tabindex="0"><table>/g)).toHaveLength(2);
+  expect(rendered.html.match(/<\/table><\/div>/g)).toHaveLength(2);
+  // a table inside a callout is wrapped too
+  const inCallout = await renderMarkdown(`:::note\n${table}:::\n`);
+  expect(inCallout.html).toContain('class="table-wrap"');
+  // wrapping again changes nothing
+  const once = wrapTables("<p>x</p><table><tr><td>x</td></tr></table>");
+  expect(wrapTables(once)).toBe(once);
+  expect(once.match(/table-wrap/g)).toHaveLength(1);
 });
 
 test("search index includes heading anchors", () => {
