@@ -8,6 +8,26 @@ Every breaking change in a beta (or later) release is listed here with what to c
 2. Upgrade all `@bunyad/*` packages together, because they share one version: `bun add @bunyad/framework@beta` (or the individual packages you use).
 3. Run `bun run typecheck` and your tests. Removed or renamed exports show up as type errors.
 
+## From 0.2.0-beta.0 to 0.2.0-beta.1
+
+No names were removed from the public API. Check these three behaviour changes:
+
+### Rate limiter
+
+Limits now use a sliding window. If you assert on exact `Retry-After` values or on the 429 body in tests, expect a slightly longer wait (about 72 seconds after exhausting a 5-per-minute limit) and a `retry_after` field in the default JSON body. Blocked attempts no longer count against the limit.
+
+### `cursor()`
+
+`cursor()` now streams one query instead of paging with `LIMIT`/`OFFSET`. Code that iterates it is unaffected. If you relied on it paging (for example, changing rows while iterating), use `lazy()` or `lazyById()`, which still chunk.
+
+### Dates in the Bun SQL driver
+
+`Date` bindings are now sent as datetime text. If you worked around the old serialization, you can remove the workaround.
+
+### New packages
+
+`@bunyad/debugbar` (a development debug bar) and `@bunyad/mcp` (one MCP server per app, started with `bunyad mcp`) are new and optional. The debug bar is off in production and in tests.
+
 ## From 0.1.0-alpha.0 to 0.2.0-beta.0
 
 ### Upgrade Bun

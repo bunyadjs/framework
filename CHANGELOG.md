@@ -2,7 +2,28 @@
 
 All `@bunyad/*` packages and `create-bunyad` share one version number and are released together. See [docs/STABILITY.md](docs/STABILITY.md) for what each stage promises and [docs/UPGRADING.md](docs/UPGRADING.md) for how to move between releases.
 
-## 0.2.0-beta.0 (unreleased)
+## 0.2.0-beta.1
+
+Published under the `beta` npm tag; `latest` still does not move until 1.0. No breaking API changes: the recorded public API (`api/*.json`) only gained names. Behaviour changes are listed under "Changed", and [docs/UPGRADING.md](docs/UPGRADING.md) says what to check.
+
+### Added
+
+- **`@bunyad/debugbar`:** a development debug bar with queries, timeline, request, logs, cache and exceptions tabs, retained request history, and a `/_debugbar` JSON API. Records scheduled tasks automatically and any work you wrap in `Debugbar.profile()` as their own history entries. Masks secrets and personal data (including SQL bindings, by column) before anything is stored or sent to an agent. Registers seven `debugbar_*` tools with `@bunyad/mcp` so an AI agent can inspect recorded requests, including two that analyse every recorded request (`debugbar_hot_queries`, `debugbar_routes`). Adds `listenLog()` to `@bunyad/log`, `listenException()` to `@bunyad/core`, `listenDispatched()` to `@bunyad/events`, `wrapScheduledRuns()` to `@bunyad/schedule`, and a `callSites` option on `listen()` in `@bunyad/database` (`listen(cb, { callSites: true })` adds the stack captured when each query was issued, so async drivers can report where a query came from).
+- **`@bunyad/mcp`:** one MCP server per app. Packages register tools with `Mcp.tool()`; `bunyad mcp` boots the app and serves them to an AI agent over stdio. Includes argument validation, output caps and stdout protection.
+- **Streaming reads:** `cursor()` on the query builder and the ORM now streams rows from a single query, through an optional `Connection.stream()` implemented per driver (a fallback to chunked paging where a driver has no primitive). New static `Model.cursor()`, `lazy()`, `lazyById()` and `lazyByIdDesc()`; `cursor()`, `lazy()` and `lazyById()` return a `LazyCollection`.
+
+### Changed
+
+- **`cursor()` really streams.** It used to be an alias of `lazy()`: one `LIMIT`/`OFFSET` query per chunk. It now runs one query and yields rows as they arrive. `lazy()` and `lazyById()` keep their chunked behaviour.
+- **The rate limiter is a sliding window.** A client can no longer burst twice the limit across a window boundary. Blocked hits are no longer counted, so retrying does not extend a lockout. `availableIn()` and `availableAt()` accept the limit for an exact wait. The default 429 body now includes the wait, `{ "message": "Too Many Attempts. Please try again in 42 seconds.", "retry_after": 42 }`; custom `Limit.response()` factories are unchanged. After exhausting a 5-per-minute limit, `Retry-After` is about 72 seconds rather than 60 (the cost of the constant-time approximation).
+- **`bunyad <command>` finds commands that providers register while the app boots** (`registerProviderCommand`, `ServiceProvider.commands()`). Before, it reported "Command ... is not defined".
+
+### Fixed
+
+- Plain column names in `select()` are quoted, so reserved words such as `order` no longer break the generated SQL.
+- `Date` bindings are sent to the Bun SQL driver as datetime text in the format the driver expects.
+
+## 0.2.0-beta.0
 
 The first beta. Published under the `beta` npm tag; `latest` does not move until 1.0.
 
@@ -18,8 +39,6 @@ The first beta. Published under the `beta` npm tag; `latest` does not move until
 
 ### Added
 
-- **`@bunyad/debugbar`:** a development debug bar with queries, timeline, request, logs, cache and exceptions tabs, retained request history, and a `/_debugbar` JSON API. Records scheduled tasks automatically and any work you wrap in `Debugbar.profile()` as their own history entries. Masks secrets and personal data (including SQL bindings, by column) before anything is stored or sent to an agent. Registers seven `debugbar_*` tools with `@bunyad/mcp` so an AI agent can inspect recorded requests, including two that analyse every recorded request (`debugbar_hot_queries`, `debugbar_routes`). Adds `listenLog()` to `@bunyad/log`, `listenException()` to `@bunyad/core`, `listenDispatched()` to `@bunyad/events`, `wrapScheduledRuns()` to `@bunyad/schedule`, and a `callSites` option on `listen()` in `@bunyad/database` (`listen(cb, { callSites: true })` adds the stack captured when each query was issued, so async drivers can report where a query came from).
-- **`@bunyad/mcp`:** one MCP server per app. Packages register tools with `Mcp.tool()`; `bunyad mcp` boots the app and serves them to an AI agent over stdio. Includes argument validation, output caps and stdout protection.
 - Live PostgreSQL and MySQL test suites on Bun and Node 20, 22 and 24; a `tls` option on `connectMysql` (MySQL 8+ needs TLS for its default login).
 - `bunyad --help`, `bunyad <command> --help`, app-name validation in `create-bunyad`, and a clear message when Bun is missing or too old.
 - Real READMEs, with examples that were run, for every package.

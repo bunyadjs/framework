@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/auth",
-  "version": "0.2.0-beta.0",
+  "version": "0.2.0-beta.1",
   "description": "Authentication for Bunyad: sessions, password, remember-me, email verification and bearer tokens.",
   "license": "MIT",
   "author": "Shah Khalid",

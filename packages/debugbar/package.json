@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/debugbar",
-  "version": "0.2.0-beta.0",
+  "version": "0.2.0-beta.1",
   "description": "Development debug bar for Bunyad: queries, timeline, logs, cache, exceptions and request history.",
   "license": "MIT",
   "author": "Shah Khalid",
