@@ -1,5 +1,5 @@
 import type { RequestContext } from "./context.ts";
-import { analyzeQueries, wallTimeMs } from "./queries.ts";
+import { analyzeQueries, peakInFlight, wallTimeMs } from "./queries.ts";
 import { MASK, isSecretKey, sanitizeRecord, sanitizeStrings } from "./redact.ts";
 import type { ResolvedDebugbarOptions, Snapshot } from "./types.ts";
 
@@ -132,6 +132,7 @@ function sections(context: RequestContext, options: ResolvedDebugbarOptions) {
       count: context.queries.length,
       totalMs: context.queries.reduce((sum, query) => sum + query.timeMs, 0),
       wallMs: wallTimeMs(context.queries),
+      peakInFlight: peakInFlight(context.queries),
       duplicates: analysis.duplicates,
       nPlusOne: analysis.nPlusOne,
       groups: analysis.groups,

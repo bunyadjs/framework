@@ -1,5 +1,6 @@
 import { Mcp, type McpTool } from "@bunyad/mcp";
 import { levelWeight, type LogLevel } from "@bunyad/log";
+import { hotQueries, routeStats, select, type HotQuerySort, type RouteSort } from "./analysis.ts";
 import { MemoryDebugbarStore } from "./store.ts";
 import type { DebugbarStore, QueryRecord, Snapshot } from "./types.ts";
 
@@ -73,6 +74,10 @@ export function summarize(s: Snapshot) {
   }
   if (s.queries.duplicates) issues.push(`${s.queries.duplicates} duplicate queries`);
   if (s.queries.slow) issues.push(`${s.queries.slow} slow queries`);
+  const peak = s.queries.peakInFlight ?? 0;
+  if (peak >= 10) {
+    issues.push(`up to ${peak} queries in flight at once; with a smaller connection pool the rest wait, and their measured times include that wait`);
+  }
   const unhandled = s.events?.unhandled ?? 0;
   if (unhandled) issues.push(`${unhandled} events with no listeners`);
 
@@ -198,7 +203,7 @@ export function debugbarTools(store: () => DebugbarStore): McpTool[] {
           .filter(({ q }) => filter === "all" || (filter === "duplicates" && q.duplicate) || (filter === "slow" && q.slow) || (filter === "nplusone" && q.nPlusOne));
         return {
           request: `${snapshot.request.method} ${snapshot.request.path} (${snapshot.id})`,
-          summary: { count: snapshot.queries.count, elapsedMs: Math.round((snapshot.queries.wallMs ?? snapshot.queries.totalMs) * 10) / 10, summedMs: Math.round(snapshot.queries.totalMs * 10) / 10, duplicates: snapshot.queries.duplicates, slow: snapshot.queries.slow, nPlusOne: snapshot.queries.nPlusOne },
+          summary: { count: snapshot.queries.count, peakInFlight: snapshot.queries.peakInFlight ?? null, elapsedMs: Math.round((snapshot.queries.wallMs ?? snapshot.queries.totalMs) * 10) / 10, summedMs: Math.round(snapshot.queries.totalMs * 10) / 10, duplicates: snapshot.queries.duplicates, slow: snapshot.queries.slow, nPlusOne: snapshot.queries.nPlusOne },
           nPlusOneGroups: snapshot.queries.groups.map((g) => ({ count: g.count, totalMs: Math.round(g.totalMs * 10) / 10, sql: cut(g.sql), ...(g.origin ? { at: `${g.origin.file}:${g.origin.line}` } : {}) })),
           matching: items.length,
           queries: items.slice(0, limit).map(({ q, n }) => queryRow(q, n)),
@@ -234,6 +239,60 @@ export function debugbarTools(store: () => DebugbarStore): McpTool[] {
             })),
           );
         return { count: found.length, exceptions: found.slice(0, limit) };
+      },
+    },
+    {
+      name: "debugbar_hot_queries",
+      description:
+        "Find the query shapes (values stripped) that cost the most ACROSS many recorded requests: queries that are cheap alone but run in every request, such as permission or tenant lookups. Use this to spot work worth caching. Times are summed durations: they include any wait for a database connection and overlap when queries run in parallel.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          sortBy: { type: "string", enum: ["totalMs", "runs", "requests"], description: "Default totalMs." },
+          limit: { type: "integer", minimum: 1, maximum: 50, description: "Default 10." },
+          minRequests: { type: "integer", minimum: 1, description: "Only shapes seen in at least this many requests. Use e.g. 5 to see what repeats everywhere." },
+          kind: { type: "string", enum: ["http", "job", "schedule", "command"], description: "Default http." },
+          pathContains: { type: "string", description: "Only requests whose path contains this text." },
+        },
+      },
+      handler: async (args) => {
+        const s = store();
+        const all = await s.list(500);
+        if (all.length === 0) return missing(s, undefined);
+        const picked = select(all, { kind: args.kind as string | undefined, pathContains: args.pathContains as string | undefined });
+        if (picked.length === 0) return { note: "No recorded requests match that filter." };
+        return {
+          ...hotQueries(picked, {
+            sortBy: args.sortBy as HotQuerySort | undefined,
+            limit: args.limit as number | undefined,
+            minRequests: args.minRequests as number | undefined,
+          }),
+          hint: "requestShare near 1 means the shape runs in nearly every request. The window is capped by the bar's `history` setting.",
+        };
+      },
+    },
+    {
+      name: "debugbar_routes",
+      description:
+        "Per-route statistics over the recorded requests: hits, average and worst time, average queries, duplicates, N+1 patterns, server errors and peak queries in flight. Grouped by route name. Use it to find which endpoints are slow, chatty or failing.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          sortBy: { type: "string", enum: ["avgMs", "maxMs", "avgQueries", "hits", "errors", "nPlusOne", "duplicates"], description: "Default avgMs." },
+          limit: { type: "integer", minimum: 1, maximum: 50, description: "Default 10." },
+          kind: { type: "string", enum: ["http", "job", "schedule", "command"], description: "Default http." },
+        },
+      },
+      handler: async (args) => {
+        const s = store();
+        const all = await s.list(500);
+        if (all.length === 0) return missing(s, undefined);
+        const picked = select(all, { kind: args.kind as string | undefined });
+        if (picked.length === 0) return { note: "No recorded requests match that filter." };
+        return {
+          requests: picked.length,
+          routes: routeStats(picked, { sortBy: args.sortBy as RouteSort | undefined, limit: args.limit as number | undefined }),
+        };
       },
     },
     {

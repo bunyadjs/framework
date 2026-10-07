@@ -114,6 +114,8 @@ export type Snapshot = {
     totalMs: number;
     /** Time actually spent in queries: overlapping queries counted once. Absent in older stored snapshots. */
     wallMs: number;
+    /** Most queries in flight at once. Absent in older stored snapshots. */
+    peakInFlight: number;
     duplicates: number;
     slow: number;
     /** Queries flagged as part of an N+1 pattern. */

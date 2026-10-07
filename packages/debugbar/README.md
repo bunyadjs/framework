@@ -82,13 +82,15 @@ export default {
 
 ## AI agents (MCP)
 
-With `@bunyad/mcp`, the history is also available to an AI agent in your editor, which can answer questions like "what was the slowest request in the last hour?" or "is there an N+1 on the products page?" from real recorded requests. The tools are registered when the bar is on:
+With `@bunyad/mcp`, the history is also available to an AI agent in your editor, which can answer questions like "what was the slowest request in the last hour?" or "is there an N+1 on the products page?" from real recorded requests. The tools are registered when the bar is on. The first group looks at one request; `debugbar_hot_queries` and `debugbar_routes` look at all of them, so raise `history` (default 50) to analyse a longer session:
 
 | Tool | Use |
 |---|---|
 | `debugbar_list_requests` | Recent requests with status, time and problem counts; filter by method, status, path, slowness, exceptions or N+1. Start here for an id. |
 | `debugbar_get_request` | One request summarized with what looks wrong; pass `sections` for detail or a JSON Pointer for one exact value. |
 | `debugbar_queries` | The SQL with timing, bindings and the file:line that ran it; filter to duplicates, slow or N+1. |
+| `debugbar_hot_queries` | Query shapes ranked **across all recorded requests**: what runs in every request, how often, and the total time. This is where a permission or tenant lookup that is cheap alone but runs ten times per page shows up. |
+| `debugbar_routes` | Per-route totals: hits, average and worst time, average queries, duplicates, N+1, server errors, peak queries in flight. Finds the slow, chatty or failing endpoints. |
 | `debugbar_exceptions` | Server errors with stack traces, for one request or the recent ones. |
 | `debugbar_logs` | Log lines from one request, from a minimum level up. |
 
@@ -101,6 +103,11 @@ Responses are summaries, with SQL cut at 300 characters and stacks at 15 lines, 
 By default history lives in memory and is lost when the server restarts. With `driver: "file"` each request is written as one JSON file under `storage/debugbar` (directory `0700`, files `0600`), so history survives `--watch` restarts and other processes, such as a future MCP server, can read it. Writes happen after the response is sent and never fail a request. Add the directory to `.gitignore`.
 
 `bunyad debugbar:clear` empties the history. Pass your own object as `store` to replace the storage entirely (`put`, `get`, `list`, `clear`; sync or async).
+
+## Reading query times
+
+- **Elapsed vs summed.** Queries that run in parallel overlap, so the bar shows the *elapsed* time and keeps the summed figure in the tooltip.
+- **Pool waits.** A query's time starts when it is issued and includes any wait for a free database connection. The Queries tab shows how many were in flight at once (`peakInFlight`); if that is well above your connection pool size, most of those queries were queueing and the SQL itself is not the slow part. Raise the pool, or issue fewer queries at once, before tuning the SQL.
 
 ## Jobs, scheduled tasks and commands
 
