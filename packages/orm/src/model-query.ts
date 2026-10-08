@@ -1515,7 +1515,7 @@ export class ModelQuery<
     return this;
   }
 
-  /** Karobar / dialect alias for `orderByRaw`. */
+  /** Alias for `orderByRaw`. */
   orderBySql(sql: string): this {
     return this.orderByRaw(sql);
   }
@@ -1619,7 +1619,7 @@ export class ModelQuery<
   }
 
   /**
-   * OR `LIKE %term%` across columns (Karobar list `search`).
+   * OR `LIKE %term%` across columns (a list `search`).
    * Empty/whitespace term is a no-op.
    */
   search(columns: string[], term: string): this {
