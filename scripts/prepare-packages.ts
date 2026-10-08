@@ -43,6 +43,7 @@ const DESCRIPTIONS: Record<string, string> = {
   migrate: "Database migration runner for Bunyad.",
   notifications: "Notifications for Bunyad: mail, database, Slack, SMS and broadcast channels.",
   oauth: "OAuth social login for Bunyad.",
+  permissions: "Roles, permissions, teams and tenants for Bunyad, checked with a bit test and a version-validated cache.",
   orm: "Active-record ORM for Bunyad: models, relations, casts, scopes, events, factories.",
   queue: "Queues for Bunyad: delayed jobs, chains and batches.",
   router: "Routing for Bunyad.",
