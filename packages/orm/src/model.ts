@@ -590,6 +590,7 @@ export class Model {
   #original!: Record<string, unknown>;
   /** Lazy: allocated on first mutation tracking. */
   #changes: Record<string, unknown> | undefined;
+  #previous: Record<string, unknown> | undefined;
   #wasRecentlyCreated = false;
   /**
    * Whether this instance is persisted (`$exists`).
@@ -735,6 +736,28 @@ export class Model {
   /** `getChanges` — attributes changed by the last save. */
   getChanges(): Record<string, unknown> {
     return this.#changes ? { ...this.#changes } : {};
+  }
+
+  /** `getPrevious` — original values of the attributes changed by the last save. */
+  getPrevious(): Record<string, unknown>;
+  getPrevious(key: string): unknown;
+  getPrevious(key?: string): unknown {
+    const previous = this.#previous ?? {};
+    if (key === undefined) return { ...previous };
+    return previous[key];
+  }
+
+  #capturePrevious(created = false): void {
+    const original = this.#original ?? {};
+    const previous: Record<string, unknown> = {};
+    if (!created) {
+      for (const key of Object.keys(this.#changes ?? {})) {
+        if (Object.prototype.hasOwnProperty.call(original, key)) {
+          previous[key] = original[key];
+        }
+      }
+    }
+    this.#previous = previous;
   }
 
   /** `wasChanged`. */
@@ -2092,6 +2115,7 @@ export class Model {
       }
       this.#original = original;
       this.#changes = original;
+      this.#previous = undefined;
       this.#touchOwnersSync();
       return this;
     }
@@ -2117,6 +2141,7 @@ export class Model {
     }
     this.#wasRecentlyCreated = false;
     this.#changes = dirty;
+    this.#capturePrevious();
     this.syncOriginal();
     this.#touchOwnersSync();
     return this;
@@ -2192,6 +2217,7 @@ export class Model {
         this.#changes.created_at = row.created_at;
       }
     }
+    this.#capturePrevious(!exists);
     this.syncOriginal();
     await fireModelEvent(this, "saved");
     // finishSave → touchOwners (Relation.touch honors withoutTouching on related).
