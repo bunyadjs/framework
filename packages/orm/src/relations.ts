@@ -1629,6 +1629,43 @@ export function resolveRelation(
   return meta;
 }
 
+/** Relation metadata for aggregate subqueries (adds morphOne / morphMany). */
+export type AggregateRelationMeta =
+  | RelationMeta
+  | {
+      kind: "morph";
+      related: ModelClass;
+      typeColumn: string;
+      idColumn: string;
+      morphType: string;
+      localKey: string;
+    };
+
+export function resolveAggregateRelation(
+  model: ModelClass,
+  relation: string,
+): AggregateRelationMeta | null {
+  const meta = resolveRelation(model, relation);
+  if (meta) return meta;
+  let rel: unknown;
+  try {
+    rel = new model().related(relation);
+  } catch {
+    return null;
+  }
+  if (rel instanceof MorphMany || rel instanceof MorphOne) {
+    return {
+      kind: "morph",
+      related: rel.getRelated(),
+      typeColumn: rel.getTypeColumn(),
+      idColumn: rel.getIdColumn(),
+      morphType: rel.getMorphType(),
+      localKey: rel.getLocalKeyName(),
+    };
+  }
+  return null;
+}
+
 export async function countRelation(model: Model, relation: string): Promise<number> {
   const value = await aggregateRelation(model, relation, "count");
   return Number(value ?? 0);

@@ -79,6 +79,7 @@ import {
   morphTypeFor,
   type MorphToManyOptions,
 } from "./relations.ts";
+import type { AggregateRelations } from "./model-query.ts";
 import {
   eagerLoadAggregates,
   eagerLoadModels,
@@ -1620,22 +1621,16 @@ export class Model {
   /** `withCount` — `'posts'`, `'posts as post_total'`, a string list, or `{ products: { as: 'productsCount' } }`. */
   static withCount<T extends typeof Model>(
     this: T,
-    ...relations: Array<
-      | string
-      | string[]
-      | Record<string, unknown>
-    >
+    ...relations: AggregateRelations[]
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().withCount(
-      ...(relations as Parameters<ModelQuery["withCount"]>),
-    );
+    return this.newQuery().withCount(...relations);
   }
 
   /** `Model::withSum`. */
   static withSum<T extends typeof Model>(
     this: T,
-    relation: string,
+    relation: AggregateRelations,
     column: string,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
@@ -1644,7 +1639,7 @@ export class Model {
 
   static withAvg<T extends typeof Model>(
     this: T,
-    relation: string,
+    relation: AggregateRelations,
     column: string,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
@@ -1653,7 +1648,7 @@ export class Model {
 
   static withMin<T extends typeof Model>(
     this: T,
-    relation: string,
+    relation: AggregateRelations,
     column: string,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
@@ -1662,7 +1657,7 @@ export class Model {
 
   static withMax<T extends typeof Model>(
     this: T,
-    relation: string,
+    relation: AggregateRelations,
     column: string,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
@@ -1671,7 +1666,7 @@ export class Model {
 
   static withExists<T extends typeof Model>(
     this: T,
-    ...relations: string[]
+    ...relations: AggregateRelations[]
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
     return this.newQuery().withExists(...relations);

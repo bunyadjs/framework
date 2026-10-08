@@ -12,6 +12,7 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
       static table = "ra_customers";
       static fillable = ["name"];
       declare id: number;
+      declare name: string;
       payments() {
         return this.hasMany(Payment, "customer_id");
       }

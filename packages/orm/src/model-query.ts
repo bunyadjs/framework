@@ -46,6 +46,8 @@ import {
   MorphToMany,
   morphTypeFor,
   resolveRelation,
+  resolveAggregateRelation,
+  type AggregateRelationMeta,
   type RelationMeta,
 } from "./relations.ts";
 import { eagerLoadAggregates, eagerLoadModels } from "./eager.ts";
@@ -2101,18 +2103,20 @@ export class ModelQuery<
     if (aggregates.length > 0) {
       q = q.select(`${this.model.table}.*`);
       for (const agg of aggregates) {
-        const meta = resolveRelation(this.model, agg.relation);
-        if (!meta) continue;
-        const alias = wrapSqlName(this.model.getConnection().dialect, agg.alias);
-        if (agg.constraint) {
-          const built = this.#constrainedAggregate(meta, agg);
-          if (!built) continue;
-          q = q.selectRaw(`(${built.sql}) as ${alias}`, built.bindings);
-          continue;
+        const meta = resolveAggregateRelation(this.model, agg.relation);
+        if (!meta) {
+          throw new Error(
+            `Cannot aggregate unknown or unsupported relation [${agg.relation}] on ${this.model.name}.`,
+          );
         }
-        const expr = this.#aggregateSubquery(meta, agg.fn, agg.column);
-        if (!expr) continue;
-        q = q.selectRaw(`(${expr}) as ${alias}`);
+        const alias = wrapSqlName(this.model.getConnection().dialect, agg.alias);
+        const built = this.#constrainedAggregate(meta, agg);
+        if (!built) {
+          throw new Error(
+            `Relation [${agg.relation}] (${meta.kind}) does not support aggregates yet.`,
+          );
+        }
+        q = q.selectRaw(`(${built.sql}) as ${alias}`, built.bindings);
       }
     }
 
@@ -3066,9 +3070,9 @@ export class ModelQuery<
     return constraint.not ? q.whereNotExists(wrap) : q.whereExists(wrap);
   }
 
-  /** Correlated aggregate subquery with a user constraint closure (`withCount(['x' => fn])`). */
+  /** Correlated aggregate subquery for `withCount` / `withSum` / … (optional constraint closure). */
   #constrainedAggregate(
-    meta: RelationMeta,
+    meta: AggregateRelationMeta,
     agg: {
       fn: "count" | "sum" | "avg" | "min" | "max" | "exists";
       column?: string;
@@ -3077,101 +3081,86 @@ export class ModelQuery<
   ): { sql: string; bindings: unknown[] } | null {
     const parentTable = this.model.table;
     const sub = this.#baseTable();
-    let related: ModelClass;
-    if (meta.kind === "has") {
-      related = meta.related;
-      const relatedTable = related.table;
-      if (relatedTable === parentTable) {
-        const alias = `${relatedTable}_has`;
-        sub.from(`${relatedTable} as ${alias}`);
-        sub.whereColumn(`${alias}.${meta.foreignKey}`, `${parentTable}.${meta.localKey}`);
-      } else {
+    const related = meta.related;
+    const relatedTable = related.table;
+    // Column prefix for the related side (aliased when the relation is self-referencing).
+    let relatedRef = relatedTable;
+    switch (meta.kind) {
+      case "has":
+      case "morph": {
+        const foreignKey = meta.kind === "has" ? meta.foreignKey : meta.idColumn;
+        if (relatedTable === parentTable) {
+          relatedRef = `${relatedTable}_has`;
+          sub.from(`${relatedTable} as ${relatedRef}`);
+        } else {
+          sub.from(relatedTable);
+        }
+        sub.whereColumn(`${relatedRef}.${foreignKey}`, `${parentTable}.${meta.localKey}`);
+        if (meta.kind === "morph") {
+          sub.where(`${relatedRef}.${meta.typeColumn}`, meta.morphType);
+        }
+        break;
+      }
+      case "belongsTo":
         sub.from(relatedTable);
-        sub.whereColumn(`${relatedTable}.${meta.foreignKey}`, `${parentTable}.${meta.localKey}`);
+        sub.whereColumn(`${relatedTable}.${meta.ownerKey}`, `${parentTable}.${meta.foreignKey}`);
+        break;
+      case "belongsToMany":
+      case "morphToMany":
+        sub.from(relatedTable);
+        sub.join(
+          meta.pivotTable,
+          `${meta.pivotTable}.${meta.relatedPivotKey}`,
+          "=",
+          `${relatedTable}.${related.primaryKey}`,
+        );
+        sub.whereColumn(
+          `${meta.pivotTable}.${meta.foreignPivotKey}`,
+          `${parentTable}.${meta.localKey}`,
+        );
+        if (meta.kind === "morphToMany") {
+          sub.whereIn(`${meta.pivotTable}.${meta.morphTypeColumn}`, meta.morphTypes);
+        }
+        break;
+      case "hasManyThrough":
+      case "hasOneThrough": {
+        const through = meta.through.table;
+        sub.from(relatedTable);
+        sub.join(
+          through,
+          `${through}.${meta.secondLocalKey}`,
+          "=",
+          `${relatedTable}.${meta.secondKey}`,
+        );
+        sub.whereColumn(`${through}.${meta.firstKey}`, `${parentTable}.${meta.localKey}`);
+        if (usesSoftDeletes(meta.through)) {
+          sub.whereNull(`${through}.${deletedAtColumn(meta.through)}`);
+        }
+        break;
       }
-    } else if (meta.kind === "belongsTo") {
-      related = meta.related;
-      sub.from(related.table);
-      sub.whereColumn(`${related.table}.${meta.ownerKey}`, `${parentTable}.${meta.foreignKey}`);
-    } else if (meta.kind === "belongsToMany" || meta.kind === "morphToMany") {
-      related = meta.related;
-      sub.from(related.table);
-      sub.join(
-        meta.pivotTable,
-        `${meta.pivotTable}.${meta.relatedPivotKey}`,
-        "=",
-        `${related.table}.${related.primaryKey}`,
-      );
-      sub.whereColumn(
-        `${meta.pivotTable}.${meta.foreignPivotKey}`,
-        `${parentTable}.${meta.localKey}`,
-      );
-      if (meta.kind === "morphToMany") {
-        sub.whereIn(`${meta.pivotTable}.${meta.morphTypeColumn}`, meta.morphTypes);
-      }
-    } else {
-      return null;
+      default:
+        return null;
     }
-    const rq = related.newQuery({ withoutGlobalScopes: true }) as ModelQuery;
-    agg.constraint!(rq);
-    rq.applyConstraintsTo(sub);
+    if (usesSoftDeletes(related)) {
+      sub.whereNull(`${relatedRef}.${deletedAtColumn(related)}`);
+    }
+    if (agg.constraint) {
+      const rq = related.newQuery({ withoutGlobalScopes: true }) as ModelQuery;
+      agg.constraint(rq);
+      rq.applyConstraintsTo(sub);
+    }
     if (agg.fn === "exists") {
       sub.select("1");
       sub.limit(1);
     } else {
-      const fnSql =
-        agg.fn === "count"
-          ? "COUNT(*)"
-          : `${agg.fn.toUpperCase()}(${agg.column ?? "*"})`;
-      sub.selectRaw(fnSql);
+      const column = agg.column
+        ? agg.column.includes(".") ? agg.column : `${relatedRef}.${agg.column}`
+        : "*";
+      sub.selectRaw(
+        agg.fn === "count" ? "COUNT(*)" : `${agg.fn.toUpperCase()}(${column})`,
+      );
     }
     return { sql: sub.toSql(), bindings: sub.getBindings() };
-  }
-
-  #aggregateSubquery(
-    meta: RelationMeta,
-    fn: "count" | "sum" | "avg" | "min" | "max" | "exists",
-    column?: string,
-  ): string | null {
-    const agg =
-      fn === "exists"
-        ? "1"
-        : fn === "count"
-          ? "COUNT(*)"
-          : `${fn.toUpperCase()}(${column ?? "*"})`;
-    if (meta.kind === "has") {
-      const relatedTable = meta.related.table;
-      const parentTable = this.model.table;
-      if (relatedTable === parentTable) {
-        const alias = `${relatedTable}_has`;
-        const where = `${alias}.${meta.foreignKey} = ${parentTable}.${meta.localKey}`;
-        if (fn === "exists") {
-          return `SELECT 1 FROM ${relatedTable} as ${alias} WHERE ${where} LIMIT 1`;
-        }
-        return `SELECT ${agg} FROM ${relatedTable} as ${alias} WHERE ${where}`;
-      }
-      const where = `${relatedTable}.${meta.foreignKey} = ${parentTable}.${meta.localKey}`;
-      if (fn === "exists") {
-        return `SELECT 1 FROM ${relatedTable} WHERE ${where} LIMIT 1`;
-      }
-      return `SELECT ${agg} FROM ${relatedTable} WHERE ${where}`;
-    }
-    if (meta.kind === "belongsTo") {
-      const where = `${meta.related.table}.${meta.ownerKey} = ${this.model.table}.${meta.foreignKey}`;
-      if (fn === "exists") {
-        return `SELECT 1 FROM ${meta.related.table} WHERE ${where} LIMIT 1`;
-      }
-      return `SELECT ${agg} FROM ${meta.related.table} WHERE ${where}`;
-    }
-    if (meta.kind !== "belongsToMany" && meta.kind !== "morphToMany") {
-      return null;
-    }
-    const join = `INNER JOIN ${meta.pivotTable} ON ${meta.pivotTable}.${meta.relatedPivotKey} = ${meta.related.table}.${meta.related.primaryKey}`;
-    const where = `${meta.pivotTable}.${meta.foreignPivotKey} = ${this.model.table}.${meta.localKey}`;
-    if (fn === "exists") {
-      return `SELECT 1 FROM ${meta.related.table} ${join} WHERE ${where} LIMIT 1`;
-    }
-    return `SELECT ${agg} FROM ${meta.related.table} ${join} WHERE ${where}`;
   }
 
   first(): T | null | Promise<T | null> {
