@@ -63,6 +63,7 @@ export {
   dialectFor,
   isMysqlFamily,
   wrapSqlName,
+  type ColumnInfo,
   type Dialect,
   type DriverName,
   type LogicalColumn,

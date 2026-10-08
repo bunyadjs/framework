@@ -32,6 +32,7 @@
   "Prunable",
   "SoftDeletes",
   "UseBuilder",
+  "checkModelSchema",
   "clearGlobalScopes",
   "clearMorphMap",
   "clearPrunableRegistries",
@@ -40,9 +41,11 @@
   "eagerLoadModels",
   "enforceMorphMap",
   "fake",
+  "generateModelTypes",
   "getMorphedModel",
   "isModelCtor",
   "massPrunableModelClasses",
+  "modelColumnsInterface",
   "morphMap",
   "prunableModelClasses",
   "prune",
@@ -52,6 +55,7 @@
   "resetModelStrictnessForTests",
   "resolveConnection",
   "resolveModelBuilder",
+  "tsTypeForColumn",
   "ulid",
   "uuid7"
 ]

@@ -1,5 +1,5 @@
 import type { Connection } from "./connection.ts";
-import type { Dialect, LogicalColumn } from "./dialect.ts";
+import type { ColumnInfo, Dialect, LogicalColumn } from "./dialect.ts";
 import { dialectFor, isMysqlFamily } from "./dialect.ts";
 
 type IndexCommand = {
@@ -769,6 +769,19 @@ export class Schema {
     const { sql, params, columnKey } = this.dialect.hasColumnSql(table);
     const rows = await this.all(sql, params);
     return rows.map((r) => String(r[columnKey]));
+  }
+
+  /** Column name, database type, nullability, default and primary-key flag for a table. */
+  async getColumns(table: string): Promise<ColumnInfo[]> {
+    if (!this.all) {
+      throw new Error("Schema.getColumns() requires an all() query function.");
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(table)) {
+      throw new Error(`Invalid table name [${table}].`);
+    }
+    const { sql, params } = this.dialect.columnsSql(table);
+    const rows = await this.all(sql, params);
+    return this.dialect.mapColumns(rows);
   }
 
   async disableForeignKeyConstraints(): Promise<void> {
