@@ -114,6 +114,17 @@ const CAST_TYPE_SET = new Set<string>([
   "hashed",
 ]);
 
+/** Fixed-digit string rounded half away from zero on the decimal text, so `1.005` gives `1.01`. */
+function toFixedDecimal(value: unknown, digits: number): string {
+  const n = toNumber(value);
+  if (!Number.isFinite(n) || digits < 0 || digits > 20) return n.toFixed(Math.max(0, digits));
+  const sign = n < 0 ? -1 : 1;
+  const shifted = Number(`${Math.abs(n)}e${digits}`);
+  if (!Number.isFinite(shifted)) return n.toFixed(digits);
+  const rounded = Number(`${Math.round(shifted)}e-${digits}`);
+  return (sign * rounded).toFixed(digits);
+}
+
 function toNumber(value: unknown): number {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : 0;
@@ -302,7 +313,7 @@ export function castFromStorage(
   if (value == null) return value;
   // `decimal:2` keeps money-like values exact as a fixed-digit string.
   if (type === "decimal" && parsed.arg !== undefined) {
-    return toNumber(value).toFixed(Number(parsed.arg));
+    return toFixedDecimal(value, Number(parsed.arg));
   }
   switch (type) {
     case "boolean":
@@ -323,6 +334,7 @@ export function castFromStorage(
       return String(value);
     case "json":
     case "array":
+      if (value === "") return null;
       return typeof value === "string" ? JSON.parse(value) : value;
     case "collection": {
       // From the database (JSON text), or already in memory: `fill()` passes a Collection or array.
@@ -352,6 +364,12 @@ export function castFromStorage(
   }
 }
 
+function assertValidDate(value: unknown, cast: string): void {
+  if (Number.isNaN(toDate(value as DateInput).getTime())) {
+    throw new Error(`Cannot cast ${JSON.stringify(String(value))} to ${cast}: not a valid date.`);
+  }
+}
+
 export function castToStorage(
   value: unknown,
   definition: CastType,
@@ -361,7 +379,7 @@ export function castToStorage(
   const parsed = parseCast(definition)!;
   const type = parsed.type;
   if (type === "decimal" && parsed.arg !== undefined) {
-    return toNumber(value).toFixed(Number(parsed.arg));
+    return toFixedDecimal(value, Number(parsed.arg));
   }
   const driverName = (driver ?? "sqlite") as DriverName;
   switch (type) {
@@ -386,14 +404,16 @@ export function castToStorage(
       return String(value);
     case "json":
     case "array":
-      return typeof value === "string" ? value : JSON.stringify(value);
+      return JSON.stringify(value);
     case "collection": {
       const items = collectionItems(value);
       return JSON.stringify(items);
     }
     case "date":
+      assertValidDate(value, definition);
       return dateForStorage(value as DateInput);
     case "datetime":
+      assertValidDate(value, definition);
       return dateTimeForStorage(value as DateInput, driverName);
     case "encrypted":
       return encryptPayload(value);
