@@ -333,6 +333,41 @@ await User.where("name", "nobody").firstOr(() => User.firstOrFail());
 
 `join`, `leftJoin` and `rightJoin` take `(table, first, operator, second)`. `lockForUpdate()` and `sharedLock()` add a row lock inside a transaction. `toSql()` returns the SQL with `?` placeholders; `toRawSql()` inlines the bindings (for debugging only).
 
+**Subqueries, unions and joins on subqueries**
+
+A subquery can be a closure that configures a query builder, a query builder, or another model query:
+
+```ts
+// A correlated subquery as a column
+await User.query()
+  .select("users.*")
+  .selectSub(
+    Post.query().selectRaw("COUNT(*)").whereColumn("posts.user_id", "users.id"),
+    "post_count",
+  )
+  .get();
+
+// EXISTS / NOT EXISTS (and orWhereExists, orWhereNotExists)
+await User.query()
+  .whereExists(Post.query().whereColumn("posts.user_id", "users.id").where("views", ">", 100))
+  .get();
+
+// UNION / UNION ALL: both sides must select the same columns
+await User.query().select("name").where("age", "<", 25)
+  .union(User.query().select("name").where("age", ">", 65))
+  .get();
+
+// Join against an aggregate subquery (joinSub, leftJoinSub, rightJoinSub)
+const totals = Post.query().select("user_id").selectRaw("SUM(views) AS total").groupBy("user_id");
+await User.query()
+  .select("users.name", "t.total")
+  .leftJoinSub(totals, "t", "t.user_id", "=", "users.id")
+  .rows()
+  .get();
+```
+
+`crossJoin(table)` and `groupByRaw(sql, bindings)` are available too. Like `selectRaw`, columns that come from a subquery are not model attributes; use `.rows()` to read them as plain objects.
+
 **Hidden attributes**
 
 ```ts

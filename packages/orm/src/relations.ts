@@ -130,11 +130,16 @@ function installRelationQueryForwarders(
   }
 }
 
-/** Strip `__pivot_*` columns onto `model.pivot`. */
+/**
+ * Strip `__pivot_*` columns onto `model.pivot` (or the `as()` accessor). With
+ * `using(PivotModel)` the pivot is an instance of that model, so its casts and
+ * methods apply.
+ */
 export function applyPivotAttributes(
   model: Model,
   attrs: Record<string, unknown>,
   pivotKeys: string[],
+  options: { accessor?: string; pivotClass?: ModelClass } = {},
 ): Model {
   if (pivotKeys.length === 0) return model;
   const pivot: Record<string, unknown> = {};
@@ -150,7 +155,14 @@ export function applyPivotAttributes(
     }
   }
   if (Object.keys(pivot).length > 0) {
-    self.pivot = pivot;
+    const accessor = options.accessor ?? "pivot";
+    if (options.pivotClass) {
+      const instance = new options.pivotClass(pivot);
+      instance.exists = true;
+      self[accessor] = instance;
+    } else {
+      self[accessor] = pivot;
+    }
   }
   return model;
 }
@@ -1141,6 +1153,8 @@ export class BelongsToMany<T extends Model = Model> {
   #pivotWheres: PivotWhere[] = [];
   #pivotOrders: PivotOrder[] = [];
   #pivotTimestamps = false;
+  #pivotAccessor = "pivot";
+  #pivotClass?: ModelClass;
 
   constructor(
     private parent: Model,
@@ -1187,7 +1201,7 @@ export class BelongsToMany<T extends Model = Model> {
   }
 
   #pivotKeys(): string[] {
-    if (this.#pivotColumns.length === 0) return [];
+    if (this.#pivotColumns.length === 0 && !this.#pivotClass && this.#pivotAccessor === "pivot") return [];
     return pivotSelectKeys(
       this.foreignPivotKey,
       this.relatedPivotKey,
@@ -1230,6 +1244,7 @@ export class BelongsToMany<T extends Model = Model> {
         model,
         model as unknown as Record<string, unknown>,
         keys,
+        { accessor: this.#pivotAccessor, pivotClass: this.#pivotClass },
       );
     }
   }
@@ -1249,8 +1264,42 @@ export class BelongsToMany<T extends Model = Model> {
 
   /** `withTimestamps` — stamp `created_at` / `updated_at` on pivot writes. */
   withTimestamps(): this {
+    this.#baseQuery = null;
     this.#pivotTimestamps = true;
+    // Like Laravel, the timestamp columns are also read onto the pivot.
+    for (const col of ["created_at", "updated_at"]) {
+      if (!this.#pivotColumns.includes(col)) this.#pivotColumns.push(col);
+    }
     return this;
+  }
+
+  /** `as('membership')` — expose the pivot under another property name than `pivot`. */
+  as(accessor: string): this {
+    this.#pivotAccessor = accessor;
+    return this;
+  }
+
+  /**
+   * `using(MembershipPivot)` — hydrate the pivot as a model (casts and methods apply)
+   * and run pivot writes (`attach`, `sync`, `updateExistingPivot`) through its "set" casts.
+   */
+  using(pivotClass: ModelClass): this {
+    this.#baseQuery = null;
+    this.#pivotClass = pivotClass;
+    return this;
+  }
+
+  getPivotAccessor(): string {
+    return this.#pivotAccessor;
+  }
+
+  getPivotClass(): ModelClass | undefined {
+    return this.#pivotClass;
+  }
+
+  /** Pivot attributes for a write, passed through the custom pivot model's set-casts. */
+  #castPivotWrite(attrs: Record<string, unknown>): Record<string, unknown> {
+    return this.#pivotClass ? this.#pivotClass.castAttributes(attrs, "set") : attrs;
   }
 
   getPivotWheres(): PivotWhere[] {
@@ -1370,9 +1419,11 @@ export class BelongsToMany<T extends Model = Model> {
       if (w.kind === "basic" && w.op === "=") defaults[w.column] = w.value;
     }
     const rows = pairs.map(([id, attrs]) =>
-      this.#stamp(
-        { ...defaults, ...attrs, [this.foreignPivotKey]: parentId, [this.relatedPivotKey]: id },
-        true,
+      this.#castPivotWrite(
+        this.#stamp(
+          { ...defaults, ...attrs, [this.foreignPivotKey]: parentId, [this.relatedPivotKey]: id },
+          true,
+        ),
       ),
     );
     await insertPivotRows(this.#conn(), this.pivotTable, rows);
@@ -1406,7 +1457,7 @@ export class BelongsToMany<T extends Model = Model> {
     attributes: Record<string, unknown>,
   ): Promise<number> {
     const relatedId = this.#normalize(id)[0]![0];
-    const data = this.#stamp({ ...attributes }, false);
+    const data = this.#castPivotWrite(this.#stamp({ ...attributes }, false));
     const cols = Object.keys(data);
     if (cols.length === 0) return 0;
     const d = this.#conn().dialect;

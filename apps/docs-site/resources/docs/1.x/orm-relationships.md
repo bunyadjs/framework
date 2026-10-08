@@ -334,6 +334,32 @@ roles.all()[0]?.pivot?.active;
 
 `withPivot` applies to lazy `get()` / `first()` and to eager `with("roles")`.
 
+Name the pivot property with `as`, and hydrate it as a model with `using`. A pivot model gets its own casts and methods, and `attach`, `sync` and `updateExistingPivot` write through its casts:
+
+```ts
+class Membership extends Pivot {
+  static table = "memberships";
+  static casts() {
+    return { active: "boolean" as const, perms: "json" as const };
+  }
+}
+
+class Team extends Model {
+  members() {
+    return this.belongsToMany(User, "memberships")
+      .using(Membership)
+      .as("membership")
+      .withPivot("role", "active", "perms");
+  }
+}
+
+const user = (await team.members().get()).first();
+user.membership.active; // true (cast)
+user.membership.perms;  // ["read", "write"]
+```
+
+`withTimestamps()` also reads `created_at` / `updated_at` onto the pivot, as Laravel does. Pivot model events are not fired by `attach` / `sync`.
+
 Constrain or order by pivot columns with `wherePivot`, `wherePivotIn`, `wherePivotNotIn`, `wherePivotNull`, `wherePivotNotNull`, `wherePivotBetween`, `wherePivotNotBetween` and `orderByPivot`. The constraint applies everywhere the relation is used: `get()`, eager loading, `whereHas`, `withCount` and the other aggregates. It also scopes the writes. `attach` fills `wherePivot(column, value)` equality constraints as defaults, and `sync`, `detach` and `updateExistingPivot` only touch rows that match, so two relations can share one pivot table:
 
 ```ts

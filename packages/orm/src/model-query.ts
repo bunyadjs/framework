@@ -101,6 +101,9 @@ function notGroupCallback<T extends Model>(
   };
 }
 
+/** A subquery: a query builder, a model query, or a closure that configures a builder. */
+export type SubQuery = QueryBuilder | ModelQuery<any, any> | ((q: QueryBuilder) => void);
+
 const MQ_EMPTY: never[] = Object.freeze([]) as unknown as never[];
 const MQ_EMPTY_OBJ: Record<string, never> = Object.freeze({}) as Record<string, never>;
 
@@ -1020,6 +1023,72 @@ export class ModelQuery<
   ): this {
     this.#pushAggregates([relation], fn, column);
     return this;
+  }
+
+  // ── Subqueries, unions and joins on subqueries (forwarded to the query builder) ──
+
+  #sub(query: SubQuery): QueryBuilder | ((q: QueryBuilder) => void) {
+    return query instanceof ModelQuery ? query.toBase() : query;
+  }
+
+  #extra(apply: (q: QueryBuilder) => void): this {
+    this.#simple = false;
+    (this.#builderExtras = mqMut(this.#builderExtras)).push(apply);
+    return this;
+  }
+
+  /** `selectSub($query, $as)` — add a subquery as a selected column. */
+  selectSub(query: SubQuery, as: string): this {
+    return this.#extra((q) => void q.selectSub(this.#sub(query), as));
+  }
+
+  /** `whereExists($query)` and its `or` / `not` variants. */
+  whereExists(query: SubQuery): this {
+    return this.#extra((q) => void q.whereExists(this.#sub(query)));
+  }
+
+  orWhereExists(query: SubQuery): this {
+    return this.#extra((q) => void q.orWhereExists(this.#sub(query)));
+  }
+
+  whereNotExists(query: SubQuery): this {
+    return this.#extra((q) => void q.whereNotExists(this.#sub(query)));
+  }
+
+  orWhereNotExists(query: SubQuery): this {
+    return this.#extra((q) => void q.orWhereNotExists(this.#sub(query)));
+  }
+
+  /** `union` / `unionAll` — the other query must select the same columns. */
+  union(query: SubQuery): this {
+    return this.#extra((q) => void q.union(this.#sub(query)));
+  }
+
+  unionAll(query: SubQuery): this {
+    return this.#extra((q) => void q.unionAll(this.#sub(query)));
+  }
+
+  /** `joinSub($query, $as, $first, $op, $second)`. */
+  joinSub(query: SubQuery, as: string, first: string, op: string, second: string): this {
+    return this.#extra((q) => void q.joinSub(this.#sub(query), as, first, op, second));
+  }
+
+  leftJoinSub(query: SubQuery, as: string, first: string, op: string, second: string): this {
+    return this.#extra((q) => void q.leftJoinSub(this.#sub(query), as, first, op, second));
+  }
+
+  rightJoinSub(query: SubQuery, as: string, first: string, op: string, second: string): this {
+    return this.#extra((q) => void q.rightJoinSub(this.#sub(query), as, first, op, second));
+  }
+
+  /** `crossJoin($table)`. */
+  crossJoin(table: string): this {
+    return this.#extra((q) => void q.crossJoin(table));
+  }
+
+  /** `groupByRaw($sql, $bindings)`. */
+  groupByRaw(sql: string, bindings: unknown[] = []): this {
+    return this.#extra((q) => void (q as unknown as { groupByRaw(s: string, b: unknown[]): unknown }).groupByRaw(sql, bindings));
   }
 
   /** `join` (hydrated models still from the base table). */

@@ -682,9 +682,11 @@ async function eagerLoadBelongsToMany(
   const relatedPivotKey = sample.getRelatedPivotKeyName();
   const pivotColumns = sample.getPivotColumns();
   const pivotWheres = sample.getPivotWheres();
+  const pivotAccessor = sample.getPivotAccessor();
+  const pivotClass = sample.getPivotClass();
   const pivotOrders = sample.getPivotOrders();
   const pivotKeys =
-    pivotColumns.length > 0
+    pivotColumns.length > 0 || pivotClass || pivotAccessor !== "pivot"
       ? [foreignPivotKey, relatedPivotKey, ...pivotColumns.filter(
           (c) => c !== foreignPivotKey && c !== relatedPivotKey,
         )]
@@ -743,7 +745,7 @@ async function eagerLoadBelongsToMany(
           const rec = row as unknown as Record<string, unknown>;
           const parentId = rec.__bunyad_parent_id;
           delete rec.__bunyad_parent_id;
-          applyPivotAttributes(row, rec, pivotKeys);
+          applyPivotAttributes(row, rec, pivotKeys, { accessor: pivotAccessor, pivotClass });
           const key = String(parentId);
           const list = byParent.get(key) ?? [];
           list.push(row);
@@ -765,7 +767,7 @@ async function eagerLoadBelongsToMany(
         const { __bunyad_parent_id: _, ...attrs } = row;
         const model = new Related(attrs);
         model.exists = true;
-        applyPivotAttributes(model, attrs, pivotKeys);
+        applyPivotAttributes(model, attrs, pivotKeys, { accessor: pivotAccessor, pivotClass });
         const key = String(parentId);
         const list = byParent.get(key) ?? [];
         list.push(model);
