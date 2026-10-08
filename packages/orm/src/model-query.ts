@@ -46,9 +46,12 @@ import {
   MorphToMany,
   morphTypeFor,
   resolveRelation,
+  resolveAggregateRelation,
+  type AggregateRelationMeta,
   type RelationMeta,
 } from "./relations.ts";
 import { eagerLoadAggregates, eagerLoadModels } from "./eager.ts";
+import type { ColumnHint, RelationHint } from "./typed-names.ts";
 import { type CastDefinition } from "./casts.ts";
 import {
   Model,
@@ -75,6 +78,28 @@ export function unwrapModelQuery<Q extends ModelQuery>(query: Q): Q {
 }
 
 /** Shared empty array — copy-on-write before mutate (ModelQuery ctor hot path). */
+/** Relations accepted by `withCount` / `withSum` / …: names, lists, or constraint maps. */
+export type AggregateRelations =
+  | string
+  | AggregateRelations[]
+  | Record<
+      string,
+      true | string | { as?: string } | ((query: ModelQuery) => void)
+    >;
+
+/** `whereNot('col', v)` / `whereNot('col', op, v)` become a negated one-condition group. */
+function notGroupCallback<T extends Model>(
+  callbackOrColumn: ((query: ModelQuery<T>) => void) | string,
+  opOrValue?: unknown,
+  value?: unknown,
+): (query: ModelQuery<T>) => void {
+  if (typeof callbackOrColumn === "function") return callbackOrColumn;
+  return (q) => {
+    if (value === undefined) q.where(callbackOrColumn, opOrValue);
+    else q.where(callbackOrColumn, String(opOrValue), value);
+  };
+}
+
 const MQ_EMPTY: never[] = Object.freeze([]) as unknown as never[];
 const MQ_EMPTY_OBJ: Record<string, never> = Object.freeze({}) as Record<string, never>;
 
@@ -224,6 +249,7 @@ export class ModelQuery<
     alias: string;
     fn: "count" | "sum" | "avg" | "min" | "max" | "exists";
     column?: string;
+    constraint?: (query: ModelQuery) => void;
   }> = MQ_EMPTY as any;
   #morphHasConstraints: Array<{
     typeColumn: string;
@@ -386,18 +412,18 @@ export class ModelQuery<
   }
 
   /** `has`. */
-  has(relation: string): this {
+  has(relation: RelationHint<T>): this {
     return this.whereHas(relation);
   }
 
   /** `doesntHave`. */
-  doesntHave(relation: string): this {
+  doesntHave(relation: RelationHint<T>): this {
     return this.whereDoesntHave(relation);
   }
 
   /** `whereHas`. */
   whereHas(
-    relation: string,
+    relation: RelationHint<T>,
     callback?: (query: ModelQuery) => void,
   ): this {
     this.#simple = false;
@@ -414,7 +440,7 @@ export class ModelQuery<
 
   /** `orWhereHas`. */
   orWhereHas(
-    relation: string,
+    relation: RelationHint<T>,
     callback?: (query: ModelQuery) => void,
   ): this {
     this.#simple = false;
@@ -423,7 +449,7 @@ export class ModelQuery<
 
   /** `whereDoesntHave`. */
   whereDoesntHave(
-    relation: string,
+    relation: RelationHint<T>,
     callback?: (query: ModelQuery) => void,
   ): this {
     this.#simple = false;
@@ -736,7 +762,7 @@ export class ModelQuery<
    * `withWhereHas($relation, $callback?)` — whereHas + eager with same constraint.
    */
   withWhereHas(
-    relation: string,
+    relation: RelationHint<T>,
     callback?: (query: ModelQuery) => void,
   ): this {
     this.whereHas(relation, callback);
@@ -806,15 +832,37 @@ export class ModelQuery<
   }
 
   /** `whereNot(closure)` nested group. */
-  whereNot(callback: (query: ModelQuery<T>) => void): this {
+  whereNot(callback: (query: ModelQuery<T>) => void): this;
+  whereNot(column: ColumnHint<T>, value: unknown): this;
+  whereNot(column: ColumnHint<T>, op: string, value: unknown): this;
+  whereNot(
+    callbackOrColumn: ((query: ModelQuery<T>) => void) | string,
+    opOrValue?: unknown,
+    value?: unknown,
+  ): this {
     this.#simple = false;
-    (this.#nestedGroups = mqMut(this.#nestedGroups)).push({ boolean: "and", not: true, callback });
+    (this.#nestedGroups = mqMut(this.#nestedGroups)).push({
+      boolean: "and",
+      not: true,
+      callback: notGroupCallback(callbackOrColumn, opOrValue, value),
+    });
     return this;
   }
 
-  orWhereNot(callback: (query: ModelQuery<T>) => void): this {
+  orWhereNot(callback: (query: ModelQuery<T>) => void): this;
+  orWhereNot(column: ColumnHint<T>, value: unknown): this;
+  orWhereNot(column: ColumnHint<T>, op: string, value: unknown): this;
+  orWhereNot(
+    callbackOrColumn: ((query: ModelQuery<T>) => void) | string,
+    opOrValue?: unknown,
+    value?: unknown,
+  ): this {
     this.#simple = false;
-    (this.#nestedGroups = mqMut(this.#nestedGroups)).push({ boolean: "or", not: true, callback });
+    (this.#nestedGroups = mqMut(this.#nestedGroups)).push({
+      boolean: "or",
+      not: true,
+      callback: notGroupCallback(callbackOrColumn, opOrValue, value),
+    });
     return this;
   }
 
@@ -878,137 +926,98 @@ export class ModelQuery<
     return (model as unknown as Record<string, unknown>)[column];
   }
 
-  /** `withCount` — `'posts'`, `'posts as post_total'`, a string list, or `{ products: { as: 'productsCount' } }`. */
-  withCount(
-    ...relations: Array<
-      | string
-      | string[]
-      | Record<
-          string,
-          | true
-          | string
-          | ((query: ModelQuery) => void)
-          | { as?: string }
-        >
-    >
-  ): this {
-    for (const arg of relations) {
+  #pushAggregate(
+    relation: string,
+    fn: "count" | "sum" | "avg" | "min" | "max" | "exists",
+    column: string | undefined,
+    constraint?: (query: ModelQuery) => void,
+    alias?: string,
+  ): void {
+    const parsed = parseRelationAlias(relation);
+    const base = parsed.relation;
+    const suffix = fn === "count" || fn === "exists" ? fn : `${fn}_${column}`;
+    this.#simple = false;
+    (this.#withAggregates = mqMut(this.#withAggregates)).push({
+      relation: base,
+      alias: alias ?? parsed.alias ?? `${base}_${suffix}`,
+      fn,
+      column: fn === "count" || fn === "exists" ? undefined : column,
+      constraint,
+    });
+  }
+
+  /** `['posts', 'comments as c' => fn]` — string, list, or map of relation → constraint / alias. */
+  #pushAggregates(
+    specs: ReadonlyArray<AggregateRelations>,
+    fn: "count" | "sum" | "avg" | "min" | "max" | "exists",
+    column?: string,
+  ): void {
+    for (const arg of specs) {
       if (Array.isArray(arg)) {
-        this.withCount(...arg);
+        this.#pushAggregates(arg, fn, column);
         continue;
       }
       if (typeof arg === "string") {
-        const parsed = parseRelationAlias(arg);
-        this.#simple = false;
-        (this.#withAggregates = mqMut(this.#withAggregates)).push({
-          relation: parsed.relation,
-          alias: parsed.alias ?? `${parsed.relation}_count`,
-          fn: "count",
-        });
-        (this.#withCounts = mqMut(this.#withCounts)).push(arg);
+        this.#pushAggregate(arg, fn, column);
         continue;
       }
       for (const [relation, value] of Object.entries(arg)) {
-        let alias = `${relation}_count`;
-        if (value === true) {
-          // default alias
+        if (typeof value === "function") {
+          this.#pushAggregate(relation, fn, column, value);
         } else if (typeof value === "string") {
-          alias = value;
-        } else if (typeof value === "function") {
-          // constrained count — store as aggregate without callback support yet (count all)
-        } else if (value && typeof value === "object" && "as" in value && value.as) {
-          alias = value.as;
+          this.#pushAggregate(relation, fn, column, undefined, value);
+        } else if (value && typeof value === "object" && value.as) {
+          this.#pushAggregate(relation, fn, column, undefined, value.as);
+        } else {
+          this.#pushAggregate(relation, fn, column);
         }
-        this.#simple = false;
-        (this.#withAggregates = mqMut(this.#withAggregates)).push({ relation, alias, fn: "count" });
-        (this.#withCounts = mqMut(this.#withCounts)).push(relation);
       }
     }
+  }
+
+  /**
+   * `withCount` — `'posts'`, `'posts as post_total'`, a list, or a map such as
+   * `{ "payments as paid": (q) => q.where("status", "paid") }`.
+   */
+  withCount(...relations: AggregateRelations[]): this {
+    this.#pushAggregates(relations, "count");
     return this;
   }
 
-  /** `withSum($relation, $column)`. */
-  withSum(relation: string, column: string): this {
-    const parsed = parseRelationAlias(relation);
-    const base = parsed.relation;
-    this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-      relation: base,
-      alias: parsed.alias ?? `${base}_sum_${column}`,
-      fn: "sum",
-      column,
-    });
+  /** `withSum($relation, $column)` — relation may be a constrained map. */
+  withSum(relation: AggregateRelations, column: string): this {
+    this.#pushAggregates([relation], "sum", column);
     return this;
   }
 
-  withAvg(relation: string, column: string): this {
-    const parsed = parseRelationAlias(relation);
-    const base = parsed.relation;
-    this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-      relation: base,
-      alias: parsed.alias ?? `${base}_avg_${column}`,
-      fn: "avg",
-      column,
-    });
+  withAvg(relation: AggregateRelations, column: string): this {
+    this.#pushAggregates([relation], "avg", column);
     return this;
   }
 
-  withMin(relation: string, column: string): this {
-    const parsed = parseRelationAlias(relation);
-    const base = parsed.relation;
-    this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-      relation: base,
-      alias: parsed.alias ?? `${base}_min_${column}`,
-      fn: "min",
-      column,
-    });
+  withMin(relation: AggregateRelations, column: string): this {
+    this.#pushAggregates([relation], "min", column);
     return this;
   }
 
-  withMax(relation: string, column: string): this {
-    const parsed = parseRelationAlias(relation);
-    const base = parsed.relation;
-    this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-      relation: base,
-      alias: parsed.alias ?? `${base}_max_${column}`,
-      fn: "max",
-      column,
-    });
+  withMax(relation: AggregateRelations, column: string): this {
+    this.#pushAggregates([relation], "max", column);
     return this;
   }
 
   /** `withExists($relation)`. */
-  withExists(...relations: string[]): this {
-    for (const raw of relations.flat()) {
-      const parsed = parseRelationAlias(raw);
-      this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-        relation: parsed.relation,
-        alias: parsed.alias ?? `${parsed.relation}_exists`,
-        fn: "exists",
-      });
-    }
+  withExists(...relations: AggregateRelations[]): this {
+    this.#pushAggregates(relations, "exists");
     return this;
   }
 
   /** `withAggregate($relation, $column, $function)`. */
   withAggregate(
-    relation: string,
+    relation: AggregateRelations,
     column: string,
     fn: "count" | "sum" | "avg" | "min" | "max",
   ): this {
-    const parsed = parseRelationAlias(relation);
-    const base = parsed.relation;
-    this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-      relation: base,
-      alias: parsed.alias ?? `${base}_${fn}_${column}`,
-      fn,
-      column: fn === "count" ? undefined : column,
-    });
+    this.#pushAggregates([relation], fn, column);
     return this;
   }
 
@@ -1034,8 +1043,8 @@ export class ModelQuery<
   }
 
   where(callback: (query: ModelQuery<T>) => void): this;
-  where(column: string, value: unknown): this;
-  where(column: string, op: string, value: unknown): this;
+  where(column: ColumnHint<T>, value: unknown): this;
+  where(column: ColumnHint<T>, op: string, value: unknown): this;
   where(
     columnOrCallback: string | ((query: ModelQuery<T>) => void),
     opOrValue?: unknown,
@@ -1135,7 +1144,7 @@ export class ModelQuery<
     return this;
   }
 
-  whereIn(column: string, values: unknown[]): this {
+  whereIn(column: ColumnHint<T>, values: unknown[]): this {
     this.#simple = false;
     (this.#whereIns = mqMut(this.#whereIns)).push({ column, values, not: false, boolean: "and" });
     return this;
@@ -1159,7 +1168,7 @@ export class ModelQuery<
     return this;
   }
 
-  whereNull(column: string): this {
+  whereNull(column: ColumnHint<T>): this {
     (this.#wheres = mqMut(this.#wheres)).push({
       column,
       op: "__null__",
@@ -1179,7 +1188,7 @@ export class ModelQuery<
     return this;
   }
 
-  whereNotNull(column: string): this {
+  whereNotNull(column: ColumnHint<T>): this {
     (this.#wheres = mqMut(this.#wheres)).push({
       column,
       op: "__notnull__",
@@ -1421,12 +1430,12 @@ export class ModelQuery<
     return this;
   }
 
-  orderBy(column: string, direction: "asc" | "desc" = "asc"): this {
+  orderBy(column: ColumnHint<T>, direction: "asc" | "desc" = "asc"): this {
     (this.#orders = mqMut(this.#orders)).push({ column, direction });
     return this;
   }
 
-  orderByDesc(column: string): this {
+  orderByDesc(column: ColumnHint<T>): this {
     return this.orderBy(column, "desc");
   }
 
@@ -1627,7 +1636,9 @@ export class ModelQuery<
     return copy as ModelQuery<T, TResult>;
   }
 
-  with(...relations: Array<string | string[] | Record<string, unknown>>): this {
+  with(
+    ...relations: Array<RelationHint<T> | RelationHint<T>[] | Record<string, unknown>>
+  ): this {
     (this.#eagerLoad = mqMut(this.#eagerLoad)).push(
       ...normalizeWithRelations(relations),
     );
@@ -1780,7 +1791,7 @@ export class ModelQuery<
 
     // Fingerprint (no values) — reuse quoted SQL for repeated list shapes.
     let key = this.#withTrashed ? "T" : this.#onlyTrashed ? "O" : "N";
-    key += `\u001e${this.model.table}\u001e${plan.columns}`;
+    key += `\u001e${conn.driver}\u001e${this.model.table}\u001e${plan.columns}`;
     for (const w of plan.scopeWheres) {
       key += `\u001eG\u001e${w.boolean}\u001e${w.column}\u001e${w.op}`;
       if (w.op !== "__null__" && w.op !== "__notnull__") params.push(w.value);
@@ -1969,8 +1980,9 @@ export class ModelQuery<
     const dialect = conn.dialect;
     const params: unknown[] = [];
 
+    // The compiled SQL is dialect specific (identifier quoting), so the driver is part of the key.
     let key = this.#withTrashed ? "T" : this.#onlyTrashed ? "O" : "N";
-    key += `\u001e${this.model.table}`;
+    key += `\u001e${conn.driver}\u001e${this.model.table}`;
     for (const w of this.#wheres) {
       key += `\u001e${w.boolean}\u001e${w.column}\u001e${w.op}`;
       if (w.op !== "__null__" && w.op !== "__notnull__") params.push(w.value);
@@ -2124,17 +2136,26 @@ export class ModelQuery<
             alias: `${relation}_count`,
             fn: "count" as const,
             column: undefined as string | undefined,
+            constraint: undefined as ((query: ModelQuery) => void) | undefined,
           }));
 
     if (aggregates.length > 0) {
       q = q.select(`${this.model.table}.*`);
       for (const agg of aggregates) {
-        const meta = resolveRelation(this.model, agg.relation);
-        if (!meta) continue;
-        const expr = this.#aggregateSubquery(meta, agg.fn, agg.column);
-        if (!expr) continue;
+        const meta = resolveAggregateRelation(this.model, agg.relation);
+        if (!meta) {
+          throw new Error(
+            `Cannot aggregate unknown or unsupported relation [${agg.relation}] on ${this.model.name}.`,
+          );
+        }
         const alias = wrapSqlName(this.model.getConnection().dialect, agg.alias);
-        q = q.selectRaw(`(${expr}) as ${alias}`);
+        const built = this.#constrainedAggregate(meta, agg);
+        if (!built) {
+          throw new Error(
+            `Relation [${agg.relation}] (${meta.kind}) does not support aggregates yet.`,
+          );
+        }
+        q = q.selectRaw(`(${built.sql}) as ${alias}`, built.bindings);
       }
     }
 
@@ -2143,6 +2164,24 @@ export class ModelQuery<
     if (this.#lock === "update") q = q.lockForUpdate();
     if (this.#lock === "share") q = q.sharedLock();
 
+    return q;
+  }
+
+  /**
+   * Apply this model's global scopes onto a correlated subquery (`whereHas`, `withCount`, …),
+   * qualifying columns with `table` so joined pivot / parent columns never clash.
+   * Honors `withoutGlobalScopes()` called inside the user's constraint closure.
+   */
+  applyGlobalScopesToSubquery(q: QueryBuilder, table: string): QueryBuilder {
+    if (this.#withoutGlobalScopes === true) return q;
+    if (!hasGlobalScopes(this.model)) return q;
+    for (const [name, scope] of getGlobalScopes(this.model)) {
+      if (this.#withoutGlobalScopes?.has(name)) continue;
+      const temp = new ModelQuery(this.model, { withoutGlobalScopes: true });
+      scope(temp as ModelQuery);
+      temp.qualifyColumns(table);
+      q = temp.applyConstraintsTo(q);
+    }
     return q;
   }
 
@@ -2341,17 +2380,27 @@ export class ModelQuery<
     ) {
       let applyRelated: ((sub: QueryBuilder) => void) | undefined;
       let relatedQuery: ModelQuery | undefined;
-      if (callback) {
-        const rq = meta.related.newQuery({
-          withoutGlobalScopes: true,
-        }) as ModelQuery;
-        callback(rq);
+      const scoped = hasGlobalScopes(meta.related);
+      const relatedRef =
+        meta.kind === "has" && meta.related.table === this.model.table
+          ? `${meta.related.table}_has`
+          : meta.related.table;
+      if (callback || scoped) {
+        const rq = meta.related.newQuery() as ModelQuery;
+        callback?.(rq);
         if (this.#relatedConstraintsAreMergeable(rq)) {
-          applyRelated = this.#bindFlatRelatedApply(rq);
+          const flat = this.#bindFlatRelatedApply(rq);
+          applyRelated = scoped
+            ? (sub) => {
+                flat(sub);
+                rq.applyGlobalScopesToSubquery(sub, relatedRef);
+              }
+            : flat;
         } else {
           relatedQuery = rq;
           applyRelated = (sub) => {
             rq.applyConstraintsTo(sub);
+            rq.applyGlobalScopesToSubquery(sub, relatedRef);
           };
         }
       }
@@ -3088,50 +3137,98 @@ export class ModelQuery<
     return constraint.not ? q.whereNotExists(wrap) : q.whereExists(wrap);
   }
 
-  #aggregateSubquery(
-    meta: RelationMeta,
-    fn: "count" | "sum" | "avg" | "min" | "max" | "exists",
-    column?: string,
-  ): string | null {
-    const agg =
-      fn === "exists"
-        ? "1"
-        : fn === "count"
-          ? "COUNT(*)"
-          : `${fn.toUpperCase()}(${column ?? "*"})`;
-    if (meta.kind === "has") {
-      const relatedTable = meta.related.table;
-      const parentTable = this.model.table;
-      if (relatedTable === parentTable) {
-        const alias = `${relatedTable}_has`;
-        const where = `${alias}.${meta.foreignKey} = ${parentTable}.${meta.localKey}`;
-        if (fn === "exists") {
-          return `SELECT 1 FROM ${relatedTable} as ${alias} WHERE ${where} LIMIT 1`;
+  /** Correlated aggregate subquery for `withCount` / `withSum` / … (optional constraint closure). */
+  #constrainedAggregate(
+    meta: AggregateRelationMeta,
+    agg: {
+      fn: "count" | "sum" | "avg" | "min" | "max" | "exists";
+      column?: string;
+      constraint?: (query: ModelQuery) => void;
+    },
+  ): { sql: string; bindings: unknown[] } | null {
+    const parentTable = this.model.table;
+    const sub = this.#baseTable();
+    const related = meta.related;
+    const relatedTable = related.table;
+    // Column prefix for the related side (aliased when the relation is self-referencing).
+    let relatedRef = relatedTable;
+    switch (meta.kind) {
+      case "has":
+      case "morph": {
+        const foreignKey = meta.kind === "has" ? meta.foreignKey : meta.idColumn;
+        if (relatedTable === parentTable) {
+          relatedRef = `${relatedTable}_has`;
+          sub.from(`${relatedTable} as ${relatedRef}`);
+        } else {
+          sub.from(relatedTable);
         }
-        return `SELECT ${agg} FROM ${relatedTable} as ${alias} WHERE ${where}`;
+        sub.whereColumn(`${relatedRef}.${foreignKey}`, `${parentTable}.${meta.localKey}`);
+        if (meta.kind === "morph") {
+          sub.where(`${relatedRef}.${meta.typeColumn}`, meta.morphType);
+        }
+        break;
       }
-      const where = `${relatedTable}.${meta.foreignKey} = ${parentTable}.${meta.localKey}`;
-      if (fn === "exists") {
-        return `SELECT 1 FROM ${relatedTable} WHERE ${where} LIMIT 1`;
+      case "belongsTo":
+        sub.from(relatedTable);
+        sub.whereColumn(`${relatedTable}.${meta.ownerKey}`, `${parentTable}.${meta.foreignKey}`);
+        break;
+      case "belongsToMany":
+      case "morphToMany":
+        sub.from(relatedTable);
+        sub.join(
+          meta.pivotTable,
+          `${meta.pivotTable}.${meta.relatedPivotKey}`,
+          "=",
+          `${relatedTable}.${related.primaryKey}`,
+        );
+        sub.whereColumn(
+          `${meta.pivotTable}.${meta.foreignPivotKey}`,
+          `${parentTable}.${meta.localKey}`,
+        );
+        if (meta.kind === "morphToMany") {
+          sub.whereIn(`${meta.pivotTable}.${meta.morphTypeColumn}`, meta.morphTypes);
+        }
+        break;
+      case "hasManyThrough":
+      case "hasOneThrough": {
+        const through = meta.through.table;
+        sub.from(relatedTable);
+        sub.join(
+          through,
+          `${through}.${meta.secondLocalKey}`,
+          "=",
+          `${relatedTable}.${meta.secondKey}`,
+        );
+        sub.whereColumn(`${through}.${meta.firstKey}`, `${parentTable}.${meta.localKey}`);
+        if (usesSoftDeletes(meta.through)) {
+          sub.whereNull(`${through}.${deletedAtColumn(meta.through)}`);
+        }
+        break;
       }
-      return `SELECT ${agg} FROM ${relatedTable} WHERE ${where}`;
+      default:
+        return null;
     }
-    if (meta.kind === "belongsTo") {
-      const where = `${meta.related.table}.${meta.ownerKey} = ${this.model.table}.${meta.foreignKey}`;
-      if (fn === "exists") {
-        return `SELECT 1 FROM ${meta.related.table} WHERE ${where} LIMIT 1`;
-      }
-      return `SELECT ${agg} FROM ${meta.related.table} WHERE ${where}`;
+    if (usesSoftDeletes(related)) {
+      sub.whereNull(`${relatedRef}.${deletedAtColumn(related)}`);
     }
-    if (meta.kind !== "belongsToMany" && meta.kind !== "morphToMany") {
-      return null;
+    if (agg.constraint || hasGlobalScopes(related)) {
+      const rq = related.newQuery() as ModelQuery;
+      agg.constraint?.(rq);
+      rq.applyConstraintsTo(sub);
+      rq.applyGlobalScopesToSubquery(sub, relatedRef);
     }
-    const join = `INNER JOIN ${meta.pivotTable} ON ${meta.pivotTable}.${meta.relatedPivotKey} = ${meta.related.table}.${meta.related.primaryKey}`;
-    const where = `${meta.pivotTable}.${meta.foreignPivotKey} = ${this.model.table}.${meta.localKey}`;
-    if (fn === "exists") {
-      return `SELECT 1 FROM ${meta.related.table} ${join} WHERE ${where} LIMIT 1`;
+    if (agg.fn === "exists") {
+      sub.select("1");
+      sub.limit(1);
+    } else {
+      const column = agg.column
+        ? agg.column.includes(".") ? agg.column : `${relatedRef}.${agg.column}`
+        : "*";
+      sub.selectRaw(
+        agg.fn === "count" ? "COUNT(*)" : `${agg.fn.toUpperCase()}(${column})`,
+      );
     }
-    return `SELECT ${agg} FROM ${meta.related.table} ${join} WHERE ${where}`;
+    return { sql: sub.toSql(), bindings: sub.getBindings() };
   }
 
   first(): T | null | Promise<T | null> {

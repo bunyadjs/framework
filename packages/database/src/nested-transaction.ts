@@ -63,7 +63,26 @@ export function isRetryableTransactionError(error: unknown): boolean {
 export function createTransactionApi(
   exec: NestedTransactionExec,
   key: object = {},
+  options: {
+    /**
+     * Single-handle drivers (SQLite): queue top-level transactions so concurrent
+     * `transaction()` calls run one after another instead of failing with
+     * "cannot start a transaction within a transaction".
+     */
+    serialize?: boolean;
+  } = {},
 ) {
+  let gate: Promise<void> = Promise.resolve();
+  const acquire = async (): Promise<() => void> => {
+    const previous = gate;
+    let release!: () => void;
+    gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    return release;
+  };
+
   async function beginTransaction(): Promise<void> {
     const depth = txDepth(key) + 1;
     setTxDepth(key, depth);
@@ -106,17 +125,29 @@ export function createTransactionApi(
   async function transactionOnce<T>(
     callback: () => T | Promise<T>,
   ): Promise<T> {
-    return withTransactionStore(key, async () => {
-      await beginTransaction();
+    const run = () =>
+      withTransactionStore(key, async () => {
+        await beginTransaction();
+        try {
+          const result = await callback();
+          await commit();
+          return result;
+        } catch (error) {
+          await rollBack();
+          throw error;
+        }
+      });
+    // Only the outermost transaction of an async context takes the lock; a nested
+    // call inside the callback sees depth > 0 and must not wait for itself.
+    if (options.serialize && txDepth(key) === 0) {
+      const release = await acquire();
       try {
-        const result = await callback();
-        await commit();
-        return result;
-      } catch (error) {
-        await rollBack();
-        throw error;
+        return await run();
+      } finally {
+        release();
       }
-    });
+    }
+    return run();
   }
 
   /**

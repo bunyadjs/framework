@@ -36,7 +36,7 @@ Supported relationship kinds:
 - Many to many (`belongsToMany`)
 - Has many through (`hasManyThrough`)
 - Polymorphic one to one / one to many (`morphOne` / `morphMany` / `morphTo`)
-- Polymorphic many to many (`morphToMany`)
+- Polymorphic many to many (`morphToMany`) and its inverse (`morphedByMany`)
 
 ## Defining relationships
 
@@ -282,14 +282,22 @@ const user = await User.find(1);
 const roles = user!.related("roles");
 
 await roles.attach([1, 2]);
-await roles.detach(1);
+await roles.attach(3, { active: true }); // pivot attributes
+await roles.attach({ 4: { active: false }, 5: { active: true } }); // per-id attributes
+await roles.detach(1); // returns the number of deleted rows
 await roles.detach(); // all
-await roles.sync([2, 3]); // detach all, then attach
+await roles.updateExistingPivot(3, { active: false }); // returns affected rows
+await roles.sync([2, 3]); // diff: attach new, detach removed, keep the rest
+await roles.sync({ 2: { active: true }, 6: { active: false } }); // sync with pivot attributes
 await roles.syncWithoutDetaching([4]); // attach missing only
 await roles.toggle([2, 5]); // attach missing, detach present
 
 const collection = await roles.get();
 ```
+
+`sync` and `syncWithoutDetaching` return `{ attached, detached, updated }`; `toggle` returns `{ attached, detached }`. `sync` compares against the existing pivot rows, so rows that stay keep their pivot data. `attach` writes one multi-row `INSERT` per chunk, so attaching thousands of ids is cheap. Ids may also be model instances.
+
+To stamp `created_at` / `updated_at` on pivot writes, call `withTimestamps()` when defining the relation.
 
 Extra pivot columns: call `withPivot` when defining the relation. Those columns (plus the pivot foreign keys) are available on each related model as `model.pivot`:
 
@@ -360,7 +368,24 @@ roles() {
 
 The third argument may be a pivot table string or an options bag (`MorphToManyOptions`): `table`, `foreignPivotKey`, `relatedPivotKey`, `morphTypeColumn`, `morphTypes`, `pivotTenantKey`, `parentTenantKey`.
 
-`MorphToMany` supports the same attach / detach / sync / syncWithoutDetaching / toggle / get API as `belongsToMany`, scoped by morph type (and optional tenant).
+`MorphToMany` supports the same attach / detach / sync / syncWithoutDetaching / toggle / get API as `belongsToMany`, scoped by morph type (and optional tenant). `attach` writes multi-row inserts and `sync` only changes the rows that differ, so existing pivot rows stay untouched.
+
+### Morphed by many
+
+`morphedByMany` is the inverse of Laravel's `morphToMany`. The pivot stores the related model's id and morph type, so a `Tag` can own posts and videos through one `taggables` table:
+
+```ts
+class Tag extends Model {
+  posts() {
+    return this.morphedByMany(Post, "taggable");
+  }
+  videos() {
+    return this.morphedByMany(Video, "taggable");
+  }
+}
+```
+
+Defaults follow Laravel: pivot table `taggables`, columns `taggable_id` / `taggable_type`, and `tag_id` for the parent. Pass `table`, `foreignPivotKey` and `relatedPivotKey` to override them. It supports `get`, `attach`, `detach`, `sync`, `syncWithoutDetaching`, `toggle` and eager loading with `with("posts")`. `whereHas`, `withCount` and the other aggregates work on it too.
 
 ### Custom polymorphic types
 
@@ -377,7 +402,34 @@ morphMap({
 });
 ```
 
-`morphTypeFor` uses the alias when present; otherwise the model class name. `resolveMorphType` throws if the type string is unknown — call `morphMap` during boot for every type you persist.
+`morphTypeFor` uses the alias when present; otherwise the model class name. Classes the ORM has already used are resolved by name when a stored type has no alias, so an unmapped `commentable_type = "Post"` still loads through `morphTo`. If two different model classes share a name, the name is never resolved on its own (it would be a guess), so map that type explicitly. A type the ORM has never seen throws `No morph map entry for [Type]`, so register aliases during boot for every type you persist.
+
+Like Laravel, `morphMap()` with no arguments returns the current map, and `morphMap(map, false)` replaces it instead of merging. To stop class names from ever being stored, enforce the map:
+
+```ts
+import { enforceMorphMap, requireMorphMap } from "@bunyad/orm";
+
+enforceMorphMap({ post: Post, video: Video });
+// Using a model without an alias in a polymorphic relation now throws:
+// No morph map defined for [Comment].
+
+requireMorphMap(false); // turn enforcement off again
+```
+
+`getMorphedModel("post")` returns the class registered for an alias.
+
+### Editor hints for relation names
+
+`with`, `whereHas`, `has`, `withWhereHas` and friends suggest your model's relation methods as you type, and `where`, `orderBy`, `whereIn`, `whereNull` suggest its declared fields. Any other string still compiles, so `"posts.comments"`, `"posts as p"`, `"orders.total"` and names built at runtime keep working:
+
+```ts
+await User.with("posts")           // suggests: posts, profile, …
+  .where("email", "ada@example.com") // suggests: id, name, email, …
+  .orderBy("created_at", "desc")
+  .get();
+```
+
+The helper types `RelationNames<User>` and `ColumnNames<User>` are exported if you want to type your own helpers.
 
 ## Querying relations
 
@@ -469,6 +521,15 @@ await User.withCount("posts as post_total").get();
 await User.withCount({ products: { as: "productsCount" } }).get();
 ```
 
+Constrain the counted rows with a closure. Combine it with an alias to get several counts of one relation:
+
+```ts
+await Customer.withCount({
+  payments: true,
+  "payments as paid_count": (q) => q.where("status", "paid"),
+}).get();
+```
+
 On an instance or [`OrmCollection`](/docs/1.x/orm-collections):
 
 ```ts
@@ -494,6 +555,19 @@ await user.loadExists("posts");
 ```
 
 Aliases use `relation as alias` the same way as counts: `withSum("orders as revenue", "total")`.
+
+Pass a map to constrain the aggregated rows. This is the way to build conditional sums (what some tools call `sumCase`):
+
+```ts
+await Customer.withSum(
+  { "payments as paid_total": (q) => q.where("status", "paid") },
+  "amount",
+)
+  .withExists({ "payments as has_paid": (q) => q.where("status", "paid") })
+  .get();
+```
+
+Constraints work for `withCount`, `withSum`, `withAvg`, `withMin`, `withMax`, `withExists` and `withAggregate`. Aggregates work on `hasMany`, `hasOne`, `belongsTo`, `belongsToMany`, `hasManyThrough`, `hasOneThrough`, `morphMany`, `morphOne` and `morphToMany`. Soft-deleted rows and the related model's global scopes are applied (call `q.withoutGlobalScopes()` inside the closure to opt out), and aggregating an unknown relation throws. `whereHas` and many-to-many eager loads apply the related model's global scopes the same way. For a single table, use `selectRaw("SUM(CASE WHEN status = ? THEN amount ELSE 0 END) as paid_total", ["paid"])`.
 
 ## Eager loading
 

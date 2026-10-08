@@ -329,7 +329,7 @@ await DB.transaction(async () => {
 });
 ```
 
-Nested `transaction` calls use savepoints. The outer commit is the one that finishes the real database transaction. Concurrent requests keep separate transaction depth, so nested savepoints do not collide across async work.
+Nested `transaction` calls use savepoints. The outer commit is the one that finishes the real database transaction. Concurrent requests keep separate transaction depth, so nested savepoints do not collide across async work. On SQLite, where every request shares one connection, top-level transactions from concurrent requests queue and run one after another; a nested call inside a transaction never waits. Queries issued outside a transaction while another request's transaction is open still run on that same handle, so keep SQLite for single-process or low-concurrency apps, and use Postgres or MySQL when requests overlap.
 
 ### After commit
 

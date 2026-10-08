@@ -85,7 +85,7 @@ Pick one and install it next to `@bunyad/database`: `better-sqlite3`, `pg` or `m
 
 ## Status
 
-Beta scope: SQLite, PostgreSQL and MySQL are tested on Bun and Node 20+ (the PostgreSQL and MySQL suites run when `BUNYAD_TEST_POSTGRES_URL` / `BUNYAD_TEST_MYSQL_URL` are set). SQL Server is experimental and needs `mssql` installed. Conditional aggregate helpers (`sumCase`, `countCase`) are not available yet.
+Beta scope: SQLite, PostgreSQL and MySQL are tested on Bun and Node 20+ (the PostgreSQL and MySQL suites run when `BUNYAD_TEST_POSTGRES_URL` / `BUNYAD_TEST_MYSQL_URL` are set). SQL Server is experimental and needs `mssql` installed.
 
 ## License
 

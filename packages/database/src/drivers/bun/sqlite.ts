@@ -173,7 +173,7 @@ export function connectSqlite(options: SqliteOptions = {}): Connection {
       savepoint: (name) => { stmt(`SAVEPOINT ${name}`).run(); },
       releaseSavepoint: (name) => { stmt(`RELEASE SAVEPOINT ${name}`).run(); },
       rollbackToSavepoint: (name) => { stmt(`ROLLBACK TO SAVEPOINT ${name}`).run(); },
-    });
+    }, undefined, { serialize: true });
 
 return attachConnectionContract(
     {

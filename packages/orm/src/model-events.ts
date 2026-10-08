@@ -47,6 +47,9 @@ export type ModelEventListener<T extends Model = Model> = (
 /** Observer object with optional methods named after events. */
 export type ModelObserver<T extends Model = Model> = {
   [K in ModelEventName]?: (model: T) => void | boolean | Promise<void | boolean>;
+} & {
+  /** Dispatch the after-events (`created`, `saved`, …) once the transaction commits. */
+  afterCommit?: boolean;
 };
 
 type ModelCtor = abstract new (...args: never[]) => Model;
@@ -194,6 +197,17 @@ export function observeModel<T extends Model>(
     for (const event of MODEL_EVENT_NAMES) {
       const method = instance[event];
       if (typeof method === "function") {
+        const isBefore = event.endsWith("ing") && event !== "replicating";
+        if (instance.afterCommit === true && !isBefore) {
+          // Laravel `ShouldHandleEventsAfterCommit`: run once the outermost
+          // transaction commits (immediately when there is none); dropped on rollback.
+          registerModelEvent(ctor, event, (model) => {
+            model.getConnection().afterCommit(async () => {
+              await method.call(instance, model as T);
+            });
+          });
+          continue;
+        }
         registerModelEvent(ctor, event, (model) =>
           method.call(instance, model as T),
         );

@@ -24,7 +24,7 @@ type ForRelationSpec = {
 
 type HasAttachedSpec = {
   related: Factory<any> | Model | Model[];
-  pivot?: FactoryAttributes;
+  pivot?: FactoryAttributes | ((model: Model) => FactoryAttributes);
   relationship?: string;
 };
 
@@ -144,6 +144,11 @@ export abstract class Factory<T extends Model = Model> {
   #has: HasRelationSpec[] = [];
   #for: ForRelationSpec[] = [];
   #hasAttached: HasAttachedSpec[] = [];
+  #configured = false;
+  /** Models reused instead of creating new parents (`recycle`). */
+  #recycled: Model[] = [];
+  /** Parents created from `for(Factory)` — one per batch, shared by every model in it. */
+  #forParents = new Map<ForRelationSpec, Model>();
 
   protected abstract model(): ModelClass;
 
@@ -154,6 +159,11 @@ export abstract class Factory<T extends Model = Model> {
 
   definition(): FactoryAttributes | Promise<FactoryAttributes> {
     return {};
+  }
+
+  /** Runs once, before the first `make` / `create` (`afterMaking`, default states, …). */
+  configure(): this {
+    return this;
   }
 
   /** Number of models to make/create. */
@@ -211,11 +221,32 @@ export abstract class Factory<T extends Model = Model> {
    */
   hasAttached(
     related: Factory<any> | Model | Model[],
-    pivot: FactoryAttributes = {},
+    pivot: FactoryAttributes | ((model: Model) => FactoryAttributes) = {},
     relationship?: string,
   ): this {
     this.#hasAttached.push({ related, pivot, relationship });
     return this;
+  }
+
+  /**
+   * `recycle` — reuse existing models when this factory (or its nested `for` /
+   * `has` factories) would otherwise create a parent of the same class.
+   */
+  recycle(models: Model | Model[] | { all(): Model[] }): this {
+    const list = Array.isArray(models)
+      ? models
+      : "all" in models && typeof models.all === "function"
+        ? models.all()
+        : [models as Model];
+    this.#recycled.push(...list);
+    return this;
+  }
+
+  /** A recycled model of `Ctor`, chosen at random (Laravel picks randomly too). */
+  #recycledFor(Ctor: ModelClass): Model | undefined {
+    const matches = this.#recycled.filter((m) => m.constructor === Ctor);
+    if (matches.length === 0) return undefined;
+    return matches[Math.floor(Math.random() * matches.length)];
   }
 
   /** `Factory::new()`. */
@@ -241,16 +272,25 @@ export abstract class Factory<T extends Model = Model> {
       attrs = { ...attrs, ...patch };
     }
     for (const spec of this.#for) {
-      const parentModel =
-        spec.parent instanceof Factory
-          ? ((await spec.parent.create()) as Model)
-          : spec.parent;
+      let parentModel: Model;
+      if (spec.parent instanceof Factory) {
+        let created = this.#forParents.get(spec);
+        if (!created) {
+          created = this.#recycledFor(spec.parent.modelClass());
+        }
+        if (!created) {
+          if (this.#recycled.length > 0) spec.parent.recycle(this.#recycled);
+          created = (await spec.parent.create()) as Model;
+        }
+        this.#forParents.set(spec, created);
+        parentModel = created;
+      } else {
+        parentModel = spec.parent;
+      }
       const ParentCtor = parentModel.constructor as ModelClass;
       const fkName = spec.relationship?.endsWith("_id")
         ? spec.relationship
-        : spec.relationship
-          ? `${spec.relationship}_id`
-          : `${singularTable(ParentCtor.table)}_id`;
+        : this.#belongsToKey(ParentCtor, spec.relationship);
       attrs[fkName] = (parentModel as unknown as Record<string, unknown>)[
         ParentCtor.primaryKey
       ];
@@ -258,53 +298,72 @@ export abstract class Factory<T extends Model = Model> {
     return { ...attrs, ...attributes };
   }
 
+  /**
+   * Foreign key for `for(parent)`: the child's `belongsTo` relation named after
+   * the parent class (Laravel guesses `team()` for a `Team`), else `team_id`.
+   */
+  #belongsToKey(Parent: ModelClass, relationship?: string): string {
+    const camel = relationship ?? Parent.name.charAt(0).toLowerCase() + Parent.name.slice(1);
+    try {
+      const rel = new (this.model())().related(camel) as unknown as {
+        getForeignKeyName?: () => string;
+      };
+      if (typeof rel.getForeignKeyName === "function") return rel.getForeignKeyName();
+    } catch {
+      // no such relation on the child model
+    }
+    const snake = camel.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+    return `${snake}_id`;
+  }
+
   async #createRelated(parent: T): Promise<void> {
     const ParentCtor = parent.constructor as ModelClass;
     const parentId = (parent as unknown as Record<string, unknown>)[
       ParentCtor.primaryKey
     ];
+    const idsOf = (list: Model[]) =>
+      list.map(
+        (m) =>
+          (m as unknown as Record<string, unknown>)[
+            (m.constructor as ModelClass).primaryKey
+          ] as string | number,
+      );
+
     for (const spec of this.#has) {
+      if (this.#recycled.length > 0) spec.factory.recycle(this.#recycled);
       const RelatedCtor = spec.factory.modelClass();
       const relName =
         spec.relationship ?? guessRelationName(ParentCtor, RelatedCtor);
       let fk = `${singularTable(ParentCtor.table)}_id`;
-      let useAttach = false;
+      let fixed: FactoryAttributes | null = null;
+      let rel: Record<string, unknown> | null = null;
       try {
-        const rel = parent.related(relName) as {
-          getForeignKeyName?: () => string;
-          attach?: (ids: Array<string | number>) => Promise<void>;
-        };
-        if (typeof rel.attach === "function") {
-          useAttach = true;
-        } else if (typeof rel.getForeignKeyName === "function") {
-          fk = rel.getForeignKeyName();
-        }
+        rel = parent.related(relName) as unknown as Record<string, unknown>;
       } catch {
-        // use default fk
+        // fall back to the conventional foreign key
       }
-
-      if (useAttach) {
-        const related = await spec.factory.create();
-        const list = Array.isArray(related) ? related : [related];
-        const rel = parent.related(relName) as {
-          attach: (ids: Array<string | number>) => Promise<void>;
-        };
-        const ids = list.map(
-          (m) =>
-            (m as unknown as Record<string, unknown>)[
-              (m.constructor as ModelClass).primaryKey
-            ] as string | number,
-        );
-        await rel.attach(ids);
+      if (rel && typeof rel.attach === "function") {
+        const created = await spec.factory.create();
+        const list = (Array.isArray(created) ? created : [created]) as Model[];
+        await (rel.attach as (ids: Array<string | number>) => Promise<void>)(idsOf(list));
         continue;
       }
-
-      await spec.factory.state({ [fk]: parentId }).create();
+      if (rel && typeof rel.getTypeColumn === "function") {
+        // morphOne / morphMany: set both the id and the type column.
+        fixed = {
+          [(rel.getIdColumn as () => string)()]: parentId,
+          [(rel.getTypeColumn as () => string)()]: (rel.getMorphType as () => string)(),
+        };
+      } else if (rel && typeof rel.getForeignKeyName === "function") {
+        fk = (rel.getForeignKeyName as () => string)();
+      }
+      await spec.factory.state(fixed ?? { [fk]: parentId }).create();
     }
 
     for (const spec of this.#hasAttached) {
       let models: Model[];
       if (spec.related instanceof Factory) {
+        if (this.#recycled.length > 0) spec.related.recycle(this.#recycled);
         const created = await spec.related.create();
         models = Array.isArray(created) ? created : [created];
       } else if (Array.isArray(spec.related)) {
@@ -317,27 +376,40 @@ export abstract class Factory<T extends Model = Model> {
       const relName =
         spec.relationship ?? guessRelationName(ParentCtor, RelatedCtor);
       const rel = parent.related(relName) as {
-        attach: (ids: Array<string | number>) => Promise<void>;
+        attach: (
+          ids: Array<string | number> | Record<string | number, FactoryAttributes>,
+          attributes?: FactoryAttributes,
+        ) => Promise<void>;
       };
-      const ids = models.map(
-        (m) =>
-          (m as unknown as Record<string, unknown>)[
-            (m.constructor as ModelClass).primaryKey
-          ] as string | number,
-      );
-      await rel.attach(ids);
-      void spec.pivot;
+      const pivot = spec.pivot;
+      if (typeof pivot === "function") {
+        // Per-model pivot attributes.
+        const map: Record<string, FactoryAttributes> = {};
+        for (const m of models) map[String(idsOf([m])[0])] = pivot(m);
+        await rel.attach(map);
+      } else {
+        await rel.attach(idsOf(models), pivot ?? {});
+      }
     }
+  }
+
+  #begin(): { n: number; many: boolean } {
+    if (!this.#configured) {
+      this.#configured = true;
+      this.configure();
+    }
+    const out = { n: this.#count, many: this.#many };
+    this.#count = 1;
+    this.#many = false;
+    this.#forParents.clear();
+    return out;
   }
 
   /** Build an in-memory model instance (not persisted). */
   async make(
     attributes: FactoryAttributes = {},
   ): Promise<this extends ManyModels ? T[] : T> {
-    const n = this.#count;
-    const many = this.#many;
-    this.#count = 1;
-    this.#many = false;
+    const { n, many } = this.#begin();
     const ModelClass = this.model();
     const items: T[] = [];
     for (let i = 0; i < n; i++) {
@@ -355,18 +427,15 @@ export abstract class Factory<T extends Model = Model> {
   async create(
     attributes: FactoryAttributes = {},
   ): Promise<this extends ManyModels ? T[] : T> {
-    const n = this.#count;
-    const many = this.#many;
-    this.#count = 1;
-    this.#many = false;
+    const { n, many } = this.#begin();
     const ModelClass = this.model();
     const items: T[] = [];
     for (let i = 0; i < n; i++) {
       const base = await this.#resolveAttributes(attributes);
-      const model = (await ModelClass.forceCreate(base)) as T;
-      for (const cb of this.#afterMaking) {
-        await cb(model);
-      }
+      // `afterMaking` runs on the unsaved model, then it is persisted (Laravel order).
+      const model = (await ModelClass.forceCreate(base, async (unsaved) => {
+        for (const cb of this.#afterMaking) await cb(unsaved as T);
+      })) as T;
       for (const cb of this.#afterCreating) {
         await cb(model);
       }
@@ -374,5 +443,37 @@ export abstract class Factory<T extends Model = Model> {
       items.push(model);
     }
     return (many ? items : items[0]!) as never;
+  }
+
+  /** `makeOne`. */
+  async makeOne(attributes: FactoryAttributes = {}): Promise<T> {
+    return (await this.make(attributes)) as T;
+  }
+
+  /** `createOne`. */
+  async createOne(attributes: FactoryAttributes = {}): Promise<T> {
+    return (await this.create(attributes)) as T;
+  }
+
+  /** `createMany(3)` or `createMany([{ name: "a" }, { name: "b" }])`. */
+  async createMany(records: number | FactoryAttributes[]): Promise<T[]> {
+    if (typeof records === "number") {
+      return (await this.count(records).create()) as T[];
+    }
+    const out: T[] = [];
+    for (const attrs of records) out.push((await this.createOne(attrs)) as T);
+    return out;
+  }
+
+  /** `createQuietly` — no model events. */
+  async createQuietly(
+    attributes: FactoryAttributes = {},
+  ): Promise<this extends ManyModels ? T[] : T> {
+    return this.model().withoutEvents(() => this.create(attributes)) as never;
+  }
+
+  /** `createManyQuietly`. */
+  async createManyQuietly(records: number | FactoryAttributes[]): Promise<T[]> {
+    return this.model().withoutEvents(() => this.createMany(records)) as Promise<T[]>;
   }
 }
