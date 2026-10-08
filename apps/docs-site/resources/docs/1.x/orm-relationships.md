@@ -514,6 +514,22 @@ await User.with("posts")           // suggests: posts, profile, …
 
 The helper types `RelationNames<User>` and `ColumnNames<User>` are exported if you want to type your own helpers.
 
+#### Strict names
+
+The hints above never reject a string. For code where a typo should fail the build, wrap the model in `strict()`. Relation and column names are then checked at compile time, and the wrapper is the same class at runtime:
+
+```ts
+import { strict, unsafeName } from "@bunyad/orm";
+
+strict(Post).with("author", "comments.replies").where("title", "like", "%x%"); // ok
+strict(Post).with("autor");        // error: "autor" is not a relation of Post
+strict(Post).where("titel", "x");  // error: "titel" is not a column of Post
+
+strict(Post).with(unsafeName(request.query("include"))); // a name only known at run time
+```
+
+Checked: `with` (strings and the `{ relation: constraint }` form), `has`, `doesntHave`, `whereHas`, `orWhereHas`, `whereDoesntHave`, `withWhereHas`, and the column of `where`, `whereIn`, `whereNull`, `whereNotNull`, `orderBy`, `orderByDesc`. A nested path (`comments.replies`) and an alias (`comments as c`) are accepted when the first segment is a relation; a qualified `table.column` is accepted for columns. `id`, `created_at`, `updated_at` and `deleted_at` are always valid columns; other columns must be declared on the class (`declare title: string`, or merge the generated interface from `bunyad schema:types`). Any other query method keeps its normal types and returns a normal query, so strictness covers the calls listed above.
+
 ## Querying relations
 
 ### Relationship methods vs loaded properties
