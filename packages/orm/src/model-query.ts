@@ -47,6 +47,7 @@ import {
   morphTypeFor,
   resolveRelation,
   resolveAggregateRelation,
+  applyPivotWheres,
   type AggregateRelationMeta,
   type RelationMeta,
 } from "./relations.ts";
@@ -1497,6 +1498,20 @@ export class ModelQuery<
     return this.limit(value);
   }
 
+  /**
+   * Remove and return this query's limit / offset. Eager loading calls it so a
+   * `with({ posts: (q) => q.limit(3) })` limit applies per parent, not to the
+   * whole batched query.
+   */
+  takePaging(): { limit?: number; offset?: number } {
+    const out: { limit?: number; offset?: number } = {};
+    if (this.#limitValue !== undefined) out.limit = this.#limitValue;
+    if (this.#offsetValue !== undefined) out.offset = this.#offsetValue;
+    this.#limitValue = undefined;
+    this.#offsetValue = undefined;
+    return out;
+  }
+
   offset(value: number): this {
     this.#offsetValue = value;
     return this;
@@ -2505,6 +2520,7 @@ export class ModelQuery<
           if (morphTypeColumn && morphTypes) {
             sub.whereIn(`${pivotTable}.${morphTypeColumn}`, morphTypes);
           }
+          if (meta.kind === "belongsToMany") applyPivotWheres(sub, pivotTable, meta.pivotWheres);
           applyRelated?.(sub);
           sub.select(`${pivotTable}.${foreignPivotKey}`);
         };
@@ -2528,6 +2544,7 @@ export class ModelQuery<
               `${parentTable}.${parentTenantKey}`,
             );
           }
+          if (meta.kind === "belongsToMany") applyPivotWheres(sub, pivotTable, meta.pivotWheres);
           applyRelated?.(sub);
         };
       }
@@ -3187,6 +3204,8 @@ export class ModelQuery<
         );
         if (meta.kind === "morphToMany") {
           sub.whereIn(`${meta.pivotTable}.${meta.morphTypeColumn}`, meta.morphTypes);
+        } else {
+          applyPivotWheres(sub, meta.pivotTable, meta.pivotWheres);
         }
         break;
       case "hasManyThrough":

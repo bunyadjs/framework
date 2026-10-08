@@ -255,6 +255,24 @@ export function resolveMorphType(type: string): ModelClass {
   );
 }
 
+/** `withDefault` support shared by the single-result relations (belongsTo, hasOne, morphOne). */
+export type DefaultSpec<T extends Model> =
+  | true
+  | Record<string, unknown>
+  | ((model: T, parent: Model) => void);
+
+function buildDefault<T extends Model>(
+  Related: ModelClass,
+  spec: DefaultSpec<T>,
+  parent: Model,
+  keys: Record<string, unknown> = {},
+): T {
+  const model = new Related({ ...keys }) as T;
+  if (typeof spec === "function") spec(model, parent);
+  else if (spec !== true) Object.assign(model, spec);
+  return model;
+}
+
 /** MorphMany relation. */
 export class MorphMany<T extends Model = Model> {
   #baseQuery: ModelQuery<T> | null = null;
@@ -329,6 +347,7 @@ export class MorphOne<T extends Model = Model> {
   #ofManyColumn?: string;
   #ofManyAggregate?: "min" | "max";
   #baseQuery: ModelQuery<T> | null = null;
+  #default?: DefaultSpec<T>;
 
   constructor(
     private parent: Model,
@@ -396,6 +415,21 @@ export class MorphOne<T extends Model = Model> {
     return this;
   }
 
+  /** `withDefault` — return an empty related model instead of `null` when nothing matches. */
+  withDefault(spec: DefaultSpec<T> = true): this {
+    this.#default = spec;
+    return this;
+  }
+
+  hasDefault(): boolean {
+    return this.#default !== undefined;
+  }
+
+  /** The default model for the owner this relation was built from. */
+  makeDefault(): T {
+    return buildDefault<T>(this.related, this.#default ?? true, this.parent, { [this.idColumn]: (this.parent as unknown as Record<string, unknown>)[this.getLocalKeyName()], [this.typeColumn]: this.morphType });
+  }
+
   getQuery(): ModelQuery<T> {
     if (!this.#baseQuery) {
       let q = this.related
@@ -424,6 +458,11 @@ export class MorphOne<T extends Model = Model> {
   }
 
   async first(): Promise<T | null> {
+    const found = await this.#firstRow();
+    return found ?? (this.#default !== undefined ? this.makeDefault() : null);
+  }
+
+  async #firstRow(): Promise<T | null> {
     return this.getQuery().first() as Promise<T | null>;
   }
 
@@ -570,6 +609,7 @@ export class HasOne<T extends Model = Model> {
   #ofManyColumn?: string;
   #ofManyAggregate?: "min" | "max";
   #baseQuery: ModelQuery<T> | null = null;
+  #default?: DefaultSpec<T>;
 
   constructor(
     private parent: Model,
@@ -630,6 +670,21 @@ export class HasOne<T extends Model = Model> {
     return this;
   }
 
+  /** `withDefault` — return an empty related model instead of `null` when nothing matches. */
+  withDefault(spec: DefaultSpec<T> = true): this {
+    this.#default = spec;
+    return this;
+  }
+
+  hasDefault(): boolean {
+    return this.#default !== undefined;
+  }
+
+  /** The default model for the owner this relation was built from. */
+  makeDefault(): T {
+    return buildDefault<T>(this.related, this.#default ?? true, this.parent, { [this.foreignKey]: (this.parent as unknown as Record<string, unknown>)[this.getLocalKeyName()] });
+  }
+
   getQuery(): ModelQuery<T> {
     if (!this.#baseQuery) {
       let q = this.related.where(
@@ -658,6 +713,11 @@ export class HasOne<T extends Model = Model> {
   }
 
   async first(): Promise<T | null> {
+    const found = await this.#firstRow();
+    return found ?? (this.#default !== undefined ? this.makeDefault() : null);
+  }
+
+  async #firstRow(): Promise<T | null> {
     return this.getQuery().first() as Promise<T | null>;
   }
 
@@ -829,6 +889,7 @@ export class HasOneThrough<T extends Model = Model> {
 /** BelongsTo relation. */
 export class BelongsTo<T extends Model = Model> {
   #baseQuery: ModelQuery<T> | null = null;
+  #default?: DefaultSpec<T>;
 
   constructor(
     private child: Model,
@@ -847,6 +908,21 @@ export class BelongsTo<T extends Model = Model> {
 
   getOwnerKeyName(): string {
     return this.ownerKey ?? this.related.primaryKey;
+  }
+
+  /** `withDefault` — return an empty related model instead of `null` when nothing matches. */
+  withDefault(spec: DefaultSpec<T> = true): this {
+    this.#default = spec;
+    return this;
+  }
+
+  hasDefault(): boolean {
+    return this.#default !== undefined;
+  }
+
+  /** The default model for the owner this relation was built from. */
+  makeDefault(): T {
+    return buildDefault<T>(this.related, this.#default ?? true, this.child, {});
   }
 
   getQuery(): ModelQuery<T> {
@@ -873,6 +949,11 @@ export class BelongsTo<T extends Model = Model> {
   }
 
   async first(): Promise<T | null> {
+    const found = await this.#firstRow();
+    return found ?? (this.#default !== undefined ? this.makeDefault() : null);
+  }
+
+  async #firstRow(): Promise<T | null> {
     return this.getQuery().first() as Promise<T | null>;
   }
 
@@ -938,6 +1019,70 @@ export class BelongsTo<T extends Model = Model> {
 
 /** BelongsToMany relation. */
 
+/** `wherePivot*` constraints on a many-to-many pivot table (AND only). */
+export type PivotWhere =
+  | { kind: "basic"; column: string; op: string; value: unknown }
+  | { kind: "in"; column: string; values: unknown[]; not: boolean }
+  | { kind: "null"; column: string; not: boolean }
+  | { kind: "between"; column: string; values: [unknown, unknown]; not: boolean };
+
+export type PivotOrder = { column: string; direction: "asc" | "desc" };
+
+type PivotWhereTarget = {
+  where(column: string, op: string, value: unknown): unknown;
+  whereIn(column: string, values: unknown[]): unknown;
+  whereNotIn(column: string, values: unknown[]): unknown;
+  whereNull(column: string): unknown;
+  whereNotNull(column: string): unknown;
+  whereBetween(column: string, values: [unknown, unknown]): unknown;
+  whereNotBetween(column: string, values: [unknown, unknown]): unknown;
+};
+
+/** Apply pivot wheres to a ModelQuery / QueryBuilder, qualified with the pivot table. */
+export function applyPivotWheres(
+  q: unknown,
+  pivotTable: string,
+  wheres: readonly PivotWhere[],
+): void {
+  const t = q as PivotWhereTarget;
+  for (const w of wheres) {
+    const col = `${pivotTable}.${w.column}`;
+    if (w.kind === "basic") t.where(col, w.op, w.value);
+    else if (w.kind === "in") (w.not ? t.whereNotIn(col, w.values) : t.whereIn(col, w.values));
+    else if (w.kind === "null") (w.not ? t.whereNotNull(col) : t.whereNull(col));
+    else (w.not ? t.whereNotBetween(col, w.values) : t.whereBetween(col, w.values));
+  }
+}
+
+/** Raw SQL for pivot wheres (` AND "col" = ?`), for the pivot-only queries (sync / detach / update). */
+function pivotWhereSql(
+  dialect: ReturnType<ModelClass["getConnection"]>["dialect"],
+  wheres: readonly PivotWhere[],
+): { sql: string; params: unknown[] } {
+  let sql = "";
+  const params: unknown[] = [];
+  for (const w of wheres) {
+    const col = wrapSqlName(dialect, w.column);
+    if (w.kind === "basic") {
+      sql += ` AND ${col} ${w.op} ?`;
+      params.push(w.value);
+    } else if (w.kind === "in") {
+      if (w.values.length === 0) {
+        sql += w.not ? "" : " AND 1 = 0";
+      } else {
+        sql += ` AND ${col} ${w.not ? "NOT IN" : "IN"} (${w.values.map(() => "?").join(", ")})`;
+        params.push(...w.values);
+      }
+    } else if (w.kind === "null") {
+      sql += ` AND ${col} IS ${w.not ? "NOT " : ""}NULL`;
+    } else {
+      sql += ` AND ${col} ${w.not ? "NOT BETWEEN" : "BETWEEN"} ? AND ?`;
+      params.push(w.values[0], w.values[1]);
+    }
+  }
+  return { sql, params };
+}
+
 /** Multi-row INSERT into a pivot table, grouped by column set and chunked under parameter limits. */
 async function insertPivotRows(
   conn: ReturnType<ModelClass["getConnection"]>,
@@ -993,6 +1138,8 @@ async function deletePivotIn(
 export class BelongsToMany<T extends Model = Model> {
   #baseQuery: ModelQuery<T> | null = null;
   #pivotColumns: string[] = [];
+  #pivotWheres: PivotWhere[] = [];
+  #pivotOrders: PivotOrder[] = [];
   #pivotTimestamps = false;
 
   constructor(
@@ -1061,6 +1208,10 @@ export class BelongsToMany<T extends Model = Model> {
         )
         .where(`${this.pivotTable}.${this.foreignPivotKey}`, this.#parentId())
         .select(`${related.table}.*`) as unknown as ModelQuery<T>;
+      applyPivotWheres(q, this.pivotTable, this.#pivotWheres);
+      for (const o of this.#pivotOrders) {
+        q = q.orderBy(`${this.pivotTable}.${o.column}`, o.direction) as unknown as ModelQuery<T>;
+      }
       for (const col of this.#pivotKeys()) {
         q = q.selectRaw(
           `${this.pivotTable}.${col} as __pivot_${col}`,
@@ -1102,6 +1253,64 @@ export class BelongsToMany<T extends Model = Model> {
     return this;
   }
 
+  getPivotWheres(): PivotWhere[] {
+    return [...this.#pivotWheres];
+  }
+
+  getPivotOrders(): PivotOrder[] {
+    return [...this.#pivotOrders];
+  }
+
+  #addPivotWhere(where: PivotWhere): this {
+    this.#baseQuery = null;
+    this.#pivotWheres.push(where);
+    return this;
+  }
+
+  /**
+   * `wherePivot` — constrain the pivot row. Also scopes `attach` defaults, `sync`,
+   * `detach` and `updateExistingPivot`, so two relations on one pivot table with
+   * different `wherePivot` values stay independent.
+   */
+  wherePivot(column: string, value: unknown): this;
+  wherePivot(column: string, op: string, value: unknown): this;
+  wherePivot(column: string, opOrValue: unknown, value?: unknown): this {
+    return value === undefined
+      ? this.#addPivotWhere({ kind: "basic", column, op: "=", value: opOrValue })
+      : this.#addPivotWhere({ kind: "basic", column, op: String(opOrValue), value });
+  }
+
+  wherePivotIn(column: string, values: unknown[]): this {
+    return this.#addPivotWhere({ kind: "in", column, values, not: false });
+  }
+
+  wherePivotNotIn(column: string, values: unknown[]): this {
+    return this.#addPivotWhere({ kind: "in", column, values, not: true });
+  }
+
+  wherePivotNull(column: string): this {
+    return this.#addPivotWhere({ kind: "null", column, not: false });
+  }
+
+  wherePivotNotNull(column: string): this {
+    return this.#addPivotWhere({ kind: "null", column, not: true });
+  }
+
+  wherePivotBetween(column: string, values: [unknown, unknown]): this {
+    return this.#addPivotWhere({ kind: "between", column, values, not: false });
+  }
+
+  wherePivotNotBetween(column: string, values: [unknown, unknown]): this {
+    return this.#addPivotWhere({ kind: "between", column, values, not: true });
+  }
+
+  /** `orderByPivot` — order related rows by a pivot column. */
+  orderByPivot(column: string, direction: "asc" | "desc" = "asc"): this {
+    this.#baseQuery = null;
+    this.#pivotOrders.push({ column, direction });
+    return this;
+  }
+
   #conn() {
     return (this.parent.constructor as ModelClass).getConnection();
   }
@@ -1138,9 +1347,10 @@ export class BelongsToMany<T extends Model = Model> {
 
   async #currentIds(): Promise<Set<string>> {
     const d = this.#conn().dialect;
+    const pw = pivotWhereSql(d, this.#pivotWheres);
     const rows = await this.#conn().all<Record<string, unknown>>(
-      `SELECT ${wrapSqlName(d, this.relatedPivotKey)} AS id FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ?`,
-      [this.#parentId()],
+      `SELECT ${wrapSqlName(d, this.relatedPivotKey)} AS id FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ?${pw.sql}`,
+      [this.#parentId(), ...pw.params],
     );
     return new Set(rows.map((r) => String(r.id)));
   }
@@ -1154,9 +1364,14 @@ export class BelongsToMany<T extends Model = Model> {
     if (pairs.length === 0) return;
     const d = this.#conn().dialect;
     const parentId = this.#parentId();
+    // `wherePivot(col, value)` equality constraints become defaults for new pivot rows.
+    const defaults: Record<string, unknown> = {};
+    for (const w of this.#pivotWheres) {
+      if (w.kind === "basic" && w.op === "=") defaults[w.column] = w.value;
+    }
     const rows = pairs.map(([id, attrs]) =>
       this.#stamp(
-        { ...attrs, [this.foreignPivotKey]: parentId, [this.relatedPivotKey]: id },
+        { ...defaults, ...attrs, [this.foreignPivotKey]: parentId, [this.relatedPivotKey]: id },
         true,
       ),
     );
@@ -1166,9 +1381,10 @@ export class BelongsToMany<T extends Model = Model> {
   /** `detach` — returns the number of deleted pivot rows. */
   async detach(ids?: PivotIds): Promise<number> {
     const d = this.#conn().dialect;
-    const base = `DELETE FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ?`;
+    const pw = pivotWhereSql(d, this.#pivotWheres);
+    const base = `DELETE FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ?${pw.sql}`;
     if (ids === undefined) {
-      const result = await this.#conn().run(base, [this.#parentId()]);
+      const result = await this.#conn().run(base, [this.#parentId(), ...pw.params]);
       return Number(result ?? 0);
     }
     const list = this.#normalize(ids).map(([id]) => id);
@@ -1177,7 +1393,7 @@ export class BelongsToMany<T extends Model = Model> {
       const chunk = list.slice(i, i + 900);
       const result = await this.#conn().run(
         `${base} AND ${wrapSqlName(d, this.relatedPivotKey)} IN (${chunk.map(() => "?").join(", ")})`,
-        [this.#parentId(), ...chunk],
+        [this.#parentId(), ...pw.params, ...chunk],
       );
       deleted += Number(result ?? 0);
     }
@@ -1194,9 +1410,10 @@ export class BelongsToMany<T extends Model = Model> {
     const cols = Object.keys(data);
     if (cols.length === 0) return 0;
     const d = this.#conn().dialect;
+    const pw = pivotWhereSql(d, this.#pivotWheres);
     const result = await this.#conn().run(
-      `UPDATE ${wrapSqlName(d, this.pivotTable)} SET ${cols.map((c) => `${wrapSqlName(d, c)} = ?`).join(", ")} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ? AND ${wrapSqlName(d, this.relatedPivotKey)} = ?`,
-      [...cols.map((c) => data[c]), this.#parentId(), relatedId],
+      `UPDATE ${wrapSqlName(d, this.pivotTable)} SET ${cols.map((c) => `${wrapSqlName(d, c)} = ?`).join(", ")} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ? AND ${wrapSqlName(d, this.relatedPivotKey)} = ?${pw.sql}`,
+      [...cols.map((c) => data[c]), this.#parentId(), relatedId, ...pw.params],
     );
     return Number(result ?? 0);
   }
@@ -1629,6 +1846,7 @@ export type RelationMeta =
       relatedPivotKey: string;
       localKey: string;
       pivotColumns: string[];
+      pivotWheres: PivotWhere[];
     }
   | {
       kind: "morphToMany";
@@ -1708,6 +1926,7 @@ export function resolveRelation(
       relatedPivotKey: rel.getRelatedPivotKeyName(),
       localKey: model.primaryKey,
       pivotColumns: rel.getPivotColumns(),
+      pivotWheres: rel.getPivotWheres(),
     };
   } else if (rel instanceof MorphToMany) {
     meta = {

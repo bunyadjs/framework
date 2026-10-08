@@ -29,6 +29,7 @@ import {
   MorphedByMany,
   aggregateRelation,
   applyPivotAttributes,
+  applyPivotWheres,
   resolveMorphType,
   resolveRelation,
 } from "./relations.ts";
@@ -141,6 +142,36 @@ function applyConstraint(
   return q;
 }
 
+
+type EagerPaging = { limit?: number; offset?: number };
+
+/** Apply the constraint, then lift its limit/offset off the batched query (see `takePaging`). */
+function applyConstraintPaged(
+  q: ModelQuery,
+  constraint: EagerRelationConstraint | undefined,
+  paging: EagerPaging,
+): ModelQuery {
+  applyConstraint(q, constraint);
+  if (constraint) {
+    const taken = q.takePaging();
+    if (taken.limit !== undefined) paging.limit = taken.limit;
+    if (taken.offset !== undefined) paging.offset = taken.offset;
+  }
+  return q;
+}
+
+/** Slice every parent's list to `offset` / `limit` (rows are already in the constraint's order). */
+function pagePerParent(byParent: Map<string, Model[]>, paging: EagerPaging): void {
+  if (paging.limit === undefined && paging.offset === undefined) return;
+  const start = paging.offset ?? 0;
+  for (const [key, list] of byParent) {
+    byParent.set(
+      key,
+      paging.limit === undefined ? list.slice(start) : list.slice(start, start + paging.limit),
+    );
+  }
+}
+
 function relationFromModel(model: Model, relation: string): unknown {
   try {
     return model.related(relation);
@@ -183,7 +214,7 @@ async function forEachIdChunk(
   await Promise.all(workers);
 }
 
-function eagerLoadOneRelation(
+function eagerLoadOneRelationRaw(
   models: Model[],
   relation: string,
   constraint?: EagerRelationConstraint,
@@ -231,6 +262,31 @@ function eagerLoadOneRelation(
   if (sampleRel instanceof HasOneThrough) {
     return eagerLoadHasOneThrough(models, relation, sampleRel, constraint);
   }
+}
+
+/** Load one relation, then fill `withDefault()` relations that matched nothing. */
+function eagerLoadOneRelation(
+  models: Model[],
+  relation: string,
+  constraint?: EagerRelationConstraint,
+): void | Promise<void> {
+  const sampleRel = relationFromModel(models[0]!, relation) as
+    | { hasDefault?: () => boolean }
+    | null;
+  const withDefault = Boolean(sampleRel?.hasDefault?.());
+  const loaded = eagerLoadOneRelationRaw(models, relation, constraint);
+  if (!withDefault) return loaded;
+  const fill = () => {
+    for (const model of models) {
+      const row = model as unknown as Record<string, unknown>;
+      if (row[relation] == null) {
+        const rel = model.related(relation) as { makeDefault(): Model };
+        row[relation] = rel.makeDefault();
+      }
+    }
+  };
+  if (loaded instanceof Promise) return loaded.then(fill);
+  fill();
 }
 
 /** Single-query ofMany via GROUP BY join (avoids per-row correlated subqueries). */
@@ -456,11 +512,12 @@ async function eagerLoadHasMany(
     ),
   );
   const byParent = new Map<string, Model[]>();
+  const paging: EagerPaging = {};
   await forEachIdChunk(parentIds, async (chunk) => {
     let related: Model[];
     if (constraint) {
       let q = Related.whereIn(foreignKey, chunk);
-      applyConstraint(q, constraint);
+      applyConstraintPaged(q, constraint, paging);
       related = (await q.get()).all();
     } else {
       related = await eagerFetchByKeys(Related, foreignKey, chunk);
@@ -474,6 +531,7 @@ async function eagerLoadHasMany(
       byParent.set(key, list);
     }
   });
+  pagePerParent(byParent, paging);
   for (const model of models) {
     const id = (model as unknown as Record<string, unknown>)[localKey];
     (model as unknown as Record<string, unknown>)[relation] = new OrmCollection(
@@ -623,6 +681,8 @@ async function eagerLoadBelongsToMany(
   const foreignPivotKey = sample.getForeignPivotKeyName();
   const relatedPivotKey = sample.getRelatedPivotKeyName();
   const pivotColumns = sample.getPivotColumns();
+  const pivotWheres = sample.getPivotWheres();
+  const pivotOrders = sample.getPivotOrders();
   const pivotKeys =
     pivotColumns.length > 0
       ? [foreignPivotKey, relatedPivotKey, ...pivotColumns.filter(
@@ -635,6 +695,7 @@ async function eagerLoadBelongsToMany(
     ),
   );
   const byParent = new Map<string, Model[]>();
+  const paging: EagerPaging = {};
   if (parentIds.length > 0) {
     const dialect = parent.getConnection().dialect;
     const qRelated = wrapSqlName(dialect, Related.table);
@@ -653,7 +714,12 @@ async function eagerLoadBelongsToMany(
             .join(", ")}`
         : "";
     await forEachIdChunk(parentIds, async (chunk) => {
-      if (constraint || hasGlobalScopes(Related)) {
+      if (
+        constraint ||
+        hasGlobalScopes(Related) ||
+        pivotWheres.length > 0 ||
+        pivotOrders.length > 0
+      ) {
         let q = Related.newQuery()
           .join(
             pivotTable,
@@ -669,7 +735,9 @@ async function eagerLoadBelongsToMany(
         for (const col of pivotKeys) {
           q = q.selectRaw(`${pivotTable}.${col} as __pivot_${col}`);
         }
-        applyConstraint(q, constraint);
+        applyPivotWheres(q, pivotTable, pivotWheres);
+        for (const o of pivotOrders) q = q.orderBy(`${pivotTable}.${o.column}`, o.direction);
+        applyConstraintPaged(q, constraint, paging);
         const related = await q.get();
         for (const row of related.all()) {
           const rec = row as unknown as Record<string, unknown>;
@@ -705,6 +773,7 @@ async function eagerLoadBelongsToMany(
       }
     });
   }
+  pagePerParent(byParent, paging);
   for (const model of models) {
     const id = (model as unknown as Record<string, unknown>)[parentKey];
     (model as unknown as Record<string, unknown>)[relation] = new OrmCollection(
@@ -736,6 +805,7 @@ async function eagerLoadMorphToMany(
     ),
   );
   const byParent = new Map<string, Model[]>();
+  const paging: EagerPaging = {};
   if (parentIds.length > 0 && morphTypes.length > 0) {
     const dialect = parent.getConnection().dialect;
     const qRelated = wrapSqlName(dialect, Related.table);
@@ -772,7 +842,7 @@ async function eagerLoadMorphToMany(
             q = q.whereIn(`${pivotTable}.${pivotTenantKey}`, tenantIds);
           }
         }
-        applyConstraint(q, constraint);
+        applyConstraintPaged(q, constraint, paging);
         const related = await q.get();
         for (const row of related.all()) {
           const rec = row as unknown as Record<string, unknown>;
@@ -820,6 +890,7 @@ async function eagerLoadMorphToMany(
       }
     });
   }
+  pagePerParent(byParent, paging);
   for (const model of models) {
     const id = (model as unknown as Record<string, unknown>)[parentKey];
     (model as unknown as Record<string, unknown>)[relation] = new OrmCollection(
@@ -849,6 +920,7 @@ async function eagerLoadMorphedByMany(
     ),
   );
   const byParent = new Map<string, Model[]>();
+  const paging: EagerPaging = {};
   await forEachIdChunk(parentIds, async (chunk) => {
     const q = Related.newQuery()
       .join(
@@ -861,7 +933,7 @@ async function eagerLoadMorphedByMany(
       .where(`${pivotTable}.${morphTypeColumn}`, morphType)
       .select(`${Related.table}.*`)
       .selectRaw(`${pivotTable}.${foreignPivotKey} as __bunyad_parent_id`);
-    applyConstraint(q, constraint);
+    applyConstraintPaged(q, constraint, paging);
     for (const row of (await q.get()).all()) {
       const rec = row as unknown as Record<string, unknown>;
       const key = String(rec.__bunyad_parent_id);
@@ -871,6 +943,7 @@ async function eagerLoadMorphedByMany(
       byParent.set(key, list);
     }
   });
+  pagePerParent(byParent, paging);
   for (const model of models) {
     const id = (model as unknown as Record<string, unknown>)[parentKey];
     (model as unknown as Record<string, unknown>)[relation] = new OrmCollection(
@@ -897,9 +970,10 @@ async function eagerLoadMorphMany(
     ),
   );
   const byParent = new Map<string, Model[]>();
+  const paging: EagerPaging = {};
   await forEachIdChunk(parentIds, async (chunk) => {
     let q = Related.where(typeColumn, morphType).whereIn(idColumn, chunk);
-    applyConstraint(q, constraint);
+    applyConstraintPaged(q, constraint, paging);
     const related = await q.get();
     for (const row of related.all()) {
       const key = String(
@@ -910,6 +984,7 @@ async function eagerLoadMorphMany(
       byParent.set(key, list);
     }
   });
+  pagePerParent(byParent, paging);
   for (const model of models) {
     const id = (model as unknown as Record<string, unknown>)[localKey];
     (model as unknown as Record<string, unknown>)[relation] = new OrmCollection(

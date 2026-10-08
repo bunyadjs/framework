@@ -199,6 +199,28 @@ const first = await post!.related("comments").first();
 
 `HasMany` provides `get()` (returns [`OrmCollection`](/docs/1.x/orm-collections)), `first()`, `create()`, and `touch()`.
 
+### Default models
+
+`belongsTo`, `hasOne` and `morphOne` can return an empty model instead of `null` when nothing matches, so templates and serializers don't need null checks. The default is a new, unsaved model; for `hasOne` / `morphOne` it already carries the owner's foreign key (and morph type):
+
+```ts
+class Post extends Model {
+  author() {
+    return this.belongsTo(User).withDefault({ name: "Guest Author" });
+  }
+}
+
+class User extends Model {
+  profile() {
+    return this.hasOne(Profile).withDefault((profile, user) => {
+      profile.bio = `${user.name} has no bio yet`;
+    });
+  }
+}
+```
+
+`withDefault()` with no argument returns an empty instance. It applies to `relation().first()` and to eager loading (`with("author")`), and only fills the rows that matched nothing.
+
 ### Has one of many
 
 When a parent has many related rows but you want the “latest”, “oldest”, or aggregate winner as a `hasOne`, chain `latestOfMany`, `oldestOfMany`, or `ofMany` on `hasOne` (or `morphOne`):
@@ -311,6 +333,23 @@ roles.all()[0]?.pivot?.active;
 ```
 
 `withPivot` applies to lazy `get()` / `first()` and to eager `with("roles")`.
+
+Constrain or order by pivot columns with `wherePivot`, `wherePivotIn`, `wherePivotNotIn`, `wherePivotNull`, `wherePivotNotNull`, `wherePivotBetween`, `wherePivotNotBetween` and `orderByPivot`. The constraint applies everywhere the relation is used: `get()`, eager loading, `whereHas`, `withCount` and the other aggregates. It also scopes the writes. `attach` fills `wherePivot(column, value)` equality constraints as defaults, and `sync`, `detach` and `updateExistingPivot` only touch rows that match, so two relations can share one pivot table:
+
+```ts
+class Project extends Model {
+  leads() {
+    return this.belongsToMany(User).wherePivot("role", "lead");
+  }
+  members() {
+    return this.belongsToMany(User).wherePivot("role", "member").orderByPivot("rank", "desc");
+  }
+}
+
+await project.leads().attach([1, 2]);   // pivot rows get role = "lead"
+await project.leads().sync([2, 3]);     // never touches the "member" rows
+```
+
 
 For composite / non-incrementing pivot rows as their own model, extend `Pivot` from `@bunyad/orm` (`incrementing = false`, `timestamps = false` by default).
 
@@ -597,6 +636,19 @@ await Post.with("comments.author").get();
 ```
 
 Eager loading batches related rows with `WHERE IN` (chunked for large id lists) for belongs-to, has-many, has-one, belongs-to-many, morph relations, has-many-through, and of-many. Constraints from the `with({ relation: fn })` form are applied to each related query.
+
+### Limiting eager loaded rows per parent
+
+`limit` and `offset` inside an eager load constraint apply to each parent, not to the whole batched query:
+
+```ts
+// the 3 newest posts of every user (not 3 posts in total)
+await User.with({
+  posts: (q) => q.orderBy("created_at", "desc").limit(3),
+}).get();
+```
+
+This works for `hasMany`, `morphMany`, `belongsToMany`, `morphToMany` and `morphedByMany`. The ORM loads the ordered rows once and trims each parent's list, so keep the constraint selective (add `where` conditions) when a parent can have very many related rows.
 
 ### Lazy eager loading
 
