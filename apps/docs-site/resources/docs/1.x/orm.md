@@ -658,6 +658,32 @@ await Flight.withoutGlobalScopes().get();
 Flight.removeGlobalScope("ancient");
 ```
 
+#### Example: scoping rows to a tenant
+
+A global scope plus a `creating` listener is enough to keep each tenant's rows apart. The scope limits every read, bulk update and delete; the listener stamps new rows:
+
+```ts
+let currentTenant: number | null = null; // set per request
+
+class Project extends Model {
+  static booted() {
+    Project.addGlobalScope("tenant", (query) => {
+      if (currentTenant !== null) query.where("projects.tenant_id", currentTenant);
+    });
+    Project.creating((project) => {
+      if (currentTenant !== null && project.tenant_id === undefined) {
+        project.tenant_id = currentTenant;
+      }
+    });
+  }
+}
+
+await Project.find(idOfAnotherTenant);       // null
+await Project.withoutGlobalScopes().count(); // every tenant, for admin tools
+```
+
+The scope also applies through relations, `has` / `whereHas` and aggregates. Qualify the column with the table name so joins stay unambiguous.
+
 ### Local scopes
 
 Define `static scopeName(query, ...args)` on the model. Call it as `Name(...args)` on a query or as a static starter:
