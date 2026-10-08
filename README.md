@@ -50,7 +50,7 @@ Every capability is a standalone `@bunyad/*` package, and `@bunyad/framework` br
 | Web | `http`, `router`, `validation`, `view`, `inertia`, `live`, `session`, `auth`, `oauth` |
 | Data | `database`, `orm`, `migrate`, `cache` |
 | Background work | `queue`, `schedule`, `events`, `broadcasting`, `notifications`, `mail` |
-| Platform | `core`, `container`, `config`, `compiler`, `cli`, `log`, `console`, `head`, `metrics`, `features`, `filesystem`, `image`, `search`, `billing`, `testing` |
+| Platform | `core`, `container`, `config`, `compiler`, `cli`, `log`, `console`, `head`, `metrics`, `features`, `permissions`, `filesystem`, `image`, `search`, `billing`, `testing` |
 
 `contracts`, `common`, `database` and `orm` also run on Node.js 20+. Everything else is Bun-only.
 
