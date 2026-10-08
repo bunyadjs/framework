@@ -109,5 +109,12 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
       expect(num(a!.all_items)).toBe(2);
       expect(num(b!.all_items)).toBe(1);
     });
+
+    test("withoutGlobalScopes bypasses inside an eager-load constraint", async () => {
+      const shops = await Shop.with({ items: (q) => q.withoutGlobalScopes() }).orderBy("id").get();
+      const [a, b] = shops.all() as unknown as Array<{ items: { count(): number } }>;
+      expect(a!.items.count()).toBe(2);
+      expect(b!.items.count()).toBe(1);
+    });
   },
 );
