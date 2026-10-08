@@ -244,7 +244,7 @@ function cachedSyncInsertColumns(ctor: ModelClass): string[] | null {
   return cols;
 }
 
-/** `Model::unguard()` — global switch, like Laravel's. */
+/** `Model::unguard()` — global switch. */
 let massAssignmentUnguarded = false;
 
 /** Whether `key` may be mass assigned (mirrors {@link filterFillable}'s rules). */
@@ -1135,7 +1135,7 @@ export class Model {
     this: typeof Model,
     callback: () => T | Promise<T>,
   ): T | Promise<T> {
-    // Called on `Model` itself it mutes every model class (Laravel's `Model::withoutEvents`).
+    // Called on `Model` itself it mutes every model class.
     return withoutModelEvents(this, callback, this === Model);
   }
 
@@ -2993,7 +2993,7 @@ export class Model {
   }
 
   /**
-   * Laravel `updateTimestamps`: bump `updated_at` only when the model is dirty
+   * Bump `updated_at` only when the model is dirty
    * and the caller did not set `updated_at` themselves. A no-op `save()` must
    * not issue an UPDATE.
    */
@@ -3165,7 +3165,7 @@ export class Model {
     const usesTimestamps = ctor.timestamps !== false;
     const persistCtor = ctor as unknown as ModelClass;
     const table = new Db(this.getConnection()).table(ctor.table);
-    // Laravel order: saving → creating/updating → timestamps → write → created/updated → saved.
+    // Order: saving → creating/updating → timestamps → write → created/updated → saved.
     let dirty: Record<string, unknown>;
 
     if (!exists) {
@@ -3207,7 +3207,7 @@ export class Model {
       if ((await fireModelEvent(this, "updating")) === false) return this;
       if (usesTimestamps) this.#stampUpdatedAt(nowForConnection(this.getConnection()));
       dirty = this.getDirty();
-      // `updated` fires only when something was written (Laravel performUpdate).
+      // `updated` fires only when something was written.
       if (Object.keys(dirty).length > 0) {
         const attributes = persistableAttributes(persistCtor, dirty, key);
         if (Object.keys(attributes).length > 0) {
@@ -3224,7 +3224,7 @@ export class Model {
       }
     }
 
-    // Laravel `finishSave`: `saved` fires first, then the original set is synced,
+    // `saved` fires first, then the original set is synced,
     // so `isDirty()` / `getOriginal()` still describe the save inside `updated` and `saved`.
     await fireModelEvent(this, "saved");
     this.syncOriginal();
@@ -3837,7 +3837,7 @@ export class Model {
   }
 
   /**
-   * `$this->morphedByMany(Related::class, name)` — inverse of Laravel's `morphToMany`.
+   * `$this->morphedByMany(Related::class, name)` — inverse of `morphToMany`.
    * Defaults: pivot `{name}s`, `{name}_id`, `{name}_type`, parent key `{parent}_id`.
    */
   morphedByMany<R extends RelatedModel>(

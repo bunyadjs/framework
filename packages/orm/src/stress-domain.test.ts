@@ -358,7 +358,7 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
     });
 
     test("bulk: upsert, mass update and mass delete report correct counts", async () => {
-      await // Explicit high id: Postgres does not advance the sequence for explicit ids (same as Laravel).
+      // Explicit high id: Postgres does not advance the sequence for explicit ids.
       await SRole.upsert([{ id: 1, name: "admin2" }, { id: 1000, name: "auditor" }], ["id"], ["name"]);
       expect((await SRole.find(1) as any).name).toBe("admin2");
       expect((await SRole.find(1000) as any).name).toBe("auditor");

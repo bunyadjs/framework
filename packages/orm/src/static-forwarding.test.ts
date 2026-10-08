@@ -19,7 +19,7 @@ class SfBook extends Model {
 }
 
 describe.each(drivers.map((d) => [d.name, d] as const))(
-  "static query-builder forwarding, like Laravel's __callStatic (%s)",
+  "static query-builder forwarding (%s)",
   (_name, driver) => {
     beforeAll(async () => {
       Model.setConnection(driver.connection);

@@ -8,7 +8,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
 
 describe.each(drivers.map((d) => [d.name, d] as const))(
-  "save() timestamps follow Laravel (%s)",
+  "save() timestamps (%s)",
   (_name, driver) => {
     class Note extends Model {
       static table = "st_notes";

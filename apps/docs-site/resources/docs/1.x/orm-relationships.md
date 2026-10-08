@@ -376,7 +376,7 @@ user.membership.active; // true (cast)
 user.membership.perms;  // ["read", "write"]
 ```
 
-`withTimestamps()` also reads `created_at` / `updated_at` onto the pivot, as Laravel does. Pivot model events are not fired by `attach` / `sync`.
+`withTimestamps()` also reads `created_at` / `updated_at` onto the pivot. Pivot model events are not fired by `attach` / `sync`.
 
 Constrain or order by pivot columns with `wherePivot`, `wherePivotIn`, `wherePivotNotIn`, `wherePivotNull`, `wherePivotNotNull`, `wherePivotBetween`, `wherePivotNotBetween` and `orderByPivot`. The constraint applies everywhere the relation is used: `get()`, eager loading, `whereHas`, `withCount` and the other aggregates. It also scopes the writes. `attach` fills `wherePivot(column, value)` equality constraints as defaults, and `sync`, `detach` and `updateExistingPivot` only touch rows that match, so two relations can share one pivot table:
 
@@ -455,7 +455,7 @@ The third argument may be a pivot table string or an options bag (`MorphToManyOp
 
 ### Morphed by many
 
-`morphedByMany` is the inverse of Laravel's `morphToMany`. The pivot stores the related model's id and morph type, so a `Tag` can own posts and videos through one `taggables` table:
+`morphedByMany` is the inverse of `morphToMany`. The pivot stores the related model's id and morph type, so a `Tag` can own posts and videos through one `taggables` table:
 
 ```ts
 class Tag extends Model {
@@ -468,7 +468,7 @@ class Tag extends Model {
 }
 ```
 
-Defaults follow Laravel: pivot table `taggables`, columns `taggable_id` / `taggable_type`, and `tag_id` for the parent. Pass `table`, `foreignPivotKey` and `relatedPivotKey` to override them. It supports `get`, `attach`, `detach`, `sync`, `syncWithoutDetaching`, `toggle` and eager loading with `with("posts")`. `whereHas`, `withCount` and the other aggregates work on it too.
+Defaults: pivot table `taggables`, columns `taggable_id` / `taggable_type`, and `tag_id` for the parent. Pass `table`, `foreignPivotKey` and `relatedPivotKey` to override them. It supports `get`, `attach`, `detach`, `sync`, `syncWithoutDetaching`, `toggle` and eager loading with `with("posts")`. `whereHas`, `withCount` and the other aggregates work on it too.
 
 ### Custom polymorphic types
 
@@ -487,7 +487,7 @@ morphMap({
 
 `morphTypeFor` uses the alias when present; otherwise the model class name. Classes the ORM has already used are resolved by name when a stored type has no alias, so an unmapped `commentable_type = "Post"` still loads through `morphTo`. If two different model classes share a name, the name is never resolved on its own (it would be a guess), so map that type explicitly. A type the ORM has never seen throws `No morph map entry for [Type]`, so register aliases during boot for every type you persist.
 
-Like Laravel, `morphMap()` with no arguments returns the current map, and `morphMap(map, false)` replaces it instead of merging. To stop class names from ever being stored, enforce the map:
+`morphMap()` with no arguments returns the current map, and `morphMap(map, false)` replaces it instead of merging. To stop class names from ever being stored, enforce the map:
 
 ```ts
 import { enforceMorphMap, requireMorphMap } from "@bunyad/orm";

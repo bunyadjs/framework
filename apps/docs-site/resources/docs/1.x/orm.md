@@ -288,11 +288,11 @@ const all = Flight.allSync();
 
 ### Query builder methods on the model
 
-Like Laravel's `__callStatic`, builder methods can be called straight on the model class, so `User.whereBetween("age", [18, 30])` is the same as `User.query().whereBetween(...)`. This includes the where family (`whereNotIn`, `whereRaw`, `whereColumn`, `whereLike`, `orWhereIn`, …), `has` / `doesntHave` and the morph variants, `groupBy` / `having` / `selectRaw`, `offset`, `when` / `unless`, `inRandomOrder`, `lockForUpdate`, and the finders and terminals `firstWhere`, `findMany`, `chunkById`, `count`, `sum`, `max`, `exists`, `toSql`.
+Builder methods can be called straight on the model class, so `User.whereBetween("age", [18, 30])` is the same as `User.query().whereBetween(...)`. This includes the where family (`whereNotIn`, `whereRaw`, `whereColumn`, `whereLike`, `orWhereIn`, …), `has` / `doesntHave` and the morph variants, `groupBy` / `having` / `selectRaw`, `offset`, `when` / `unless`, `inRandomOrder`, `lockForUpdate`, and the finders and terminals `firstWhere`, `findMany`, `chunkById`, `count`, `sum`, `max`, `exists`, `toSql`.
 
 ### Query builder reference
 
-These helpers follow Laravel's names and argument order. Every example below is covered by a test that runs on SQLite, Postgres and MySQL.
+Every example below is covered by a test that runs on SQLite, Postgres and MySQL.
 
 **Negation and grouped columns**
 
@@ -489,7 +489,7 @@ flight.getOriginal("options"); // { theme: "light" } — the pristine value
 await flight.save();
 ```
 
-Inside `updated` and `saved` listeners the save is still visible through `isDirty()` and `getOriginal()`, and `wasChanged()` / `getChanges()` / `getPrevious()` are already set. The original values are synced after `saved`, as in Laravel.
+Inside `updated` and `saved` listeners the save is still visible through `isDirty()` and `getOriginal()`, and `wasChanged()` / `getChanges()` / `getPrevious()` are already set. The original values are synced after `saved`.
 
 `refresh()` reloads from the database. `refreshForUpdate()` locks the row where the driver supports it. `fresh()` returns a new instance for the same key.
 
@@ -711,7 +711,7 @@ Models fire lifecycle hooks so you can run code around retrieve, create, update,
 | `restoring` / `restored` | Before / after restoring a soft-deleted model |
 | `replicating` | When `replicate()` builds a copy |
 
-Order follows Laravel. Create: `saving`, `creating`, `created`, `saved`. Update: `saving`, `updating`, `updated`, `saved`. Soft delete: `deleting`, `trashed`, `deleted`. Force delete: `forceDeleting`, `deleting`, `deleted`, `forceDeleted`. Restore: `restoring`, `restored`. `created_at` / `updated_at` are set after `creating` / `updating`, and `updated` fires only when something was written, so saving an unchanged model fires `saving` and `updating` but not `updated`.
+Order: create: `saving`, `creating`, `created`, `saved`. Update: `saving`, `updating`, `updated`, `saved`. Soft delete: `deleting`, `trashed`, `deleted`. Force delete: `forceDeleting`, `deleting`, `deleted`, `forceDeleted`. Restore: `restoring`, `restored`. `created_at` / `updated_at` are set after `creating` / `updating`, and `updated` fires only when something was written, so saving an unchanged model fires `saving` and `updating` but not `updated`.
 
 Listeners and observers for one event run in registration order. Returning `false` from a before-event stops the remaining listeners and cancels the write; returning `false` from an after-event is ignored. An exception thrown by a listener aborts the operation and propagates to the caller, rolling back the surrounding transaction if there is one.
 
@@ -958,8 +958,8 @@ Run it again after a migration. SQLite returns timestamps and booleans as text a
 ## Known limitations
 
 - **SQLite and concurrency.** All requests share one connection. Top-level transactions from concurrent requests queue, but plain queries issued while another request's transaction is open run inside that transaction. Use Postgres or MySQL when requests overlap.
-- **Rolling back does not reset models.** After a transaction rolls back, a model saved inside it still reports `exists` and keeps its id (as in Laravel). Reload it if you need its real state.
-- **Unfinished row defaults.** An empty `fillable` with the default `guarded = ["*"]` lets everything through, unlike Laravel. Set `fillable` on models that take user input.
+- **Rolling back does not reset models.** After a transaction rolls back, a model saved inside it still reports `exists` and keeps its id Reload it if you need its real state.
+- **Unfinished row defaults.** An empty `fillable` with the default `guarded = ["*"]` lets everything through. Set `fillable` on models that take user input.
 - **Pivot events.** `attach`, `sync` and `updateExistingPivot` do not fire pivot model events, even with `using()`.
 - **Encrypted JSON casts** (`encrypted:json`, `encrypted:array`) are compared by reference. Reassign them after editing.
 - **Per-parent eager limits** trim in memory after one batched query, so keep the constraint selective when a parent can have very many related rows.
