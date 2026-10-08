@@ -1495,6 +1495,7 @@ test("dirty tracking timestamps whereHas withCount associate sync toggle", async
   class Article extends Model {
     static table = "articles";
     static fillable = ["title", "author_id"];
+    declare title: string;
     declare author_id: string | number;
     author() {
       return this.belongsTo(Author, "author_id");
@@ -1504,6 +1505,7 @@ test("dirty tracking timestamps whereHas withCount associate sync toggle", async
     }
   }
   class Tag extends Model {
+    declare title: string;
     static table = "tags";
     static timestamps = false;
   }
@@ -1600,6 +1602,7 @@ test("global local scopes appends loadCount belongsToMany whereHas", async () =>
   }
 
   class Shop extends Model {
+    declare active: number;
     static table = "shops";
     static appends = ["display_name"];
     static fillable = ["name", "active"];
@@ -1738,6 +1741,7 @@ test("Model static terminals: get / pluck / count / scopes / no junk", async () 
 
   // Local scopes still win when scopeFoo exists
   class Shop extends Model {
+    declare active: number;
     declare name: string;
     static table = "shops_static_term";
     static timestamps = false;

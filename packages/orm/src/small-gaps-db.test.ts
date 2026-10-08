@@ -24,6 +24,7 @@ class SgMember extends Model {
   declare name: string;
 }
 class SgProject extends Model {
+  declare team_id: number;
   static table = "sg_projects";
   static fillable = ["team_id", "name", "active"];
   static softDeletes = true;

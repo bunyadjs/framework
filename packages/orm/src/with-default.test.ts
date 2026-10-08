@@ -23,6 +23,7 @@ class WdPost extends Model {
   authorTrue() { return this.belongsTo(WdAuthor, "author_id").withDefault(); }
 }
 class WdUser extends Model {
+  declare name: string;
   static table = "wd_users";
   static fillable = ["name"];
   declare id: number;

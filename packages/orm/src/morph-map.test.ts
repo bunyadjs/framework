@@ -30,6 +30,7 @@ class MmVideo extends Model {
   }
 }
 class MmComment extends Model {
+  declare body: string;
   static table = "mm_comments";
   static fillable = ["body", "commentable_type", "commentable_id"];
   declare commentable_type: string;

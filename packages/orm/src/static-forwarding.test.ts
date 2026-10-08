@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { schemaFor } from "@bunyad/database";
-import { Model } from "../src/index.ts";
+import { Model, unsafeName } from "../src/index.ts";
 import { testDrivers, type TestDriver } from "./test-drivers.ts";
 
 const drivers: TestDriver[] = await testDrivers();
@@ -64,7 +64,7 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
     test("grouping and raw selects", async () => {
       const rows = await SfAuthor.selectRaw("COUNT(*) AS n, age > 25 AS older")
         .groupBy("older")
-        .orderBy("older")
+        .orderBy(unsafeName("older"))
         .rows()
         .get();
       expect(rows.map((r) => Number((r as Record<string, unknown>).n))).toEqual([1, 3]);

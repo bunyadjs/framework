@@ -1,13 +1,7 @@
-// Compiled by strict-names.test.ts. Lines ending in an ERROR marker comment must fail; every other line must compile.
+// Compiled by strict-names.test.ts with the default settings. Lines ending in an ERROR marker comment must fail; every other line must compile.
 import { Model, unsafeName } from "../../src/index.ts";
 
-// One line of app config turns strict names on for every model.
-declare module "../../src/index.ts" {
-  interface OrmTypeOptions {
-    strictNames: true;
-  }
-}
-
+// No configuration: strict names are the default.
 class Post extends Model {
   static table = "posts";
   declare id: number;

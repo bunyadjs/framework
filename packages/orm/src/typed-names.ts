@@ -58,7 +58,8 @@ export type ColumnNames<T> =
 /** Suggest `K` in the editor but accept any string. */
 export type Hint<K extends string> = K | (string & {});
 
-type StrictNames = OrmTypeOptions extends { strictNames: true } ? true : false;
+// Strict by default; an app opts out with `strictNames: false` (see OrmTypeOptions).
+type StrictNames = OrmTypeOptions extends { strictNames: false } ? false : true;
 
 /**
  * Strict relation name: a relation method, optionally with a nested path

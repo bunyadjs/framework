@@ -1,6 +1,6 @@
 // Type-level checks (verified by `tsc`, e.g. `bun run typecheck`); the runtime part is trivial.
 import { expect, test } from "bun:test";
-import { Model, type ColumnNames, type RelationNames } from "../src/index.ts";
+import { Model, unsafeName, type ColumnNames, type RelationNames } from "../src/index.ts";
 
 class TnPost extends Model {
   static table = "tn_posts";
@@ -43,9 +43,9 @@ test("relation and column name helpers pick the right keys", () => {
   expect([rel, rel2, notRel, typo, col, method, own]).toHaveLength(7);
 });
 
-test("query methods still accept dynamic strings", () => {
+test("names only known at run time go through unsafeName", () => {
   const dynamic: string = "comments";
-  TnPost.with(dynamic, "comments.author", "author");
+  TnPost.with(unsafeName(dynamic), "comments.author", "author");
   TnPost.where("title", "x").orderBy("views", "desc").whereIn("id", [1]);
-  TnPost.where(`${dynamic}_count`, ">", 1);
+  TnPost.where(unsafeName(`${dynamic}_count`), ">", 1);
 });

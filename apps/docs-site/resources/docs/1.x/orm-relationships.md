@@ -501,35 +501,9 @@ requireMorphMap(false); // turn enforcement off again
 
 `getMorphedModel("post")` returns the class registered for an alias.
 
-### Editor hints for relation names
+### Checked relation and column names
 
-`with`, `whereHas`, `has`, `withWhereHas` and friends suggest your model's relation methods as you type, and `where`, `orderBy`, `whereIn`, `whereNull` suggest its declared fields. Any other string still compiles, so `"posts.comments"`, `"posts as p"`, `"orders.total"` and names built at runtime keep working:
-
-```ts
-await User.with("posts")           // suggests: posts, profile, …
-  .where("email", "ada@example.com") // suggests: id, name, email, …
-  .orderBy("created_at", "desc")
-  .get();
-```
-
-The helper types `RelationNames<User>` and `ColumnNames<User>` are exported if you want to type your own helpers.
-
-#### Strict names
-
-The hints above never reject a string. To make a typo fail the build for the whole app, turn on strict names once, in any `.d.ts` file your `tsconfig.json` includes (for example `types/orm.d.ts`):
-
-```ts
-// types/orm.d.ts
-declare module "@bunyad/orm" {
-  interface OrmTypeOptions {
-    strictNames: true;
-  }
-}
-
-export {};
-```
-
-Every model then checks its relation and column names:
+Relation and column names are checked at compile time. `with`, `whereHas`, `has` and the other relation methods only accept your model's relation methods, and `where`, `orderBy` and friends only accept its declared columns, so a typo fails the build and the editor suggests the real names as you type:
 
 ```ts
 Post.with("author", "comments.replies").where("title", "like", "%x%"); // ok
@@ -537,17 +511,35 @@ Post.with("autor");        // error: "autor" is not a relation of Post
 Post.where("titel", "x");  // error: "titel" is not a column of Post
 ```
 
-For a name that is only known at run time, wrap it in `unsafeName`:
+Checked: `with` (strings and the `{ relation: constraint }` form), `has`, `doesntHave`, `whereHas`, `orWhereHas`, `whereDoesntHave`, `withWhereHas`, and the column of `where`, `orWhere`, `whereIn`, `whereNull`, `whereNotNull`, `orderBy`, `orderByDesc`. A nested path (`comments.replies`) and an alias (`comments as c`) are accepted when the first segment is a relation, and a qualified `table.column` is accepted for columns. `id`, `created_at`, `updated_at` and `deleted_at` are always valid columns. Other columns must be declared on the class (`declare title: string;`) or merged in from the interface that `bunyad schema:types` generates.
+
+For a name that is only known at run time (a column from a request, an alias from `selectRaw`), wrap it in `unsafeName`:
 
 ```ts
 import { unsafeName } from "@bunyad/orm";
 
 Post.with(unsafeName(request.query("include")));
+Post.query().selectRaw("COUNT(*) AS n").orderBy(unsafeName("n"));
 ```
 
-Checked: `with` (strings and the `{ relation: constraint }` form), `has`, `doesntHave`, `whereHas`, `orWhereHas`, `whereDoesntHave`, `withWhereHas`, and the column of `where`, `orWhere`, `whereIn`, `whereNull`, `whereNotNull`, `orderBy`, `orderByDesc`. A nested path (`comments.replies`) and an alias (`comments as c`) are accepted when the first segment is a relation; a qualified `table.column` is accepted for columns. `id`, `created_at`, `updated_at` and `deleted_at` are always valid columns. Other columns must be declared on the class (`declare title: string;`) or merged in from the interface that `bunyad schema:types` generates. Other query methods keep their normal types.
+The check only changes types, so it costs nothing at run time. Other query methods keep their normal types.
 
-The switch only changes types, so it costs nothing at run time and is safe to turn on or off at any time. Turn it on after your models declare their columns, or the first build will list every undeclared column.
+#### Turning the check off
+
+If an app has many undeclared columns and you want to migrate gradually, accept any string again with one declaration, in any `.d.ts` file your `tsconfig.json` includes (for example `types/orm.d.ts`):
+
+```ts
+// types/orm.d.ts
+declare module "@bunyad/orm" {
+  interface OrmTypeOptions {
+    strictNames: false;
+  }
+}
+
+export {};
+```
+
+The editor still suggests names in this mode; it just no longer rejects the others. Run `bunyad schema:types` to generate the column interfaces, merge them into your models, then delete the declaration to turn the check on.
 
 ## Querying relations
 
