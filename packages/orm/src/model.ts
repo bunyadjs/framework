@@ -1852,12 +1852,25 @@ export class Model {
   static forceCreate<T extends typeof Model>(
     this: T,
     useAttrs: Record<string, unknown>,
+    beforeSave?: (model: InstanceType<T>) => void | Promise<void>,
   ): InstanceType<T> | Promise<InstanceType<T>> {
     this.bootIfNotBooted();
     // Assign raw attributes (skip get-casts) so mutators like Attribute.set can run on save.
     const model = classHasNoCasts(this as unknown as ModelClass)
       ? (new this(useAttrs) as InstanceType<T>)
       : Object.assign(new this() as InstanceType<T>, useAttrs);
+    const pre = beforeSave?.(model);
+    if (pre instanceof Promise) {
+      return pre.then(() => this.forceCreateSaved(model));
+    }
+    return this.forceCreateSaved(model);
+  }
+
+  /** Persist a model built by {@link forceCreate} and re-hydrate get-casts. */
+  private static forceCreateSaved<T extends typeof Model>(
+    this: T,
+    model: InstanceType<T>,
+  ): InstanceType<T> | Promise<InstanceType<T>> {
     const saved = model.save();
     const after = (
       row: InstanceType<T>,

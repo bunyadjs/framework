@@ -136,7 +136,7 @@ await User.all(); // unchanged
 
 ### Persisting models (`create`)
 
-`create` merges definition attributes with overrides and calls `Model.create` (fillable / guarded / casts / events apply as usual):
+`create` merges definition attributes with overrides and persists with `Model.forceCreate` (guarded columns are set too; casts and events apply as usual):
 
 ```ts
 const user = await User.factory().create();
@@ -188,7 +188,66 @@ await User.factory().create({
 });
 ```
 
-The base `Factory` API is `definition`, `model`, `count`, `make`, `create`, and `new`. There is no built-in `state()` chain — compose overrides at the call site.
+### States and sequences
+
+`state` merges attributes (or the result of a callback that receives the current attributes) into every model. `sequence` cycles attribute sets across a batch; a callback receives a 1-based index:
+
+```ts
+await User.factory().state({ role: "admin" }).create();
+
+await User.factory()
+  .count(4)
+  .sequence({ plan: "free" }, (i) => ({ plan: "pro", seat: i }))
+  .create();
+```
+
+### Callbacks
+
+`afterMaking` runs on the unsaved model, before the insert. `afterCreating` runs after the row exists:
+
+```ts
+User.factory()
+  .afterMaking((user) => { user.name = user.name.trim(); })
+  .afterCreating(async (user) => { await user.related("profile").create({ bio: "" }); });
+```
+
+Override `configure()` to set defaults once per factory instance, before its first `make` / `create`:
+
+```ts
+configure() {
+  return this.afterCreating((user) => { /* … */ });
+}
+```
+
+### Creating many models
+
+```ts
+await User.factory().createOne({ name: "Ada" });
+await User.factory().createMany(3);
+await User.factory().createMany([{ name: "Ada" }, { name: "Grace" }]);
+await User.factory().createQuietly(); // no model events
+await User.factory().createManyQuietly(10);
+await User.factory().makeOne();
+```
+
+### Relationships
+
+```ts
+// belongsTo: the parent is created once for the whole batch, then reused.
+await Post.factory().count(5).for(UserFactory.new()).create();
+// or reuse a model you already have
+await Post.factory().count(5).for(user).create();
+
+// hasMany / morphMany: children get the foreign key (and morph type) set.
+await User.factory().has(PostFactory.new().count(3)).create();
+await Team.factory().has(NoteFactory.new().count(2), "comments").create();
+
+// belongsToMany: related models are attached, with pivot attributes.
+await User.factory().hasAttached(RoleFactory.new().count(2), { active: true }).create();
+await User.factory().hasAttached(RoleFactory.new().count(2), (role) => ({ label: role.name })).create();
+```
+
+`for(parent)` fills the child's `belongsTo` foreign key. It looks for a relation named after the parent class (`user()` for a `User`) and falls back to `user_id`. Pass the relationship name as the second argument when it differs: `for(user, "author")`.
 
 ## Using factories in seeders and tests
 
@@ -226,6 +285,11 @@ Factories respect model casts and mutators on `create`. See [Mutators and Castin
 | `model()` | subclass | Model class to build |
 | `count(n)` | instance | How many models for the next make/create |
 | `make(attrs?)` | instance | In-memory model(s) |
-| `create(attrs?)` | instance | Persisted model(s) via `Model.create` |
+| `create(attrs?)` | instance | Persisted model(s) via `Model.forceCreate` |
+| `state` / `sequence` | instance | Attribute overrides per model / cycled across a batch |
+| `afterMaking` / `afterCreating` / `configure` | instance | Lifecycle callbacks |
+| `createOne` / `createMany` / `makeOne` | instance | Convenience creators |
+| `createQuietly` / `createManyQuietly` | instance | Create without model events |
+| `for` / `has` / `hasAttached` | instance | belongsTo, hasMany/morphMany and belongsToMany relationships |
 | `@HasFactory(...)` | `@bunyad/orm` | Bind `Model.factory()` |
 | `bunyad make:factory` | CLI | Stub under `database/factories` |
