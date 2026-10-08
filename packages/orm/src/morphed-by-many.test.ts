@@ -146,6 +146,32 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
       expect(b!.videos.count()).toBe(0);
     });
 
+    test("whereHas / withCount / withSum work through the inverse relation", async () => {
+      const used = await Tag.create({ name: "wh-used" });
+      const unused = await Tag.create({ name: "wh-unused" });
+      const p1 = await Post.create({ title: "WH1" });
+      const p2 = await Post.create({ title: "WH2" });
+      const v1 = await Video.create({ title: "WHV" });
+      await used.posts().attach([p1.id as number, p2.id as number]);
+      await used.videos().attach(v1.id as number);
+
+      const withPosts = await Tag.whereHas("posts").whereIn("id", [used.id, unused.id]).get();
+      expect(withPosts.pluck("name").all()).toEqual(["wh-used"]);
+
+      const constrained = await Tag.whereHas("posts", (q) => q.where("title", "WH2"))
+        .whereIn("id", [used.id, unused.id])
+        .get();
+      expect(constrained.count()).toBe(1);
+
+      const none = await Tag.whereHas("posts", (q) => q.where("title", "nope")).whereIn("id", [used.id]).get();
+      expect(none.count()).toBe(0);
+
+      const counted = await Tag.withCount("posts", "videos").whereIn("id", [used.id, unused.id]).orderBy("id").get();
+      const [a, b] = counted.all() as unknown as Array<Record<string, unknown>>;
+      expect([Number(a!.posts_count), Number(a!.videos_count)]).toEqual([2, 1]);
+      expect([Number(b!.posts_count), Number(b!.videos_count)]).toEqual([0, 0]);
+    });
+
     test("default pivot naming follows Laravel", () => {
       class T2 extends Model {
         static table = "tags";

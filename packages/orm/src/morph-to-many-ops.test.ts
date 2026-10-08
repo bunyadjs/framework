@@ -111,6 +111,19 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
       expect(t.attached.map(String)).toEqual([String(ids[2])]);
     });
 
+    test("lazy get() applies the related model's global scopes", async () => {
+      const { contact, ids } = await seed();
+      await contact.roles().attach(ids);
+      Role.addGlobalScope("not_r0", (q) => q.where("name", "!=", "r0"));
+      try {
+        const names = (await contact.roles().get()).pluck("name").all().sort();
+        expect(names).toEqual(["r1", "r2", "r3"]);
+      } finally {
+        Role.removeGlobalScope("not_r0");
+      }
+      expect((await contact.roles().get()).count()).toBe(4);
+    });
+
     test("another tenant's rows are never touched", async () => {
       const { contact, ids } = await seed();
       await driver.connection.run(

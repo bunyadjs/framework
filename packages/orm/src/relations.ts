@@ -9,6 +9,7 @@ import {
 } from "./model-helpers.ts";
 import { Model, type ModelClass } from "./model.ts";
 import type { ModelQuery } from "./model-query.ts";
+import { hasGlobalScopes } from "./scopes.ts";
 import { isIgnoringTouch } from "./model-strictness.ts";
 
 /** Register morph type aliases (`Relation::morphMap`). */
@@ -166,25 +167,76 @@ function pivotSelectKeys(
   return keys;
 }
 
-export function morphMap(map: Record<string, ModelClass>): void {
-  for (const [alias, cls] of Object.entries(map)) {
-    morphAliases.set(alias, cls);
+/** Classes seen by the ORM (booted or used as a morph target), keyed by class name — fallback for unmapped types. */
+const knownClasses = new Map<string, ModelClass>();
+let morphMapRequired = false;
+
+export function registerMorphClass(model: ModelClass): void {
+  if (model.name && !knownClasses.has(model.name)) knownClasses.set(model.name, model);
+}
+
+/**
+ * `Relation::morphMap` — register aliases, or read the current map when called
+ * with no arguments. Pass `merge = false` to replace the existing map.
+ */
+export function morphMap(): Record<string, ModelClass>;
+export function morphMap(map: Record<string, ModelClass>, merge?: boolean): Record<string, ModelClass>;
+export function morphMap(
+  map?: Record<string, ModelClass>,
+  merge = true,
+): Record<string, ModelClass> {
+  if (map) {
+    if (!merge) morphAliases.clear();
+    for (const [alias, cls] of Object.entries(map)) {
+      morphAliases.set(alias, cls);
+    }
   }
+  return Object.fromEntries(morphAliases);
+}
+
+/** `Relation::enforceMorphMap` — register the map and refuse unmapped classes. */
+export function enforceMorphMap(
+  map: Record<string, ModelClass>,
+  merge = true,
+): Record<string, ModelClass> {
+  requireMorphMap();
+  return morphMap(map, merge);
+}
+
+/** `Relation::requireMorphMap` — throw when a model without an alias is used polymorphically. */
+export function requireMorphMap(required = true): void {
+  morphMapRequired = required;
+}
+
+export function requiresMorphMap(): boolean {
+  return morphMapRequired;
 }
 
 export function clearMorphMap(): void {
   morphAliases.clear();
+  morphMapRequired = false;
 }
 
 export function morphTypeFor(model: ModelClass): string {
   for (const [alias, cls] of morphAliases) {
     if (cls === model) return alias;
   }
+  if (morphMapRequired) {
+    throw new Error(
+      `No morph map defined for [${model.name}]. Add it to morphMap()/enforceMorphMap() before using it in a polymorphic relation.`,
+    );
+  }
+  registerMorphClass(model);
   return model.name;
 }
 
+/** `Relation::getMorphedModel` — class for an alias, or undefined. */
+export function getMorphedModel(type: string): ModelClass | undefined {
+  return morphAliases.get(type) ?? (morphMapRequired ? undefined : knownClasses.get(type));
+}
+
 export function resolveMorphType(type: string): ModelClass {
-  const mapped = morphAliases.get(type);
+  const mapped = getMorphedModel(type);
   if (mapped) return mapped;
   throw new Error(
     `No morph map entry for [${type}]. Call morphMap({ ${type}: Model }) first.`,
@@ -1297,6 +1349,24 @@ export class MorphToMany<T extends Model = Model> {
       tenantSql = ` AND ${this.pivotTable}.${this.pivotTenantKey} = ?`;
       params.push(tenantId);
     }
+    if (hasGlobalScopes(related)) {
+      // Query-builder path so the related model's global scopes apply.
+      let q = related
+        .newQuery()
+        .join(
+          this.pivotTable,
+          `${this.pivotTable}.${this.relatedPivotKey}`,
+          "=",
+          `${related.table}.${related.primaryKey}`,
+        )
+        .where(`${this.pivotTable}.${this.foreignPivotKey}`, this.#parentId())
+        .whereIn(`${this.pivotTable}.${this.morphTypeColumn}`, this.morphTypes)
+        .select(`${related.table}.*`);
+      if (this.pivotTenantKey && tenantSql) {
+        q = q.where(`${this.pivotTable}.${this.pivotTenantKey}`, tenantId);
+      }
+      return new OrmCollection((await q.get()).all() as T[], { owned: true });
+    }
     const rows = await parent.getConnection().all<Record<string, unknown>>(
       `SELECT ${related.table}.* FROM ${related.table}
        INNER JOIN ${this.pivotTable}
@@ -1639,6 +1709,18 @@ export function resolveRelation(
       morphTypes: rel.getMorphTypes(),
       pivotTenantKey: rel.getPivotTenantKey(),
       parentTenantKey: rel.getParentTenantKey(),
+    };
+  } else if (rel instanceof MorphedByMany) {
+    // Same shape as morphToMany: pivot filtered by morph type, parent key + related key columns.
+    meta = {
+      kind: "morphToMany",
+      related: rel.getRelated(),
+      pivotTable: rel.getPivotTable(),
+      foreignPivotKey: rel.getForeignPivotKeyName(),
+      relatedPivotKey: rel.getRelatedPivotKeyName(),
+      localKey: model.primaryKey,
+      morphTypeColumn: rel.getMorphTypeColumn(),
+      morphTypes: [rel.getMorphType()],
     };
   } else if (rel instanceof HasManyThrough) {
     meta = {

@@ -385,7 +385,7 @@ class Tag extends Model {
 }
 ```
 
-Defaults follow Laravel: pivot table `taggables`, columns `taggable_id` / `taggable_type`, and `tag_id` for the parent. Pass `table`, `foreignPivotKey` and `relatedPivotKey` to override them. It supports `get`, `attach`, `detach`, `sync`, `syncWithoutDetaching`, `toggle` and eager loading with `with("posts")`. `whereHas` is not supported yet.
+Defaults follow Laravel: pivot table `taggables`, columns `taggable_id` / `taggable_type`, and `tag_id` for the parent. Pass `table`, `foreignPivotKey` and `relatedPivotKey` to override them. It supports `get`, `attach`, `detach`, `sync`, `syncWithoutDetaching`, `toggle` and eager loading with `with("posts")`. `whereHas`, `withCount` and the other aggregates work on it too.
 
 ### Custom polymorphic types
 
@@ -402,7 +402,21 @@ morphMap({
 });
 ```
 
-`morphTypeFor` uses the alias when present; otherwise the model class name. `resolveMorphType` throws if the type string is unknown — call `morphMap` during boot for every type you persist.
+`morphTypeFor` uses the alias when present; otherwise the model class name. Classes the ORM has already used are resolved by name when a stored type has no alias, so an unmapped `commentable_type = "Post"` still loads through `morphTo`. A type the ORM has never seen throws `No morph map entry for [Type]`, so register aliases during boot for every type you persist.
+
+Like Laravel, `morphMap()` with no arguments returns the current map, and `morphMap(map, false)` replaces it instead of merging. To stop class names from ever being stored, enforce the map:
+
+```ts
+import { enforceMorphMap, requireMorphMap } from "@bunyad/orm";
+
+enforceMorphMap({ post: Post, video: Video });
+// Using a model without an alias in a polymorphic relation now throws:
+// No morph map defined for [Comment].
+
+requireMorphMap(false); // turn enforcement off again
+```
+
+`getMorphedModel("post")` returns the class registered for an alias.
 
 ## Querying relations
 

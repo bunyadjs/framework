@@ -75,7 +75,11 @@ import {
   MorphedByMany,
   aggregateRelation,
   clearMorphMap,
+  getMorphedModel,
+  enforceMorphMap,
   morphMap,
+  registerMorphClass,
+  requireMorphMap,
   morphTypeFor,
   type MorphToManyOptions,
 } from "./relations.ts";
@@ -939,6 +943,7 @@ export class Model {
 
   /** Ensure this model class has been booted. */
   static bootIfNotBooted(): void {
+    registerMorphClass(this as unknown as ModelClass);
     bootIfNotBooted(this);
   }
 
@@ -2940,6 +2945,9 @@ export {
   MorphedByMany,
   clearMorphMap,
   morphMap,
+  enforceMorphMap,
+  requireMorphMap,
+  getMorphedModel,
   type MorphToManyOptions,
 } from "./relations.ts";
 export {
