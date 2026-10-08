@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/console",
-  "version": "0.2.0-beta.1",
+  "version": "0.2.0-beta.2",
   "description": "Console output and command helpers for Bunyad.",
   "license": "MIT",
   "author": "Shah Khalid",
