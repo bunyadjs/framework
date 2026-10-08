@@ -562,7 +562,7 @@ test("renderNotificationMailHtml builds card layout", async () => {
   const { renderNotificationMailHtml, setMailMarkdownDefaults } = await import(
     "../src/theme.ts"
   );
-  setMailMarkdownDefaults({ appName: "Karobar Point" });
+  setMailMarkdownDefaults({ appName: "Acme" });
   const html = renderNotificationMailHtml({
     greeting: "Hello!",
     introLines: ["Please click the button below to verify your email address."],
@@ -580,7 +580,7 @@ test("renderNotificationMailHtml builds card layout", async () => {
   expect(html).toContain("https://example.com/verify?token=abc");
   expect(html).toContain("class=\"subcopy\"");
   expect(html).toContain("copy and paste the URL below");
-  expect(html).toContain("Karobar Point");
+  expect(html).toContain("Acme");
   expect(html).toContain("All rights reserved");
   expect(html).toContain("https://example.com/logo.svg");
   expect(html).toContain("Regards");
@@ -600,13 +600,13 @@ Verify Email Address
 
 If you did not create an account, no further action is required.
 </x-mail::message>`,
-    { appName: "Karobar Point" },
+    { appName: "Acme" },
   );
   expect(html).toContain("<h1>Hello!</h1>");
   expect(html).toContain("class=\"button button-primary\"");
   expect(html).toContain("https://example.com/verify");
   expect(html).toContain("class=\"subcopy\"");
-  expect(html).toContain("Karobar Point");
+  expect(html).toContain("Acme");
 });
 
 test("mailable markdown content uses themed layout", async () => {

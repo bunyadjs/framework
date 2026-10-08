@@ -10,7 +10,7 @@ export type MigrationModule = {
 
 /**
  * Tracking-table mapping. Defaults: table `migrations`, columns `migration` + `batch`.
- * Karobar uses `{ table: "_schema_migrations", migrationColumn: "name", batchColumn: false }`.
+ * An app can use `{ table: "_schema_migrations", migrationColumn: "name", batchColumn: false }`.
  */
 export type MigratorOptions = {
   table?: string;
