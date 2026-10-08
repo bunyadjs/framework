@@ -27,6 +27,8 @@ import {
   enumToStorage,
   isAttribute,
   isCastType,
+  parseCast,
+  formatPhpDate,
   isEnumCast,
   type CastDefinition,
   type CastType,
@@ -233,10 +235,24 @@ function cachedSyncInsertColumns(ctor: ModelClass): string[] | null {
   return cols;
 }
 
+/** `Model::unguard()` — global switch, like Laravel's. */
+let massAssignmentUnguarded = false;
+
+/** Whether `key` may be mass assigned (mirrors {@link filterFillable}'s rules). */
+export function canMassAssign(model: ModelClass, key: string): boolean {
+  if (massAssignmentUnguarded) return true;
+  const fillables = model.fillable ?? [];
+  if (fillables.length > 0) return fillables.includes(key);
+  const guardeds = model.guarded ?? ["*"];
+  if (!guardeds.includes("*")) return !guardeds.includes(key);
+  return true; // empty fillable + guarded ["*"] → allow all (see filterFillable)
+}
+
 export function filterFillable(
   model: ModelClass,
   attributes: Record<string, unknown>,
 ): Record<string, unknown> {
+  if (massAssignmentUnguarded) return { ...attributes };
   const fillables = model.fillable ?? [];
   const guardeds = model.guarded ?? ["*"];
   const strictDiscard = modelsShouldPreventSilentlyDiscardingAttributes();
@@ -897,6 +913,41 @@ export class Model {
     setPreventLazyLoading(prevent);
   }
 
+  /** `Model::unguard()` — disable mass-assignment protection (seeders, imports). */
+  static unguard(state = true): void {
+    massAssignmentUnguarded = state;
+  }
+
+  /** `Model::reguard()`. */
+  static reguard(): void {
+    massAssignmentUnguarded = false;
+  }
+
+  /** `Model::isUnguarded()`. */
+  static isUnguarded(): boolean {
+    return massAssignmentUnguarded;
+  }
+
+  /** `Model::unguarded(callback)` — run with protection off, then restore it. */
+  static unguarded<R>(callback: () => R): R {
+    if (massAssignmentUnguarded) return callback();
+    massAssignmentUnguarded = true;
+    let result: R;
+    try {
+      result = callback();
+    } catch (error) {
+      massAssignmentUnguarded = false;
+      throw error;
+    }
+    if (result instanceof Promise) {
+      return result.finally(() => {
+        massAssignmentUnguarded = false;
+      }) as R;
+    }
+    massAssignmentUnguarded = false;
+    return result;
+  }
+
   /** `Model::preventSilentlyDiscardingAttributes`. */
   static preventSilentlyDiscardingAttributes(prevent = true): void {
     setPreventSilentlyDiscardingAttributes(prevent);
@@ -1025,6 +1076,15 @@ export class Model {
     const field = (this as ModelClass).casts;
     const value =
       typeof field === "function" ? (field.call(this) ?? {}) : (field ?? {});
+    for (const [key, definition] of Object.entries(value)) {
+      if (typeof definition === "string" && !isCastType(definition)) {
+        throw new Error(
+          `Unknown cast type "${definition}" for ${(this as { name?: string }).name ?? "Model"}.${key}. ` +
+            `Supported: boolean, integer, float, decimal[:N], string, bigint, json, array, object, collection, ` +
+            `date[:FORMAT], datetime[:FORMAT], immutable_date, immutable_datetime, encrypted[:json|:array|:collection], hashed.`,
+        );
+      }
+    }
     castsResultCache.set(this as unknown as ModelClass, value);
     return value;
   }
@@ -2741,6 +2801,26 @@ export class Model {
     return this;
   }
 
+  /** `$model->forceFill($attributes)` — assign without checking `fillable` / `guarded`. */
+  forceFill(attributes: Record<string, unknown>): this {
+    const ctor = this.constructor as ModelClass;
+    assignOwn(
+      this as unknown as Record<string, unknown>,
+      ctor.castAttributes({ ...attributes }, "get"),
+    );
+    return this;
+  }
+
+  /** `$model->isFillable($key)`. */
+  isFillable(key: string): boolean {
+    return canMassAssign(this.constructor as ModelClass, key);
+  }
+
+  /** `$model->isGuarded($key)`. */
+  isGuarded(key: string): boolean {
+    return !this.isFillable(key);
+  }
+
   /** `$model->update($attributes)`. */
   async update(attributes: Record<string, unknown>): Promise<this> {
     this.fill(attributes);
@@ -2827,9 +2907,27 @@ export class Model {
 
     if (!exists) {
       const noCasts = classHasNoCasts(ctor as unknown as ModelClass);
-      const cachedCols = noCasts
+      let cachedCols = noCasts
         ? cachedSyncInsertColumns(ctor as unknown as ModelClass)
         : null;
+      // The cached column list is only valid when the row sets exactly those columns:
+      // an unset fillable column must stay absent (so the DB default applies) and an
+      // attribute outside `fillable` (forceFill, direct assignment) must still be saved.
+      if (cachedCols) {
+        let present = 0;
+        for (let i = 0; i < cachedCols.length; i++) {
+          if (row[cachedCols[i]!] === undefined) {
+            cachedCols = null;
+            break;
+          }
+          present++;
+        }
+        if (cachedCols) {
+          let own = 0;
+          for (const _ in row) own++;
+          if (own !== present) cachedCols = null;
+        }
+      }
       let writeColumns: string[];
       let writeValues: unknown[];
       if (cachedCols) {
@@ -3328,7 +3426,8 @@ export class Model {
       if (typeof value === "function") continue;
       if (hidden.has(key)) continue;
       if (visible && !visible.has(key)) continue;
-      out[key] = value instanceof Date ? value.toISOString() : value;
+      out[key] =
+        value instanceof Date ? serializeDate(ctor, key, value) : value;
     }
     for (const key of appends) {
       if (hidden.has(key)) continue;
@@ -3688,6 +3787,18 @@ export class Model {
       ownerKey,
     );
   }
+}
+
+/** ISO by default; `date:Y-m-d` / `datetime:FORMAT` casts format the serialized value. */
+function serializeDate(ctor: ModelClass, key: string, value: Date): string {
+  const definition = ctor.getCasts()[key];
+  if (typeof definition === "string") {
+    const arg = parseCast(definition)?.arg;
+    if (arg !== undefined && definition !== "decimal" && !definition.startsWith("decimal:")) {
+      return formatPhpDate(value, arg);
+    }
+  }
+  return value.toISOString();
 }
 
 installLocalScopeCallStatic(Model);

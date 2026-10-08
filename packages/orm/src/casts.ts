@@ -72,7 +72,15 @@ export type CastType =
   | "encrypted:array"
   | "encrypted:json"
   | "encrypted:collection"
-  | "hashed";
+  | "hashed"
+  | "object"
+  | "immutable_date"
+  | "immutable_datetime"
+  | `decimal:${number}`
+  | `date:${string}`
+  | `datetime:${string}`
+  | `immutable_date:${string}`
+  | `immutable_datetime:${string}`;
 
 /**
  * A TypeScript string/number enum object (or similar value map).
@@ -149,8 +157,84 @@ function toBoolean(value: unknown): boolean {
   return Boolean(value);
 }
 
+/** Base cast + optional argument for the parameterized forms (`decimal:2`, `date:Y-m-d`). */
+export type ParsedCast = { type: BaseCastType; arg?: string };
+type BaseCastType =
+  | "boolean" | "bool" | "number" | "integer" | "int" | "float" | "double" | "real"
+  | "decimal" | "bigint" | "string" | "json" | "date" | "datetime" | "array"
+  | "collection" | "encrypted" | "encrypted:array" | "encrypted:json"
+  | "encrypted:collection" | "hashed";
+
+const parsedCastCache = new Map<string, ParsedCast | null>();
+
+export function parseCast(definition: string): ParsedCast | null {
+  const hit = parsedCastCache.get(definition);
+  if (hit !== undefined) return hit;
+  let parsed: ParsedCast | null = null;
+  if (CAST_TYPE_SET.has(definition)) {
+    parsed = { type: definition as BaseCastType };
+  } else if (definition === "object") {
+    parsed = { type: "json" };
+  } else if (definition === "immutable_date") {
+    parsed = { type: "date" };
+  } else if (definition === "immutable_datetime") {
+    parsed = { type: "datetime" };
+  } else {
+    const colon = definition.indexOf(":");
+    if (colon > 0) {
+      const head = definition.slice(0, colon);
+      const arg = definition.slice(colon + 1);
+      if (head === "decimal" && /^\d+$/.test(arg)) parsed = { type: "decimal", arg };
+      else if ((head === "date" || head === "immutable_date") && arg) parsed = { type: "date", arg };
+      else if ((head === "datetime" || head === "immutable_datetime") && arg) parsed = { type: "datetime", arg };
+    }
+  }
+  parsedCastCache.set(definition, parsed);
+  return parsed;
+}
+
 export function isCastType(value: unknown): value is CastType {
-  return typeof value === "string" && CAST_TYPE_SET.has(value);
+  return typeof value === "string" && parseCast(value) !== null;
+}
+
+/**
+ * Format a Date with a PHP-style `date()` format (`Y-m-d H:i:s`). Used by
+ * `date:FORMAT` / `datetime:FORMAT` casts when a model is serialized. UTC.
+ */
+export function formatPhpDate(date: Date, format: string): string {
+  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const h24 = date.getUTCHours();
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  let out = "";
+  for (let i = 0; i < format.length; i++) {
+    const ch = format[i]!;
+    switch (ch) {
+      case "\\": i++; out += format[i] ?? ""; break;
+      case "d": out += pad(date.getUTCDate()); break;
+      case "j": out += date.getUTCDate(); break;
+      case "m": out += pad(date.getUTCMonth() + 1); break;
+      case "n": out += date.getUTCMonth() + 1; break;
+      case "Y": out += pad(date.getUTCFullYear(), 4); break;
+      case "y": out += pad(date.getUTCFullYear() % 100); break;
+      case "H": out += pad(h24); break;
+      case "G": out += h24; break;
+      case "h": out += pad(h12); break;
+      case "g": out += h12; break;
+      case "i": out += pad(date.getUTCMinutes()); break;
+      case "s": out += pad(date.getUTCSeconds()); break;
+      case "A": out += h24 < 12 ? "AM" : "PM"; break;
+      case "a": out += h24 < 12 ? "am" : "pm"; break;
+      case "U": out += Math.floor(date.getTime() / 1000); break;
+      case "M": out += months[date.getUTCMonth()]!.slice(0, 3); break;
+      case "F": out += months[date.getUTCMonth()]; break;
+      case "D": out += days[date.getUTCDay()]!.slice(0, 3); break;
+      case "l": out += days[date.getUTCDay()]; break;
+      default: out += ch;
+    }
+  }
+  return out;
 }
 
 export function isAttribute(value: unknown): value is Attribute {
@@ -211,9 +295,15 @@ function decryptPayload(value: unknown): string {
 
 export function castFromStorage(
   value: unknown,
-  type: CastType,
+  definition: CastType,
 ): unknown {
+  const parsed = parseCast(definition)!;
+  const type = parsed.type;
   if (value == null) return value;
+  // `decimal:2` keeps money-like values exact as a fixed-digit string (Laravel parity).
+  if (type === "decimal" && parsed.arg !== undefined) {
+    return toNumber(value).toFixed(Number(parsed.arg));
+  }
   switch (type) {
     case "boolean":
     case "bool":
@@ -264,10 +354,15 @@ export function castFromStorage(
 
 export function castToStorage(
   value: unknown,
-  type: CastType,
+  definition: CastType,
   driver?: string,
 ): unknown {
   if (value == null) return value;
+  const parsed = parseCast(definition)!;
+  const type = parsed.type;
+  if (type === "decimal" && parsed.arg !== undefined) {
+    return toNumber(value).toFixed(Number(parsed.arg));
+  }
   const driverName = (driver ?? "sqlite") as DriverName;
   switch (type) {
     case "boolean":

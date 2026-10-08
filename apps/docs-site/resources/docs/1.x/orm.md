@@ -484,6 +484,25 @@ await Flight.upsert(
 
 Unique columns are the second argument. The third lists columns to update on conflict. Timestamps are maintained when enabled.
 
+Bypass the guard when you really need to:
+
+```ts
+flight.forceFill({ name: "Cairo Express", status: "internal" }); // ignores fillable / guarded
+await Flight.forceCreate({ name: "Seed", status: "internal" });
+
+flight.isFillable("name");  // true
+flight.isGuarded("status"); // true
+
+// For seeders and imports: turn protection off globally, or only inside a callback.
+Flight.unguard();
+Flight.reguard();
+await Flight.unguarded(async () => {
+  await Flight.create({ name: "Imported", status: "internal" });
+});
+```
+
+Attributes you assign directly (`flight.status = "x"; await flight.save()`) are always saved. A fillable column you leave unset is left out of the `INSERT`, so the database default applies.
+
 ## Deleting models
 
 ```ts
