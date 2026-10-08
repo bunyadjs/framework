@@ -171,8 +171,14 @@ function pivotSelectKeys(
 const knownClasses = new Map<string, ModelClass>();
 let morphMapRequired = false;
 
+/** Class names used by two different model classes — never resolved by name alone. */
+const ambiguousClassNames = new Set<string>();
+
 export function registerMorphClass(model: ModelClass): void {
-  if (model.name && !knownClasses.has(model.name)) knownClasses.set(model.name, model);
+  if (!model.name) return;
+  const existing = knownClasses.get(model.name);
+  if (!existing) knownClasses.set(model.name, model);
+  else if (existing !== model) ambiguousClassNames.add(model.name);
 }
 
 /**
@@ -232,14 +238,20 @@ export function morphTypeFor(model: ModelClass): string {
 
 /** `Relation::getMorphedModel` — class for an alias, or undefined. */
 export function getMorphedModel(type: string): ModelClass | undefined {
-  return morphAliases.get(type) ?? (morphMapRequired ? undefined : knownClasses.get(type));
+  const mapped = morphAliases.get(type);
+  if (mapped) return mapped;
+  if (morphMapRequired || ambiguousClassNames.has(type)) return undefined;
+  return knownClasses.get(type);
 }
 
 export function resolveMorphType(type: string): ModelClass {
   const mapped = getMorphedModel(type);
   if (mapped) return mapped;
+  const hint = ambiguousClassNames.has(type)
+    ? ` Two model classes are named [${type}], so it cannot be resolved by name.`
+    : "";
   throw new Error(
-    `No morph map entry for [${type}]. Call morphMap({ ${type}: Model }) first.`,
+    `No morph map entry for [${type}].${hint} Call morphMap({ ${type}: Model }) first.`,
   );
 }
 

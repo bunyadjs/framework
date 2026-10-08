@@ -402,7 +402,7 @@ morphMap({
 });
 ```
 
-`morphTypeFor` uses the alias when present; otherwise the model class name. Classes the ORM has already used are resolved by name when a stored type has no alias, so an unmapped `commentable_type = "Post"` still loads through `morphTo`. A type the ORM has never seen throws `No morph map entry for [Type]`, so register aliases during boot for every type you persist.
+`morphTypeFor` uses the alias when present; otherwise the model class name. Classes the ORM has already used are resolved by name when a stored type has no alias, so an unmapped `commentable_type = "Post"` still loads through `morphTo`. If two different model classes share a name, the name is never resolved on its own (it would be a guess), so map that type explicitly. A type the ORM has never seen throws `No morph map entry for [Type]`, so register aliases during boot for every type you persist.
 
 Like Laravel, `morphMap()` with no arguments returns the current map, and `morphMap(map, false)` replaces it instead of merging. To stop class names from ever being stored, enforce the map:
 
@@ -417,6 +417,19 @@ requireMorphMap(false); // turn enforcement off again
 ```
 
 `getMorphedModel("post")` returns the class registered for an alias.
+
+### Editor hints for relation names
+
+`with`, `whereHas`, `has`, `withWhereHas` and friends suggest your model's relation methods as you type, and `where`, `orderBy`, `whereIn`, `whereNull` suggest its declared fields. Any other string still compiles, so `"posts.comments"`, `"posts as p"`, `"orders.total"` and names built at runtime keep working:
+
+```ts
+await User.with("posts")           // suggests: posts, profile, …
+  .where("email", "ada@example.com") // suggests: id, name, email, …
+  .orderBy("created_at", "desc")
+  .get();
+```
+
+The helper types `RelationNames<User>` and `ColumnNames<User>` are exported if you want to type your own helpers.
 
 ## Querying relations
 

@@ -79,3 +79,9 @@ export { Pivot } from "./pivot.ts";
 export { LengthAwarePaginator } from "@bunyad/database";
 export { Collection, collect } from "@bunyad/common";
 export type { AggregateRelations } from "./model-query.ts";
+export type {
+  ColumnHint,
+  ColumnNames,
+  RelationHint,
+  RelationNames,
+} from "./typed-names.ts";

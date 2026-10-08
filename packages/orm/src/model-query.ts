@@ -51,6 +51,7 @@ import {
   type RelationMeta,
 } from "./relations.ts";
 import { eagerLoadAggregates, eagerLoadModels } from "./eager.ts";
+import type { ColumnHint, RelationHint } from "./typed-names.ts";
 import { type CastDefinition } from "./casts.ts";
 import {
   Model,
@@ -398,18 +399,18 @@ export class ModelQuery<
   }
 
   /** `has`. */
-  has(relation: string): this {
+  has(relation: RelationHint<T>): this {
     return this.whereHas(relation);
   }
 
   /** `doesntHave`. */
-  doesntHave(relation: string): this {
+  doesntHave(relation: RelationHint<T>): this {
     return this.whereDoesntHave(relation);
   }
 
   /** `whereHas`. */
   whereHas(
-    relation: string,
+    relation: RelationHint<T>,
     callback?: (query: ModelQuery) => void,
   ): this {
     this.#simple = false;
@@ -426,7 +427,7 @@ export class ModelQuery<
 
   /** `orWhereHas`. */
   orWhereHas(
-    relation: string,
+    relation: RelationHint<T>,
     callback?: (query: ModelQuery) => void,
   ): this {
     this.#simple = false;
@@ -435,7 +436,7 @@ export class ModelQuery<
 
   /** `whereDoesntHave`. */
   whereDoesntHave(
-    relation: string,
+    relation: RelationHint<T>,
     callback?: (query: ModelQuery) => void,
   ): this {
     this.#simple = false;
@@ -748,7 +749,7 @@ export class ModelQuery<
    * `withWhereHas($relation, $callback?)` — whereHas + eager with same constraint.
    */
   withWhereHas(
-    relation: string,
+    relation: RelationHint<T>,
     callback?: (query: ModelQuery) => void,
   ): this {
     this.whereHas(relation, callback);
@@ -1007,8 +1008,8 @@ export class ModelQuery<
   }
 
   where(callback: (query: ModelQuery<T>) => void): this;
-  where(column: string, value: unknown): this;
-  where(column: string, op: string, value: unknown): this;
+  where(column: ColumnHint<T>, value: unknown): this;
+  where(column: ColumnHint<T>, op: string, value: unknown): this;
   where(
     columnOrCallback: string | ((query: ModelQuery<T>) => void),
     opOrValue?: unknown,
@@ -1108,7 +1109,7 @@ export class ModelQuery<
     return this;
   }
 
-  whereIn(column: string, values: unknown[]): this {
+  whereIn(column: ColumnHint<T>, values: unknown[]): this {
     this.#simple = false;
     (this.#whereIns = mqMut(this.#whereIns)).push({ column, values, not: false, boolean: "and" });
     return this;
@@ -1132,7 +1133,7 @@ export class ModelQuery<
     return this;
   }
 
-  whereNull(column: string): this {
+  whereNull(column: ColumnHint<T>): this {
     (this.#wheres = mqMut(this.#wheres)).push({
       column,
       op: "__null__",
@@ -1152,7 +1153,7 @@ export class ModelQuery<
     return this;
   }
 
-  whereNotNull(column: string): this {
+  whereNotNull(column: ColumnHint<T>): this {
     (this.#wheres = mqMut(this.#wheres)).push({
       column,
       op: "__notnull__",
@@ -1394,12 +1395,12 @@ export class ModelQuery<
     return this;
   }
 
-  orderBy(column: string, direction: "asc" | "desc" = "asc"): this {
+  orderBy(column: ColumnHint<T>, direction: "asc" | "desc" = "asc"): this {
     (this.#orders = mqMut(this.#orders)).push({ column, direction });
     return this;
   }
 
-  orderByDesc(column: string): this {
+  orderByDesc(column: ColumnHint<T>): this {
     return this.orderBy(column, "desc");
   }
 
@@ -1600,7 +1601,9 @@ export class ModelQuery<
     return copy as ModelQuery<T, TResult>;
   }
 
-  with(...relations: Array<string | string[] | Record<string, unknown>>): this {
+  with(
+    ...relations: Array<RelationHint<T> | RelationHint<T>[] | Record<string, unknown>>
+  ): this {
     (this.#eagerLoad = mqMut(this.#eagerLoad)).push(
       ...normalizeWithRelations(relations),
     );

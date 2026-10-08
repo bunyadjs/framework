@@ -84,6 +84,7 @@ import {
   type MorphToManyOptions,
 } from "./relations.ts";
 import type { AggregateRelations } from "./model-query.ts";
+import type { ColumnHint, RelationHint } from "./typed-names.ts";
 import {
   eagerLoadAggregates,
   eagerLoadModels,
@@ -1328,12 +1329,12 @@ export class Model {
   ): ModelQuery<InstanceType<T>>;
   static where<T extends typeof Model>(
     this: T,
-    column: string,
+    column: ColumnHint<InstanceType<T>>,
     value: unknown,
   ): ModelQuery<InstanceType<T>>;
   static where<T extends typeof Model>(
     this: T,
-    column: string,
+    column: ColumnHint<InstanceType<T>>,
     op: string,
     value: unknown,
   ): ModelQuery<InstanceType<T>>;
@@ -1412,7 +1413,7 @@ export class Model {
 
   static orderBy<T extends typeof Model>(
     this: T,
-    column: string,
+    column: ColumnHint<InstanceType<T>>,
     direction: "asc" | "desc" = "asc",
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
@@ -1562,7 +1563,11 @@ export class Model {
   /** Eager-load relations (`with('posts')`, `with({ posts: (q) => q.where(…) })`). */
   static with<T extends typeof Model>(
     this: T,
-    ...relations: Array<string | string[] | Record<string, unknown>>
+    ...relations: Array<
+      | RelationHint<InstanceType<T>>
+      | RelationHint<InstanceType<T>>[]
+      | Record<string, unknown>
+    >
   ): ModelQuery<InstanceType<T>> {
     return this.newQuery({
       eagerLoad: normalizeWithRelations(relations),
@@ -1572,7 +1577,7 @@ export class Model {
   /** `Model::whereHas`. */
   static whereHas<T extends typeof Model>(
     this: T,
-    relation: string,
+    relation: RelationHint<InstanceType<T>>,
     callback?: (query: ModelQuery) => void,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
