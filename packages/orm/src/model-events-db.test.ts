@@ -133,6 +133,57 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
       expect(seen).toEqual(["created"]);
     });
 
+    test("several observers and closures run in registration order, per event", async () => {
+      resetModelEventsForTests(Doc);
+      const seen: string[] = [];
+      Doc.observe(new (class A { creating() { seen.push("A.creating"); } created() { seen.push("A.created"); } })());
+      Doc.creating(() => { seen.push("closure.creating"); });
+      Doc.observe(new (class B { creating() { seen.push("B.creating"); } created() { seen.push("B.created"); } })());
+      Doc.created(() => { seen.push("closure.created"); });
+      await Doc.create({ title: "ordered" });
+      expect(seen).toEqual(["A.creating", "closure.creating", "B.creating", "A.created", "B.created", "closure.created"]);
+    });
+
+    test("an earlier observer returning false stops later ones and the write", async () => {
+      resetModelEventsForTests(Doc);
+      const seen: string[] = [];
+      Doc.observe({ creating: () => { seen.push("first"); return false; } });
+      Doc.observe({ creating: () => { seen.push("second"); } });
+      const d = new Doc({ title: "halted" });
+      await d.save();
+      expect(seen).toEqual(["first"]);
+      expect(d.exists).toBe(false);
+    });
+
+    test("an after-event returning false does not undo the write or skip later listeners", async () => {
+      resetModelEventsForTests(Doc);
+      const seen: string[] = [];
+      Doc.observe({ created: () => { seen.push("one"); return false; } });
+      Doc.observe({ created: () => { seen.push("two"); } });
+      const d = await Doc.create({ title: "kept" });
+      expect(seen).toEqual(["one", "two"]);
+      expect(await Doc.find(d.id)).not.toBeNull();
+    });
+
+    test("an exception in a listener aborts the save and propagates", async () => {
+      resetModelEventsForTests(Doc);
+      Doc.creating(() => { throw new Error("listener blew up"); });
+      await expect(Doc.create({ title: "boom" })).rejects.toThrow("listener blew up");
+      expect(await Doc.where("title", "boom").count()).toBe(0);
+    });
+
+    test("an exception in a listener inside a transaction rolls the transaction back", async () => {
+      resetModelEventsForTests(Doc);
+      Doc.created((m) => { if ((m as Doc).title === "second") throw new Error("after-create failed"); });
+      await expect(
+        driver.connection.transaction(async () => {
+          await Doc.create({ title: "first" });
+          await Doc.create({ title: "second" });
+        }),
+      ).rejects.toThrow("after-create failed");
+      expect(await Doc.whereIn("title", ["first", "second"]).count()).toBe(0);
+    });
+
     test("saveQuietly / deleteQuietly fire nothing", async () => {
       const d = new Doc({ title: "q" });
       await d.saveQuietly();

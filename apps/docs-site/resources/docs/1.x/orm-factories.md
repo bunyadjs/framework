@@ -247,6 +247,13 @@ await User.factory().hasAttached(RoleFactory.new().count(2), { active: true }).c
 await User.factory().hasAttached(RoleFactory.new().count(2), (role) => ({ label: role.name })).create();
 ```
 
+Use `recycle` to reuse existing models instead of creating a new parent for every relationship. It applies to this factory and to the factories nested in `for`, `has` and `hasAttached`; when several recycled models match, one is picked at random:
+
+```ts
+const users = await UserFactory.new().count(3).create();
+await PostFactory.new().recycle(users).for(UserFactory.new()).count(10).create(); // no new users
+```
+
 `for(parent)` fills the child's `belongsTo` foreign key. It looks for a relation named after the parent class (`user()` for a `User`) and falls back to `user_id`. Pass the relationship name as the second argument when it differs: `for(user, "author")`.
 
 ## Using factories in seeders and tests
@@ -290,6 +297,7 @@ Factories respect model casts and mutators on `create`. See [Mutators and Castin
 | `afterMaking` / `afterCreating` / `configure` | instance | Lifecycle callbacks |
 | `createOne` / `createMany` / `makeOne` | instance | Convenience creators |
 | `createQuietly` / `createManyQuietly` | instance | Create without model events |
+| `recycle` | instance | Reuse existing models for nested parents |
 | `for` / `has` / `hasAttached` | instance | belongsTo, hasMany/morphMany and belongsToMany relationships |
 | `@HasFactory(...)` | `@bunyad/orm` | Bind `Model.factory()` |
 | `bunyad make:factory` | CLI | Stub under `database/factories` |

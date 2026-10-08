@@ -134,6 +134,26 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
       expect(rows.map((r) => r.level)).toEqual(rows.map((r) => `lvl-${r.skill_id}`));
     });
 
+    test("recycle reuses given parents instead of creating new ones", async () => {
+      const teams = (await TeamFactory.new().count(2).create()) as Team[];
+      const teamCount = await count("fx_teams");
+      const members = await MemberFactory.new().recycle(teams).for(TeamFactory.new()).count(6).create();
+      expect(await count("fx_teams")).toBe(teamCount); // no new team was created
+      expect(members.every((m) => teams.some((t) => t.id === m.team_id))).toBe(true);
+    });
+
+    test("recycle reaches nested has() factories", async () => {
+      const team = await TeamFactory.new().create();
+      await TeamFactory.new()
+        .recycle(team)
+        .has(MemberFactory.new().for(TeamFactory.new()).count(3))
+        .create();
+      // the three members were attached to a recycled team, not to fresh ones
+      const rows = await driver.connection.all<{ team_id: number }>("SELECT team_id FROM fx_members");
+      expect(rows).toHaveLength(3);
+      expect(await count("fx_teams")).toBe(2); // the recycled team + the outer team
+    });
+
     test("createMany: count and attribute lists", async () => {
       expect(await MemberFactory.new().createMany(4)).toHaveLength(4);
       const named = await MemberFactory.new().createMany([{ name: "a" }, { name: "b" }]);

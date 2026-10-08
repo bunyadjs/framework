@@ -632,6 +632,8 @@ Models fire lifecycle hooks so you can run code around retrieve, create, update,
 
 Order follows Laravel. Create: `saving`, `creating`, `created`, `saved`. Update: `saving`, `updating`, `updated`, `saved`. Soft delete: `deleting`, `trashed`, `deleted`. Force delete: `forceDeleting`, `deleting`, `deleted`, `forceDeleted`. Restore: `restoring`, `restored`. `created_at` / `updated_at` are set after `creating` / `updating`, and `updated` fires only when something was written, so saving an unchanged model fires `saving` and `updating` but not `updated`.
 
+Listeners and observers for one event run in registration order. Returning `false` from a before-event stops the remaining listeners and cancels the write; returning `false` from an after-event is ignored. An exception thrown by a listener aborts the operation and propagates to the caller, rolling back the surrounding transaction if there is one.
+
 Events ending in `-ing` run before the change is persisted. Events ending in `-ed` run after. Return `false` from a before-event (`creating`, `saving`, `updating`, `deleting`, …) to cancel the operation.
 
 Mass `update()`, `delete()`, `insert()`, and `upsert()` on the query builder do **not** fire these events — the models are never loaded. Prefer instance `save()` / `delete()` when listeners must run.

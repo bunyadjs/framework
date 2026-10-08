@@ -145,6 +145,8 @@ export abstract class Factory<T extends Model = Model> {
   #for: ForRelationSpec[] = [];
   #hasAttached: HasAttachedSpec[] = [];
   #configured = false;
+  /** Models reused instead of creating new parents (`recycle`). */
+  #recycled: Model[] = [];
   /** Parents created from `for(Factory)` — one per batch, shared by every model in it. */
   #forParents = new Map<ForRelationSpec, Model>();
 
@@ -226,6 +228,27 @@ export abstract class Factory<T extends Model = Model> {
     return this;
   }
 
+  /**
+   * `recycle` — reuse existing models when this factory (or its nested `for` /
+   * `has` factories) would otherwise create a parent of the same class.
+   */
+  recycle(models: Model | Model[] | { all(): Model[] }): this {
+    const list = Array.isArray(models)
+      ? models
+      : "all" in models && typeof models.all === "function"
+        ? models.all()
+        : [models as Model];
+    this.#recycled.push(...list);
+    return this;
+  }
+
+  /** A recycled model of `Ctor`, chosen at random (Laravel picks randomly too). */
+  #recycledFor(Ctor: ModelClass): Model | undefined {
+    const matches = this.#recycled.filter((m) => m.constructor === Ctor);
+    if (matches.length === 0) return undefined;
+    return matches[Math.floor(Math.random() * matches.length)];
+  }
+
   /** `Factory::new()`. */
   static new<T extends Factory>(this: new () => T): T {
     return new this();
@@ -253,9 +276,13 @@ export abstract class Factory<T extends Model = Model> {
       if (spec.parent instanceof Factory) {
         let created = this.#forParents.get(spec);
         if (!created) {
-          created = (await spec.parent.create()) as Model;
-          this.#forParents.set(spec, created);
+          created = this.#recycledFor(spec.parent.modelClass());
         }
+        if (!created) {
+          if (this.#recycled.length > 0) spec.parent.recycle(this.#recycled);
+          created = (await spec.parent.create()) as Model;
+        }
+        this.#forParents.set(spec, created);
         parentModel = created;
       } else {
         parentModel = spec.parent;
@@ -303,6 +330,7 @@ export abstract class Factory<T extends Model = Model> {
       );
 
     for (const spec of this.#has) {
+      if (this.#recycled.length > 0) spec.factory.recycle(this.#recycled);
       const RelatedCtor = spec.factory.modelClass();
       const relName =
         spec.relationship ?? guessRelationName(ParentCtor, RelatedCtor);
@@ -335,6 +363,7 @@ export abstract class Factory<T extends Model = Model> {
     for (const spec of this.#hasAttached) {
       let models: Model[];
       if (spec.related instanceof Factory) {
+        if (this.#recycled.length > 0) spec.related.recycle(this.#recycled);
         const created = await spec.related.create();
         models = Array.isArray(created) ? created : [created];
       } else if (Array.isArray(spec.related)) {
