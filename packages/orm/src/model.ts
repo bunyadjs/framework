@@ -739,6 +739,16 @@ export class Model {
     return original[key];
   }
 
+  /** `$model->only($keys)` — a subset of the attributes (array or varargs; missing keys are skipped). */
+  only(...keys: Array<string | string[]>): Record<string, unknown> {
+    const attributes = this.getAttributes();
+    const out: Record<string, unknown> = {};
+    for (const key of keys.flat()) {
+      if (Object.prototype.hasOwnProperty.call(attributes, key)) out[key] = attributes[key];
+    }
+    return out;
+  }
+
   /** Current attribute bag (non-function own properties). */
   getAttributes(): Record<string, unknown> {
     const out: Record<string, unknown> = {};
