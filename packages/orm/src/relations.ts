@@ -11,6 +11,7 @@ import { Model, type ModelClass } from "./model.ts";
 import type { ModelQuery } from "./model-query.ts";
 import { hasGlobalScopes } from "./scopes.ts";
 import { isIgnoringTouch } from "./model-strictness.ts";
+import { fireModelEvent, hasAnyModelEventListeners } from "./model-events.ts";
 
 /** Register morph type aliases (`Relation::morphMap`). */
 const morphAliases = new Map<string, ModelClass>();
@@ -1401,6 +1402,21 @@ export class BelongsToMany<T extends Model = Model> {
     return this.#pivotClass ? this.#pivotClass.castAttributes(attrs, "set") : attrs;
   }
 
+  /** True when the custom pivot model has listeners, so pivot writes must fire its events. */
+  #pivotEvents(): boolean {
+    return this.#pivotClass !== undefined && hasAnyModelEventListeners(this.#pivotClass);
+  }
+
+  #pivotInstance(attrs: Record<string, unknown>, exists: boolean): Model {
+    const instance = new this.#pivotClass!();
+    instance.forceFill(attrs);
+    if (exists) {
+      instance.syncOriginal();
+      instance.exists = true;
+    }
+    return instance;
+  }
+
   getPivotWheres(): PivotWhere[] {
     return [...this.#pivotWheres];
   }
@@ -1525,11 +1541,59 @@ export class BelongsToMany<T extends Model = Model> {
         ),
       ),
     );
-    await insertPivotRows(this.#conn(), this.pivotTable, rows);
+    if (!this.#pivotEvents()) {
+      await insertPivotRows(this.#conn(), this.pivotTable, rows);
+      return;
+    }
+    // Custom pivot model with listeners: `saving` / `creating` may change or cancel each row.
+    const pending: Array<[Model, Record<string, unknown>]> = [];
+    for (const row of rows) {
+      const pivot = this.#pivotInstance(row, false);
+      if ((await fireModelEvent(pivot, "saving")) === false) continue;
+      if ((await fireModelEvent(pivot, "creating")) === false) continue;
+      pending.push([pivot, pivot.getAttributes()]);
+    }
+    if (pending.length === 0) return;
+    await insertPivotRows(this.#conn(), this.pivotTable, pending.map(([, attrs]) => attrs));
+    for (const [pivot] of pending) {
+      pivot.exists = true;
+      await fireModelEvent(pivot, "created");
+      await fireModelEvent(pivot, "saved");
+    }
   }
 
   /** `detach` — returns the number of deleted pivot rows. */
   async detach(ids?: PivotIds): Promise<number> {
+    if (this.#pivotEvents()) return this.#detachWithEvents(ids);
+    return this.#detachRows(ids);
+  }
+
+  /** Load the matching pivot rows, fire `deleting`, delete the survivors, fire `deleted`. */
+  async #detachWithEvents(ids?: PivotIds): Promise<number> {
+    const d = this.#conn().dialect;
+    const pw = pivotWhereSql(d, this.#pivotWheres);
+    const wanted = ids === undefined ? null : new Set(this.#normalize(ids).map(([id]) => String(id)));
+    const rows = await this.#conn().all<Record<string, unknown>>(
+      `SELECT * FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ?${pw.sql}`,
+      [this.#parentId(), ...pw.params],
+    );
+    const doomed: Model[] = [];
+    for (const row of rows) {
+      if (wanted && !wanted.has(String(row[this.relatedPivotKey]))) continue;
+      const pivot = this.#pivotInstance(row, true);
+      if ((await fireModelEvent(pivot, "deleting")) === false) continue;
+      doomed.push(pivot);
+    }
+    if (doomed.length === 0) return 0;
+    const deleted = await this.#detachRows(doomed.map((p) => (p as unknown as Record<string, string>)[this.relatedPivotKey]!));
+    for (const pivot of doomed) {
+      pivot.exists = false;
+      await fireModelEvent(pivot, "deleted");
+    }
+    return deleted;
+  }
+
+  async #detachRows(ids?: PivotIds): Promise<number> {
     const d = this.#conn().dialect;
     const pw = pivotWhereSql(d, this.#pivotWheres);
     const base = `DELETE FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ?${pw.sql}`;
@@ -1556,15 +1620,33 @@ export class BelongsToMany<T extends Model = Model> {
     attributes: Record<string, unknown>,
   ): Promise<number> {
     const relatedId = this.#normalize(id)[0]![0];
-    const data = this.#castPivotWrite(this.#stamp({ ...attributes }, false));
-    const cols = Object.keys(data);
-    if (cols.length === 0) return 0;
+    let data = this.#castPivotWrite(this.#stamp({ ...attributes }, false));
+    if (Object.keys(data).length === 0) return 0;
     const d = this.#conn().dialect;
     const pw = pivotWhereSql(d, this.#pivotWheres);
+    let pivot: Model | null = null;
+    if (this.#pivotEvents()) {
+      const [current] = await this.#conn().all<Record<string, unknown>>(
+        `SELECT * FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ? AND ${wrapSqlName(d, this.relatedPivotKey)} = ?${pw.sql}`,
+        [this.#parentId(), relatedId, ...pw.params],
+      );
+      if (!current) return 0;
+      pivot = this.#pivotInstance(current, true);
+      pivot.forceFill(data);
+      if ((await fireModelEvent(pivot, "saving")) === false) return 0;
+      if ((await fireModelEvent(pivot, "updating")) === false) return 0;
+      data = pivot.getDirty();
+    }
+    const cols = Object.keys(data);
+    if (cols.length === 0) return 0;
     const result = await this.#conn().run(
       `UPDATE ${wrapSqlName(d, this.pivotTable)} SET ${cols.map((c) => `${wrapSqlName(d, c)} = ?`).join(", ")} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ? AND ${wrapSqlName(d, this.relatedPivotKey)} = ?${pw.sql}`,
       [...cols.map((c) => data[c]), this.#parentId(), relatedId, ...pw.params],
     );
+    if (pivot) {
+      await fireModelEvent(pivot, "updated");
+      await fireModelEvent(pivot, "saved");
+    }
     return Number(result ?? 0);
   }
 
