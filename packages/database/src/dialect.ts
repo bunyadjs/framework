@@ -53,6 +53,16 @@ export type LogicalColumn = {
 /**
  * SQL dialect differences across SQLite / PostgreSQL / MySQL / MariaDB / SQL Server.
  */
+/** One column of an existing table (`Schema.getColumns()`). */
+export type ColumnInfo = {
+  name: string;
+  /** The database's own type name (`varchar(255)`, `integer`, `timestamp without time zone`, …). */
+  type: string;
+  nullable: boolean;
+  defaultValue: string | null;
+  primary: boolean;
+};
+
 export type Dialect = {
   readonly driver: DriverName;
   /** Convert `?` placeholders to driver style (Postgres `$1`, SQL Server `@p0`). */
@@ -63,6 +73,10 @@ export type Dialect = {
   listTablesSql(): { sql: string; params?: unknown[] };
   hasTableSql(table: string): { sql: string; params: unknown[] };
   hasColumnSql(table: string): { sql: string; params?: unknown[]; columnKey: string };
+  /** SQL describing a table's columns; rows go through {@link Dialect.mapColumns}. */
+  columnsSql(table: string): { sql: string; params?: unknown[] };
+  /** Normalize the rows of {@link Dialect.columnsSql} to {@link ColumnInfo}. */
+  mapColumns(rows: Record<string, unknown>[]): ColumnInfo[];
   disableForeignKeysSql(): string | null;
   enableForeignKeysSql(): string | null;
   /** How to obtain the last insert id after a plain INSERT. */
@@ -211,6 +225,15 @@ const sqliteDialect: Dialect = {
     sql: `PRAGMA table_info(${table})`,
     columnKey: "name",
   }),
+  columnsSql: (table) => ({ sql: `PRAGMA table_info(${table})` }),
+  mapColumns: (rows) =>
+    rows.map((r) => ({
+      name: String(r.name),
+      type: String(r.type ?? ""),
+      nullable: Number(r.notnull) === 0,
+      defaultValue: r.dflt_value == null ? null : String(r.dflt_value),
+      primary: Number(r.pk) > 0,
+    })),
   disableForeignKeysSql: () => "PRAGMA foreign_keys = OFF",
   enableForeignKeysSql: () => "PRAGMA foreign_keys = ON",
 };
@@ -322,6 +345,29 @@ const postgresDialect: Dialect = {
     params: [table],
     columnKey: "name",
   }),
+  columnsSql: (table) => ({
+    sql: `SELECT c.column_name AS name, c.data_type AS type, c.is_nullable AS nullable,
+            c.column_default AS default_value,
+            EXISTS (
+              SELECT 1 FROM information_schema.table_constraints tc
+              JOIN information_schema.key_column_usage kcu
+                ON kcu.constraint_name = tc.constraint_name AND kcu.table_schema = tc.table_schema
+              WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = c.table_schema
+                AND tc.table_name = c.table_name AND kcu.column_name = c.column_name
+            ) AS is_primary
+          FROM information_schema.columns c
+          WHERE c.table_schema = 'public' AND c.table_name = $1
+          ORDER BY c.ordinal_position`,
+    params: [table],
+  }),
+  mapColumns: (rows) =>
+    rows.map((r) => ({
+      name: String(r.name),
+      type: String(r.type),
+      nullable: String(r.nullable).toUpperCase() === "YES",
+      defaultValue: r.default_value == null ? null : String(r.default_value),
+      primary: r.is_primary === true || r.is_primary === "t" || Number(r.is_primary) === 1,
+    })),
   disableForeignKeysSql: () => null,
   enableForeignKeysSql: () => null,
 };
@@ -440,6 +486,22 @@ const mysqlDialect: Dialect = {
     params: [table],
     columnKey: "name",
   }),
+  columnsSql: (table) => ({
+    sql: `SELECT column_name AS name, column_type AS type, is_nullable AS nullable,
+            column_default AS default_value, column_key AS column_key
+          FROM information_schema.columns
+          WHERE table_schema = DATABASE() AND table_name = ?
+          ORDER BY ordinal_position`,
+    params: [table],
+  }),
+  mapColumns: (rows) =>
+    rows.map((r) => ({
+      name: String(r.name ?? r.NAME),
+      type: String(r.type ?? r.TYPE),
+      nullable: String(r.nullable ?? r.NULLABLE).toUpperCase() === "YES",
+      defaultValue: (r.default_value ?? r.DEFAULT_VALUE) == null ? null : String(r.default_value ?? r.DEFAULT_VALUE),
+      primary: String(r.column_key ?? r.COLUMN_KEY) === "PRI",
+    })),
   disableForeignKeysSql: () => "SET FOREIGN_KEY_CHECKS = 0",
   enableForeignKeysSql: () => "SET FOREIGN_KEY_CHECKS = 1",
 };
@@ -560,6 +622,27 @@ const sqlsrvDialect: Dialect = {
     params: [table],
     columnKey: "name",
   }),
+  columnsSql: (table) => ({
+    sql: `SELECT c.COLUMN_NAME AS name, c.DATA_TYPE AS type, c.IS_NULLABLE AS nullable,
+            c.COLUMN_DEFAULT AS default_value,
+            CASE WHEN EXISTS (
+              SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+              JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE k ON k.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+              WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY' AND tc.TABLE_NAME = c.TABLE_NAME AND k.COLUMN_NAME = c.COLUMN_NAME
+            ) THEN 1 ELSE 0 END AS is_primary
+          FROM INFORMATION_SCHEMA.COLUMNS c
+          WHERE c.TABLE_NAME = ?
+          ORDER BY c.ORDINAL_POSITION`,
+    params: [table],
+  }),
+  mapColumns: (rows) =>
+    rows.map((r) => ({
+      name: String(r.name),
+      type: String(r.type),
+      nullable: String(r.nullable).toUpperCase() === "YES",
+      defaultValue: r.default_value == null ? null : String(r.default_value),
+      primary: Number(r.is_primary) === 1,
+    })),
   disableForeignKeysSql: () =>
     "EXEC sp_MSforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL'",
   enableForeignKeysSql: () =>

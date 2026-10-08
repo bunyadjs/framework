@@ -85,3 +85,4 @@ export type {
   RelationHint,
   RelationNames,
 } from "./typed-names.ts";
+export { checkModelSchema, generateModelTypes, modelColumnsInterface, tsTypeForColumn, type SchemaIssue } from "./schema-types.ts";

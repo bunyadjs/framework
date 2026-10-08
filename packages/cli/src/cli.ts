@@ -75,6 +75,20 @@ function openCliConnection() {
   return connection;
 }
 
+/** Every model class default-exported from `app/Models/**` (after the app has booted). */
+async function loadAppModels() {
+  const { Glob } = await import("bun");
+  const { isModelCtor } = await import("@bunyad/orm");
+  const found = new Map<string, ReturnType<typeof Object>>();
+  for await (const file of new Glob("app/Models/**/*.{ts,js}").scan({ cwd: process.cwd() })) {
+    const mod = await import(resolve(process.cwd(), file));
+    for (const value of Object.values(mod)) {
+      if (isModelCtor(value) && (value as { table?: string }).table) found.set((value as { name: string }).name, value as never);
+    }
+  }
+  return [...found.values()] as unknown as Array<import("@bunyad/orm").ModelClass>;
+}
+
 async function bootApp() {
   const { createApplication } = await import(
     resolve(process.cwd(), "bootstrap/app.ts")
@@ -171,6 +185,8 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     console.log("  event:list     List registered event listeners");
     console.log("  publish       Publish provider assets/config into the app");
     console.log("  model:prune    Prune models that use @Prunable / @MassPrunable");
+    console.log("  schema:types   Write column interfaces for every model from the database (--out=)");
+    console.log("  schema:check   Report models that disagree with their table (--strict fails on warnings)");
     console.log("  storage:link   Symlink public/storage → storage/app/public");
     console.log(
       "  make:*         controller|model|mailable|job|middleware|notification|event|listener|request|resource|migration|seeder|factory|policy|command|test|provider",
@@ -1152,6 +1168,46 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
         process.exitCode = 1;
       }
     }
+  },
+
+  async "schema:types"(args) {
+    await bootApp();
+    const models = await loadAppModels();
+    if (models.length === 0) {
+      console.log("No models found in app/Models.");
+      return;
+    }
+    const { generateModelTypes } = await import("@bunyad/orm");
+    const out = args.find((a) => a.startsWith("--out="))?.split("=")[1] ?? "types/models.generated.ts";
+    const contents = await generateModelTypes(models);
+    const path = resolve(process.cwd(), out);
+    const { mkdirSync } = await import("node:fs");
+    const { dirname } = await import("node:path");
+    mkdirSync(dirname(path), { recursive: true });
+    const existing = (await Bun.file(path).exists()) ? await Bun.file(path).text() : null;
+    if (existing === contents) {
+      console.log(`  unchanged ${out}`);
+    } else {
+      await Bun.write(path, contents);
+      console.log(`  wrote     ${out} (${models.length} models)`);
+    }
+  },
+
+  async "schema:check"(args) {
+    await bootApp();
+    const models = await loadAppModels();
+    const { checkModelSchema } = await import("@bunyad/orm");
+    let errors = 0;
+    let warnings = 0;
+    for (const model of models) {
+      for (const issue of await checkModelSchema(model)) {
+        if (issue.severity === "error") errors++;
+        else warnings++;
+        console.log(`  ${issue.severity === "error" ? "error  " : "warning"} ${issue.model}: ${issue.message}`);
+      }
+    }
+    console.log(`Checked ${models.length} models: ${errors} errors, ${warnings} warnings.`);
+    if (errors > 0 || (args.includes("--strict") && warnings > 0)) process.exitCode = 1;
   },
 
   async "model:prune"(args) {

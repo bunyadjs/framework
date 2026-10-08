@@ -922,6 +922,39 @@ await Model.withoutEvents(async () => {
 });
 ```
 
+## Schema types and drift check
+
+Declare columns with `declare name: string;` and the compiler trusts you. Two commands read the real table instead, so a model cannot quietly drift from its migrations.
+
+**`bunyad schema:check`** compares each model in `app/Models` with its table and reports:
+
+- `fillable`, `guarded`, `hidden`, `visible` or a cast naming a column the table does not have (usually a typo: `titel`)
+- a primary key, or `created_at` / `updated_at`, or `deleted_at` (with `softDeletes`) that the table lacks
+- a warning for columns that appear in no `fillable`, `hidden` or `casts` list
+
+It exits with code 1 on errors (and on warnings with `--strict`), so it fits in CI:
+
+```bash
+bunyad schema:check
+#   error   Flight: fillable lists [destinaton], which is not a column of [flights]
+# Checked 12 models: 1 errors, 0 warnings.
+```
+
+**`bunyad schema:types`** writes an interface of each table's columns to `types/models.generated.ts` (`--out=` changes the path), using the database types and your casts (`boolean`, `json`, `date`, `decimal:2`, …). Merge it into the model class so the compiler knows every column without listing it twice:
+
+```ts
+import type { FlightColumns } from "@/types/models.generated";
+
+export default class Flight extends Model {
+  static table = "flights";
+}
+
+// Declaration merging: the class now has every column of `flights`.
+export default interface Flight extends FlightColumns {}
+```
+
+Run it again after a migration. SQLite returns timestamps and booleans as text and numbers while Postgres and MySQL return `Date` and `boolean`; the generated types follow the connection you generate against, so generate them against the database you deploy to, or add casts to make the type the same everywhere.
+
 ## Known limitations
 
 - **SQLite and concurrency.** All requests share one connection. Top-level transactions from concurrent requests queue, but plain queries issued while another request's transaction is open run inside that transaction. Use Postgres or MySQL when requests overlap.
