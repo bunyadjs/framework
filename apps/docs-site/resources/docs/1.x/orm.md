@@ -286,6 +286,10 @@ const flight = Flight.findSync(1);
 const all = Flight.allSync();
 ```
 
+### Query builder methods on the model
+
+Like Laravel's `__callStatic`, builder methods can be called straight on the model class, so `User.whereBetween("age", [18, 30])` is the same as `User.query().whereBetween(...)`. This includes the where family (`whereNotIn`, `whereRaw`, `whereColumn`, `whereLike`, `orWhereIn`, …), `has` / `doesntHave` and the morph variants, `groupBy` / `having` / `selectRaw`, `offset`, `when` / `unless`, `inRandomOrder`, `lockForUpdate`, and the finders and terminals `firstWhere`, `findMany`, `chunkById`, `count`, `sum`, `max`, `exists`, `toSql`.
+
 ## Retrieving single models and aggregates
 
 ```ts

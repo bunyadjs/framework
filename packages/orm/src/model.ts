@@ -1362,6 +1362,729 @@ export class Model {
     return this.newQuery().search(columns, term);
   }
 
+
+  // ── Query-builder forwarding (`__callStatic`): `User.whereBetween(...)`, `User.has('posts')`, … ──
+  static whereBetween<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereBetween"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereBetween"]!(...(args as unknown[]));
+  }
+
+  static whereNotBetween<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereNotBetween"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereNotBetween"]!(...(args as unknown[]));
+  }
+
+  static whereNotIn<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereNotIn"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereNotIn"]!(...(args as unknown[]));
+  }
+
+  static whereRaw<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereRaw"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereRaw"]!(...(args as unknown[]));
+  }
+
+  static whereColumn<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereColumn"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereColumn"]!(...(args as unknown[]));
+  }
+
+  static whereLike<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereLike"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereLike"]!(...(args as unknown[]));
+  }
+
+  static whereNotLike<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereNotLike"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereNotLike"]!(...(args as unknown[]));
+  }
+
+  static whereDay<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereDay"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereDay"]!(...(args as unknown[]));
+  }
+
+  static whereMonth<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereMonth"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereMonth"]!(...(args as unknown[]));
+  }
+
+  static whereYear<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereYear"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereYear"]!(...(args as unknown[]));
+  }
+
+  static orWhereIn<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereIn"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereIn"]!(...(args as unknown[]));
+  }
+
+  static orWhereNotIn<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereNotIn"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereNotIn"]!(...(args as unknown[]));
+  }
+
+  static orWhereNull<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereNull"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereNull"]!(...(args as unknown[]));
+  }
+
+  static orWhereNotNull<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereNotNull"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereNotNull"]!(...(args as unknown[]));
+  }
+
+  static orWhereBetween<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereBetween"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereBetween"]!(...(args as unknown[]));
+  }
+
+  static orWhereNotBetween<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereNotBetween"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereNotBetween"]!(...(args as unknown[]));
+  }
+
+  static orWhereColumn<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereColumn"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereColumn"]!(...(args as unknown[]));
+  }
+
+  static orWhereRaw<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereRaw"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereRaw"]!(...(args as unknown[]));
+  }
+
+  static orWhereLike<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereLike"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereLike"]!(...(args as unknown[]));
+  }
+
+  static orWhereNotLike<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereNotLike"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereNotLike"]!(...(args as unknown[]));
+  }
+
+  static groupBy<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["groupBy"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["groupBy"]!(...(args as unknown[]));
+  }
+
+  static having<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["having"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["having"]!(...(args as unknown[]));
+  }
+
+  static havingRaw<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["havingRaw"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["havingRaw"]!(...(args as unknown[]));
+  }
+
+  static selectRaw<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["selectRaw"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["selectRaw"]!(...(args as unknown[]));
+  }
+
+  static addSelect<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["addSelect"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["addSelect"]!(...(args as unknown[]));
+  }
+
+  static distinct<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["distinct"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["distinct"]!(...(args as unknown[]));
+  }
+
+  static inRandomOrder<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["inRandomOrder"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["inRandomOrder"]!(...(args as unknown[]));
+  }
+
+  static reorder<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["reorder"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["reorder"]!(...(args as unknown[]));
+  }
+
+  static offset<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["offset"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["offset"]!(...(args as unknown[]));
+  }
+
+  static skip<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["skip"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["skip"]!(...(args as unknown[]));
+  }
+
+  static lockForUpdate<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["lockForUpdate"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["lockForUpdate"]!(...(args as unknown[]));
+  }
+
+  static sharedLock<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["sharedLock"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["sharedLock"]!(...(args as unknown[]));
+  }
+
+  static has<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["has"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["has"]!(...(args as unknown[]));
+  }
+
+  static doesntHave<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["doesntHave"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["doesntHave"]!(...(args as unknown[]));
+  }
+
+  static orHas<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orHas"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orHas"]!(...(args as unknown[]));
+  }
+
+  static orDoesntHave<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orDoesntHave"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orDoesntHave"]!(...(args as unknown[]));
+  }
+
+  static orWhereDoesntHave<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereDoesntHave"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereDoesntHave"]!(...(args as unknown[]));
+  }
+
+  static whereHasMorph<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereHasMorph"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereHasMorph"]!(...(args as unknown[]));
+  }
+
+  static orWhereHasMorph<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereHasMorph"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereHasMorph"]!(...(args as unknown[]));
+  }
+
+  static whereDoesntHaveMorph<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereDoesntHaveMorph"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereDoesntHaveMorph"]!(...(args as unknown[]));
+  }
+
+  static orWhereDoesntHaveMorph<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereDoesntHaveMorph"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereDoesntHaveMorph"]!(...(args as unknown[]));
+  }
+
+  static hasMorph<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["hasMorph"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["hasMorph"]!(...(args as unknown[]));
+  }
+
+  static doesntHaveMorph<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["doesntHaveMorph"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["doesntHaveMorph"]!(...(args as unknown[]));
+  }
+
+  static whereMorphedTo<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereMorphedTo"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereMorphedTo"]!(...(args as unknown[]));
+  }
+
+  static whereNotMorphedTo<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereNotMorphedTo"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereNotMorphedTo"]!(...(args as unknown[]));
+  }
+
+  static orWhereMorphedTo<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereMorphedTo"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereMorphedTo"]!(...(args as unknown[]));
+  }
+
+  static orWhereNotMorphedTo<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereNotMorphedTo"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereNotMorphedTo"]!(...(args as unknown[]));
+  }
+
+  static whereMorphRelation<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereMorphRelation"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereMorphRelation"]!(...(args as unknown[]));
+  }
+
+  static orWhereMorphRelation<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereMorphRelation"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereMorphRelation"]!(...(args as unknown[]));
+  }
+
+  static whereKeyNot<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["whereKeyNot"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereKeyNot"]!(...(args as unknown[]));
+  }
+
+  static orWhereBelongsTo<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereBelongsTo"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereBelongsTo"]!(...(args as unknown[]));
+  }
+
+  static orWhereAny<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereAny"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereAny"]!(...(args as unknown[]));
+  }
+
+  static orWhereAll<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereAll"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereAll"]!(...(args as unknown[]));
+  }
+
+  static orWhereNone<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orWhereNone"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["orWhereNone"]!(...(args as unknown[]));
+  }
+
+  static withAggregate<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["withAggregate"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["withAggregate"]!(...(args as unknown[]));
+  }
+
+  static withAttributes<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["withAttributes"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["withAttributes"]!(...(args as unknown[]));
+  }
+
+  static withCasts<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["withCasts"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["withCasts"]!(...(args as unknown[]));
+  }
+
+  static rightJoin<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["rightJoin"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["rightJoin"]!(...(args as unknown[]));
+  }
+
+  static when<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["when"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["when"]!(...(args as unknown[]));
+  }
+
+  static unless<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["unless"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["unless"]!(...(args as unknown[]));
+  }
+
+  static tap<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["tap"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["tap"]!(...(args as unknown[]));
+  }
+
+  static forPage<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["forPage"]>
+  ): ModelQuery<InstanceType<T>> {
+    this.bootIfNotBooted();
+    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["forPage"]!(...(args as unknown[]));
+  }
+
+  static firstWhere<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["firstWhere"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["firstWhere"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["firstWhere"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static findMany<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["findMany"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["findMany"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["findMany"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static findOr<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["findOr"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["findOr"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["findOr"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static findOrNew<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["findOrNew"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["findOrNew"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["findOrNew"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static firstOr<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["firstOr"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["firstOr"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["firstOr"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static chunk<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["chunk"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["chunk"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["chunk"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static chunkById<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["chunkById"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["chunkById"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["chunkById"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static chunkByIdDesc<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["chunkByIdDesc"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["chunkByIdDesc"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["chunkByIdDesc"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static dd<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["dd"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["dd"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["dd"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static dump<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["dump"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["dump"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["dump"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static toBase<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["toBase"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["toBase"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["toBase"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static count<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["count"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["count"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["count"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static sum<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["sum"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["sum"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["sum"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static avg<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["avg"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["avg"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["avg"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static min<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["min"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["min"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["min"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static max<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["max"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["max"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["max"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static exists<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["exists"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["exists"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["exists"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static doesntExist<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["doesntExist"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["doesntExist"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["doesntExist"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static sole<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["sole"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["sole"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["sole"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static soleValue<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["soleValue"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["soleValue"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["soleValue"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static valueOrFail<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["valueOrFail"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["valueOrFail"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["valueOrFail"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static toSql<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["toSql"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["toSql"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["toSql"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static toRawSql<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["toRawSql"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["toRawSql"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["toRawSql"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static getBindings<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["getBindings"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["getBindings"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["getBindings"]!.apply(q, args as unknown[]) as never;
+  }
+
+  static firstOrFail<T extends typeof Model>(
+    this: T,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["firstOrFail"]>
+  ): ReturnType<ModelQuery<InstanceType<T>>["firstOrFail"]> {
+    this.bootIfNotBooted();
+    const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
+    return q["firstOrFail"]!.apply(q, args as unknown[]) as never;
+  }
+
   /** Start a new query and forward common builder methods (`__callStatic`). */
   static orWhere<T extends typeof Model>(
     this: T,
