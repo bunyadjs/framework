@@ -376,7 +376,9 @@ user.membership.active; // true (cast)
 user.membership.perms;  // ["read", "write"]
 ```
 
-`withTimestamps()` also reads `created_at` / `updated_at` onto the pivot. Pivot model events are not fired by `attach` / `sync`.
+`withTimestamps()` also reads `created_at` / `updated_at` onto the pivot. 
+
+When the custom pivot model has event listeners, `attach`, `sync`, `toggle`, `detach` and `updateExistingPivot` fire its model events per pivot row: `saving` / `creating` / `created` / `saved` for new rows, `saving` / `updating` / `updated` / `saved` for updated rows, and `deleting` / `deleted` for removed rows. A `creating` or `updating` listener can change the row, and returning `false` from `creating`, `updating` or `deleting` skips that row. `detach` and `updateExistingPivot` read the affected rows first so the listeners see their current values. With no listeners registered the writes stay single multi-row statements, so there is no cost unless you use events.
 
 Constrain or order by pivot columns with `wherePivot`, `wherePivotIn`, `wherePivotNotIn`, `wherePivotNull`, `wherePivotNotNull`, `wherePivotBetween`, `wherePivotNotBetween` and `orderByPivot`. The constraint applies everywhere the relation is used: `get()`, eager loading, `whereHas`, `withCount` and the other aggregates. It also scopes the writes. `attach` fills `wherePivot(column, value)` equality constraints as defaults, and `sync`, `detach` and `updateExistingPivot` only touch rows that match, so two relations can share one pivot table:
 
