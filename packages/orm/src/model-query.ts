@@ -75,6 +75,15 @@ export function unwrapModelQuery<Q extends ModelQuery>(query: Q): Q {
 }
 
 /** Shared empty array — copy-on-write before mutate (ModelQuery ctor hot path). */
+/** Relations accepted by `withCount` / `withSum` / …: names, lists, or constraint maps. */
+export type AggregateRelations =
+  | string
+  | AggregateRelations[]
+  | Record<
+      string,
+      true | string | { as?: string } | ((query: ModelQuery) => void)
+    >;
+
 const MQ_EMPTY: never[] = Object.freeze([]) as unknown as never[];
 const MQ_EMPTY_OBJ: Record<string, never> = Object.freeze({}) as Record<string, never>;
 
@@ -224,6 +233,7 @@ export class ModelQuery<
     alias: string;
     fn: "count" | "sum" | "avg" | "min" | "max" | "exists";
     column?: string;
+    constraint?: (query: ModelQuery) => void;
   }> = MQ_EMPTY as any;
   #morphHasConstraints: Array<{
     typeColumn: string;
@@ -878,137 +888,98 @@ export class ModelQuery<
     return (model as unknown as Record<string, unknown>)[column];
   }
 
-  /** `withCount` — `'posts'`, `'posts as post_total'`, a string list, or `{ products: { as: 'productsCount' } }`. */
-  withCount(
-    ...relations: Array<
-      | string
-      | string[]
-      | Record<
-          string,
-          | true
-          | string
-          | ((query: ModelQuery) => void)
-          | { as?: string }
-        >
-    >
-  ): this {
-    for (const arg of relations) {
+  #pushAggregate(
+    relation: string,
+    fn: "count" | "sum" | "avg" | "min" | "max" | "exists",
+    column: string | undefined,
+    constraint?: (query: ModelQuery) => void,
+    alias?: string,
+  ): void {
+    const parsed = parseRelationAlias(relation);
+    const base = parsed.relation;
+    const suffix = fn === "count" || fn === "exists" ? fn : `${fn}_${column}`;
+    this.#simple = false;
+    (this.#withAggregates = mqMut(this.#withAggregates)).push({
+      relation: base,
+      alias: alias ?? parsed.alias ?? `${base}_${suffix}`,
+      fn,
+      column: fn === "count" || fn === "exists" ? undefined : column,
+      constraint,
+    });
+  }
+
+  /** `['posts', 'comments as c' => fn]` — string, list, or map of relation → constraint / alias. */
+  #pushAggregates(
+    specs: ReadonlyArray<AggregateRelations>,
+    fn: "count" | "sum" | "avg" | "min" | "max" | "exists",
+    column?: string,
+  ): void {
+    for (const arg of specs) {
       if (Array.isArray(arg)) {
-        this.withCount(...arg);
+        this.#pushAggregates(arg, fn, column);
         continue;
       }
       if (typeof arg === "string") {
-        const parsed = parseRelationAlias(arg);
-        this.#simple = false;
-        (this.#withAggregates = mqMut(this.#withAggregates)).push({
-          relation: parsed.relation,
-          alias: parsed.alias ?? `${parsed.relation}_count`,
-          fn: "count",
-        });
-        (this.#withCounts = mqMut(this.#withCounts)).push(arg);
+        this.#pushAggregate(arg, fn, column);
         continue;
       }
       for (const [relation, value] of Object.entries(arg)) {
-        let alias = `${relation}_count`;
-        if (value === true) {
-          // default alias
+        if (typeof value === "function") {
+          this.#pushAggregate(relation, fn, column, value);
         } else if (typeof value === "string") {
-          alias = value;
-        } else if (typeof value === "function") {
-          // constrained count — store as aggregate without callback support yet (count all)
-        } else if (value && typeof value === "object" && "as" in value && value.as) {
-          alias = value.as;
+          this.#pushAggregate(relation, fn, column, undefined, value);
+        } else if (value && typeof value === "object" && value.as) {
+          this.#pushAggregate(relation, fn, column, undefined, value.as);
+        } else {
+          this.#pushAggregate(relation, fn, column);
         }
-        this.#simple = false;
-        (this.#withAggregates = mqMut(this.#withAggregates)).push({ relation, alias, fn: "count" });
-        (this.#withCounts = mqMut(this.#withCounts)).push(relation);
       }
     }
+  }
+
+  /**
+   * `withCount` — `'posts'`, `'posts as post_total'`, a list, or a map such as
+   * `{ "payments as paid": (q) => q.where("status", "paid") }`.
+   */
+  withCount(...relations: AggregateRelations[]): this {
+    this.#pushAggregates(relations, "count");
     return this;
   }
 
-  /** `withSum($relation, $column)`. */
-  withSum(relation: string, column: string): this {
-    const parsed = parseRelationAlias(relation);
-    const base = parsed.relation;
-    this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-      relation: base,
-      alias: parsed.alias ?? `${base}_sum_${column}`,
-      fn: "sum",
-      column,
-    });
+  /** `withSum($relation, $column)` — relation may be a constrained map. */
+  withSum(relation: AggregateRelations, column: string): this {
+    this.#pushAggregates([relation], "sum", column);
     return this;
   }
 
-  withAvg(relation: string, column: string): this {
-    const parsed = parseRelationAlias(relation);
-    const base = parsed.relation;
-    this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-      relation: base,
-      alias: parsed.alias ?? `${base}_avg_${column}`,
-      fn: "avg",
-      column,
-    });
+  withAvg(relation: AggregateRelations, column: string): this {
+    this.#pushAggregates([relation], "avg", column);
     return this;
   }
 
-  withMin(relation: string, column: string): this {
-    const parsed = parseRelationAlias(relation);
-    const base = parsed.relation;
-    this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-      relation: base,
-      alias: parsed.alias ?? `${base}_min_${column}`,
-      fn: "min",
-      column,
-    });
+  withMin(relation: AggregateRelations, column: string): this {
+    this.#pushAggregates([relation], "min", column);
     return this;
   }
 
-  withMax(relation: string, column: string): this {
-    const parsed = parseRelationAlias(relation);
-    const base = parsed.relation;
-    this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-      relation: base,
-      alias: parsed.alias ?? `${base}_max_${column}`,
-      fn: "max",
-      column,
-    });
+  withMax(relation: AggregateRelations, column: string): this {
+    this.#pushAggregates([relation], "max", column);
     return this;
   }
 
   /** `withExists($relation)`. */
-  withExists(...relations: string[]): this {
-    for (const raw of relations.flat()) {
-      const parsed = parseRelationAlias(raw);
-      this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-        relation: parsed.relation,
-        alias: parsed.alias ?? `${parsed.relation}_exists`,
-        fn: "exists",
-      });
-    }
+  withExists(...relations: AggregateRelations[]): this {
+    this.#pushAggregates(relations, "exists");
     return this;
   }
 
   /** `withAggregate($relation, $column, $function)`. */
   withAggregate(
-    relation: string,
+    relation: AggregateRelations,
     column: string,
     fn: "count" | "sum" | "avg" | "min" | "max",
   ): this {
-    const parsed = parseRelationAlias(relation);
-    const base = parsed.relation;
-    this.#simple = false;
-    (this.#withAggregates = mqMut(this.#withAggregates)).push({
-      relation: base,
-      alias: parsed.alias ?? `${base}_${fn}_${column}`,
-      fn,
-      column: fn === "count" ? undefined : column,
-    });
+    this.#pushAggregates([relation], fn, column);
     return this;
   }
 
@@ -2124,6 +2095,7 @@ export class ModelQuery<
             alias: `${relation}_count`,
             fn: "count" as const,
             column: undefined as string | undefined,
+            constraint: undefined as ((query: ModelQuery) => void) | undefined,
           }));
 
     if (aggregates.length > 0) {
@@ -2131,9 +2103,15 @@ export class ModelQuery<
       for (const agg of aggregates) {
         const meta = resolveRelation(this.model, agg.relation);
         if (!meta) continue;
+        const alias = wrapSqlName(this.model.getConnection().dialect, agg.alias);
+        if (agg.constraint) {
+          const built = this.#constrainedAggregate(meta, agg);
+          if (!built) continue;
+          q = q.selectRaw(`(${built.sql}) as ${alias}`, built.bindings);
+          continue;
+        }
         const expr = this.#aggregateSubquery(meta, agg.fn, agg.column);
         if (!expr) continue;
-        const alias = wrapSqlName(this.model.getConnection().dialect, agg.alias);
         q = q.selectRaw(`(${expr}) as ${alias}`);
       }
     }
@@ -3086,6 +3064,68 @@ export class ModelQuery<
         : q.orWhereExists(wrap);
     }
     return constraint.not ? q.whereNotExists(wrap) : q.whereExists(wrap);
+  }
+
+  /** Correlated aggregate subquery with a user constraint closure (`withCount(['x' => fn])`). */
+  #constrainedAggregate(
+    meta: RelationMeta,
+    agg: {
+      fn: "count" | "sum" | "avg" | "min" | "max" | "exists";
+      column?: string;
+      constraint?: (query: ModelQuery) => void;
+    },
+  ): { sql: string; bindings: unknown[] } | null {
+    const parentTable = this.model.table;
+    const sub = this.#baseTable();
+    let related: ModelClass;
+    if (meta.kind === "has") {
+      related = meta.related;
+      const relatedTable = related.table;
+      if (relatedTable === parentTable) {
+        const alias = `${relatedTable}_has`;
+        sub.from(`${relatedTable} as ${alias}`);
+        sub.whereColumn(`${alias}.${meta.foreignKey}`, `${parentTable}.${meta.localKey}`);
+      } else {
+        sub.from(relatedTable);
+        sub.whereColumn(`${relatedTable}.${meta.foreignKey}`, `${parentTable}.${meta.localKey}`);
+      }
+    } else if (meta.kind === "belongsTo") {
+      related = meta.related;
+      sub.from(related.table);
+      sub.whereColumn(`${related.table}.${meta.ownerKey}`, `${parentTable}.${meta.foreignKey}`);
+    } else if (meta.kind === "belongsToMany" || meta.kind === "morphToMany") {
+      related = meta.related;
+      sub.from(related.table);
+      sub.join(
+        meta.pivotTable,
+        `${meta.pivotTable}.${meta.relatedPivotKey}`,
+        "=",
+        `${related.table}.${related.primaryKey}`,
+      );
+      sub.whereColumn(
+        `${meta.pivotTable}.${meta.foreignPivotKey}`,
+        `${parentTable}.${meta.localKey}`,
+      );
+      if (meta.kind === "morphToMany") {
+        sub.whereIn(`${meta.pivotTable}.${meta.morphTypeColumn}`, meta.morphTypes);
+      }
+    } else {
+      return null;
+    }
+    const rq = related.newQuery({ withoutGlobalScopes: true }) as ModelQuery;
+    agg.constraint!(rq);
+    rq.applyConstraintsTo(sub);
+    if (agg.fn === "exists") {
+      sub.select("1");
+      sub.limit(1);
+    } else {
+      const fnSql =
+        agg.fn === "count"
+          ? "COUNT(*)"
+          : `${agg.fn.toUpperCase()}(${agg.column ?? "*"})`;
+      sub.selectRaw(fnSql);
+    }
+    return { sql: sub.toSql(), bindings: sub.getBindings() };
   }
 
   #aggregateSubquery(

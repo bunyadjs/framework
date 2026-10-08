@@ -494,6 +494,15 @@ await User.withCount("posts as post_total").get();
 await User.withCount({ products: { as: "productsCount" } }).get();
 ```
 
+Constrain the counted rows with a closure. Combine it with an alias to get several counts of one relation:
+
+```ts
+await Customer.withCount({
+  payments: true,
+  "payments as paid_count": (q) => q.where("status", "paid"),
+}).get();
+```
+
 On an instance or [`OrmCollection`](/docs/1.x/orm-collections):
 
 ```ts
@@ -519,6 +528,19 @@ await user.loadExists("posts");
 ```
 
 Aliases use `relation as alias` the same way as counts: `withSum("orders as revenue", "total")`.
+
+Pass a map to constrain the aggregated rows. This is the way to build conditional sums (what some tools call `sumCase`):
+
+```ts
+await Customer.withSum(
+  { "payments as paid_total": (q) => q.where("status", "paid") },
+  "amount",
+)
+  .withExists({ "payments as has_paid": (q) => q.where("status", "paid") })
+  .get();
+```
+
+Constraints work for `withCount`, `withSum`, `withAvg`, `withMin`, `withMax`, `withExists` and `withAggregate` on `hasMany`, `hasOne`, `belongsTo`, `belongsToMany` and `morphToMany`. For a single table, use `selectRaw("SUM(CASE WHEN status = ? THEN amount ELSE 0 END) as paid_total", ["paid"])`.
 
 ## Eager loading
 
