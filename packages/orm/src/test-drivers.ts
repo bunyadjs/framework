@@ -18,7 +18,9 @@ async function reachable(connection: Connection): Promise<boolean> {
   try {
     await connection.exec("SELECT 1");
     return true;
-  } catch {
+  } catch (error) {
+    // A URL was configured but the server is unusable — say why instead of silently skipping.
+    console.warn(`[test-drivers] ${connection.driver} unavailable: ${(error as Error).message}`);
     try {
       await connection.close();
     } catch {
@@ -39,7 +41,7 @@ export async function testDrivers(): Promise<TestDriver[]> {
   }
   const my = Bun.env.BUNYAD_TEST_MYSQL_URL;
   if (my && /^mysql:\/\//i.test(my)) {
-    const connection = connectMysql({ url: my } as never);
+    const connection = connectMysql({ url: my, tls: { rejectUnauthorized: false } });
     if (await reachable(connection)) drivers.push({ name: "mysql", connection });
   }
   return drivers;

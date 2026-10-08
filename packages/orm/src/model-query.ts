@@ -1756,7 +1756,7 @@ export class ModelQuery<
 
     // Fingerprint (no values) — reuse quoted SQL for repeated list shapes.
     let key = this.#withTrashed ? "T" : this.#onlyTrashed ? "O" : "N";
-    key += `\u001e${this.model.table}\u001e${plan.columns}`;
+    key += `\u001e${conn.driver}\u001e${this.model.table}\u001e${plan.columns}`;
     for (const w of plan.scopeWheres) {
       key += `\u001eG\u001e${w.boolean}\u001e${w.column}\u001e${w.op}`;
       if (w.op !== "__null__" && w.op !== "__notnull__") params.push(w.value);
@@ -1945,8 +1945,9 @@ export class ModelQuery<
     const dialect = conn.dialect;
     const params: unknown[] = [];
 
+    // The compiled SQL is dialect specific (identifier quoting), so the driver is part of the key.
     let key = this.#withTrashed ? "T" : this.#onlyTrashed ? "O" : "N";
-    key += `\u001e${this.model.table}`;
+    key += `\u001e${conn.driver}\u001e${this.model.table}`;
     for (const w of this.#wheres) {
       key += `\u001e${w.boolean}\u001e${w.column}\u001e${w.op}`;
       if (w.op !== "__null__" && w.op !== "__notnull__") params.push(w.value);

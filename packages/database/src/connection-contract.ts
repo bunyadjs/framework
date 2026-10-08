@@ -10,9 +10,10 @@ import {
 export function affectedRowsFromResult(result: unknown): number {
   if (result == null || typeof result !== "object") return 0;
   const row = result as Record<string, unknown>;
+  // MySQL via Bun reports `count: 0` (rows returned) next to the real `affectedRows`.
+  if (typeof row.affectedRows === "number") return row.affectedRows;
   if (typeof row.count === "number") return row.count;
   if (typeof row.changes === "number") return row.changes;
-  if (typeof row.affectedRows === "number") return row.affectedRows;
   if (typeof row.rowCount === "number") return row.rowCount;
   const batches = row.rowsAffected;
   if (Array.isArray(batches)) {

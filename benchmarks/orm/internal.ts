@@ -57,7 +57,7 @@ async function setup(conn: Connection) {
   await schema.create("b_post_tag", (b) => { b.integer("post_id"); b.integer("tag_id"); });
 
   const authors = Math.max(10, Math.floor(ROWS / 20));
-  const now = new Date().toISOString();
+  const now = new Date().toISOString().slice(0, 19).replace("T", " "); // valid on every driver
   for (let i = 0; i < authors; i += 500) {
     const rows = Array.from({ length: Math.min(500, authors - i) }, (_, k) => ({
       name: `a${i + k}`, created_at: now, updated_at: now,
@@ -162,5 +162,5 @@ await runDriver("sqlite", connectSqlite());
 const pg = Bun.env.BUNYAD_TEST_POSTGRES_URL;
 if (pg) await runDriver("postgres", connectPostgres({ url: pg, max: 4 }));
 const my = Bun.env.BUNYAD_TEST_MYSQL_URL;
-if (my) await runDriver("mysql", connectMysql({ url: my } as never));
+if (my) await runDriver("mysql", connectMysql({ url: my, tls: { rejectUnauthorized: false } }));
 process.exit(0);
