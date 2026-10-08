@@ -873,6 +873,59 @@ export class BelongsTo<T extends Model = Model> {
 }
 
 /** BelongsToMany relation. */
+
+/** Multi-row INSERT into a pivot table, grouped by column set and chunked under parameter limits. */
+async function insertPivotRows(
+  conn: ReturnType<ModelClass["getConnection"]>,
+  table: string,
+  rows: Record<string, unknown>[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  const d = conn.dialect;
+  const groups = new Map<string, Record<string, unknown>[]>();
+  for (const row of rows) {
+    const cols = Object.keys(row).sort().join("\u0000");
+    const group = groups.get(cols);
+    if (group) group.push(row);
+    else groups.set(cols, [row]);
+  }
+  for (const [colKey, group] of groups) {
+    const cols = colKey.split("\u0000");
+    const colSql = cols.map((c) => wrapSqlName(d, c)).join(", ");
+    const rowSql = `(${cols.map(() => "?").join(", ")})`;
+    const perChunk = Math.max(1, Math.floor(900 / cols.length));
+    for (let i = 0; i < group.length; i += perChunk) {
+      const chunk = group.slice(i, i + perChunk);
+      await conn.run(
+        `INSERT INTO ${wrapSqlName(d, table)} (${colSql}) VALUES ${chunk.map(() => rowSql).join(", ")}`,
+        chunk.flatMap((row) => cols.map((c) => row[c])),
+      );
+    }
+  }
+}
+
+/** Chunked `DELETE … WHERE fk = ? AND col IN (…)`; returns deleted row count. */
+async function deletePivotIn(
+  conn: ReturnType<ModelClass["getConnection"]>,
+  sqlBase: string,
+  baseParams: unknown[],
+  inColumn: string,
+  ids: Array<string | number>,
+): Promise<number> {
+  const d = conn.dialect;
+  let deleted = 0;
+  for (let i = 0; i < ids.length; i += 800) {
+    const chunk = ids.slice(i, i + 800);
+    deleted += Number(
+      (await conn.run(
+        `${sqlBase} AND ${wrapSqlName(d, inColumn)} IN (${chunk.map(() => "?").join(", ")})`,
+        [...baseParams, ...chunk],
+      )) ?? 0,
+    );
+  }
+  return deleted;
+}
+
 export class BelongsToMany<T extends Model = Model> {
   #baseQuery: ModelQuery<T> | null = null;
   #pivotColumns: string[] = [];
@@ -1043,27 +1096,7 @@ export class BelongsToMany<T extends Model = Model> {
         true,
       ),
     );
-    // Group rows by column set so a multi-row INSERT stays rectangular.
-    const groups = new Map<string, Record<string, unknown>[]>();
-    for (const row of rows) {
-      const cols = Object.keys(row).sort().join("\u0000");
-      const group = groups.get(cols);
-      if (group) group.push(row);
-      else groups.set(cols, [row]);
-    }
-    for (const [colKey, group] of groups) {
-      const cols = colKey.split("\u0000");
-      const colSql = cols.map((c) => wrapSqlName(d, c)).join(", ");
-      const rowSql = `(${cols.map(() => "?").join(", ")})`;
-      const perChunk = Math.max(1, Math.floor(900 / cols.length));
-      for (let i = 0; i < group.length; i += perChunk) {
-        const chunk = group.slice(i, i + perChunk);
-        await this.#conn().run(
-          `INSERT INTO ${wrapSqlName(d, this.pivotTable)} (${colSql}) VALUES ${chunk.map(() => rowSql).join(", ")}`,
-          chunk.flatMap((row) => cols.map((c) => row[c])),
-        );
-      }
-    }
+    await insertPivotRows(this.#conn(), this.pivotTable, rows);
   }
 
   /** `detach` — returns the number of deleted pivot rows. */
@@ -1275,90 +1308,96 @@ export class MorphToMany<T extends Model = Model> {
     return new OrmCollection(rows.map((row) => new related(row) as T), { owned: true });
   }
 
+  #conn() {
+    return (this.parent.constructor as ModelClass).getConnection();
+  }
+
+  #useTenant(): boolean {
+    const tenantId = this.#tenantId();
+    return Boolean(this.pivotTenantKey && tenantId != null && tenantId !== "");
+  }
+
+  async #currentIds(): Promise<Set<string>> {
+    const d = this.#conn().dialect;
+    const params: unknown[] = [this.#parentId(), ...this.morphTypes];
+    let tenantSql = "";
+    if (this.#useTenant()) {
+      tenantSql = ` AND ${wrapSqlName(d, this.pivotTenantKey!)} = ?`;
+      params.push(this.#tenantId());
+    }
+    const rows = await this.#conn().all<Record<string, unknown>>(
+      `SELECT ${wrapSqlName(d, this.relatedPivotKey)} AS id FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ? AND ${wrapSqlName(d, this.morphTypeColumn)} IN (${this.#morphTypePlaceholders()})${tenantSql}`,
+      params,
+    );
+    return new Set(rows.map((r) => String(r.id)));
+  }
+
+  /** One multi-row INSERT per chunk (was one INSERT per id). */
   async attach(
     ids: Array<string | number> | string | number,
   ): Promise<void> {
     const list = Array.isArray(ids) ? ids : [ids];
-    const parent = this.parent.constructor as ModelClass;
     const morphType = this.getMorphType();
-    const tenantId = this.#tenantId();
-    const useTenant = Boolean(this.pivotTenantKey && tenantId != null && tenantId !== "");
-    for (const id of list) {
-      if (useTenant) {
-        await parent.getConnection().run(
-          `INSERT INTO ${this.pivotTable} (${this.foreignPivotKey}, ${this.relatedPivotKey}, ${this.morphTypeColumn}, ${this.pivotTenantKey}) VALUES (?, ?, ?, ?)`,
-          [this.#parentId(), id, morphType, tenantId],
-        );
-      } else {
-        await parent.getConnection().run(
-          `INSERT INTO ${this.pivotTable} (${this.foreignPivotKey}, ${this.relatedPivotKey}, ${this.morphTypeColumn}) VALUES (?, ?, ?)`,
-          [this.#parentId(), id, morphType],
-        );
-      }
-    }
+    const useTenant = this.#useTenant();
+    await insertPivotRows(
+      this.#conn(),
+      this.pivotTable,
+      list.map((id) => ({
+        [this.foreignPivotKey]: this.#parentId(),
+        [this.relatedPivotKey]: id,
+        [this.morphTypeColumn]: morphType,
+        ...(useTenant ? { [this.pivotTenantKey!]: this.#tenantId() } : {}),
+      })),
+    );
   }
 
+  /** Returns the number of deleted pivot rows. */
   async detach(
     ids?: Array<string | number> | string | number,
-  ): Promise<void> {
-    const parent = this.parent.constructor as ModelClass;
-    const tenantId = this.#tenantId();
-    const useTenant = Boolean(this.pivotTenantKey && tenantId != null && tenantId !== "");
-    const tenantSql = useTenant
-      ? ` AND ${this.pivotTenantKey} = ?`
-      : "";
-    const tenantParams = useTenant ? [tenantId] : [];
+  ): Promise<number> {
+    const d = this.#conn().dialect;
+    const useTenant = this.#useTenant();
+    const tenantSql = useTenant ? ` AND ${wrapSqlName(d, this.pivotTenantKey!)} = ?` : "";
+    const tenantParams = useTenant ? [this.#tenantId()] : [];
+    const base = `DELETE FROM ${wrapSqlName(d, this.pivotTable)}
+         WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ?
+           AND ${wrapSqlName(d, this.morphTypeColumn)} IN (${this.#morphTypePlaceholders()})${tenantSql}`;
+    const baseParams = [this.#parentId(), ...this.morphTypes, ...tenantParams];
     if (ids === undefined) {
-      await parent.getConnection().run(
-        `DELETE FROM ${this.pivotTable}
-         WHERE ${this.foreignPivotKey} = ?
-           AND ${this.morphTypeColumn} IN (${this.#morphTypePlaceholders()})${tenantSql}`,
-        [this.#parentId(), ...this.morphTypes, ...tenantParams],
-      );
-      return;
+      return Number((await this.#conn().run(base, baseParams)) ?? 0);
     }
     const list = Array.isArray(ids) ? ids : [ids];
-    for (const id of list) {
-      await parent.getConnection().run(
-        `DELETE FROM ${this.pivotTable}
-         WHERE ${this.foreignPivotKey} = ?
-           AND ${this.relatedPivotKey} = ?
-           AND ${this.morphTypeColumn} IN (${this.#morphTypePlaceholders()})${tenantSql}`,
-        [this.#parentId(), id, ...this.morphTypes, ...tenantParams],
-      );
-    }
+    return deletePivotIn(this.#conn(), base, baseParams, this.relatedPivotKey, list);
   }
 
-  async sync(ids: Array<string | number>): Promise<void> {
-    await this.detach();
-    await this.attach(ids);
+  /** Diff-based: keeps existing rows, attaches new ids, detaches removed ones. */
+  async sync(ids: Array<string | number>): Promise<PivotSyncResult> {
+    const existing = await this.#currentIds();
+    const wanted = new Set(ids.map(String));
+    const detached = [...existing].filter((id) => !wanted.has(id));
+    const attached = ids.filter((id) => !existing.has(String(id)));
+    if (detached.length > 0) await this.detach(detached);
+    if (attached.length > 0) await this.attach(attached);
+    return { attached, detached, updated: [] };
   }
 
-  async syncWithoutDetaching(ids: Array<string | number>): Promise<void> {
-    const existing = new Set(
-      (await this.get()).map((m) =>
-        String((m as unknown as Record<string, unknown>)[this.related.primaryKey]),
-      ),
-    );
-    const missing = ids.filter((id) => !existing.has(String(id)));
-    if (missing.length > 0) await this.attach(missing);
+  async syncWithoutDetaching(ids: Array<string | number>): Promise<PivotSyncResult> {
+    const existing = await this.#currentIds();
+    const attached = ids.filter((id) => !existing.has(String(id)));
+    if (attached.length > 0) await this.attach(attached);
+    return { attached, detached: [], updated: [] };
   }
 
-  async toggle(ids: Array<string | number> | string | number): Promise<void> {
+  async toggle(
+    ids: Array<string | number> | string | number,
+  ): Promise<{ attached: Array<string | number>; detached: Array<string | number> }> {
     const list = Array.isArray(ids) ? ids : [ids];
-    const existing = new Set(
-      (await this.get()).map((m) =>
-        String((m as unknown as Record<string, unknown>)[this.related.primaryKey]),
-      ),
-    );
-    const attachIds: Array<string | number> = [];
-    const detachIds: Array<string | number> = [];
-    for (const id of list) {
-      if (existing.has(String(id))) detachIds.push(id);
-      else attachIds.push(id);
-    }
-    if (detachIds.length > 0) await this.detach(detachIds);
-    if (attachIds.length > 0) await this.attach(attachIds);
+    const existing = await this.#currentIds();
+    const detached = list.filter((id) => existing.has(String(id)));
+    const attached = list.filter((id) => !existing.has(String(id)));
+    if (detached.length > 0) await this.detach(detached);
+    if (attached.length > 0) await this.attach(attached);
+    return { attached, detached };
   }
 }
 
@@ -1430,29 +1469,26 @@ export class MorphedByMany<T extends Model = Model> {
 
   async attach(ids: Array<string | number> | string | number): Promise<void> {
     const list = Array.isArray(ids) ? ids : [ids];
-    const d = this.#conn().dialect;
-    for (const id of list) {
-      await this.#conn().run(
-        `INSERT INTO ${wrapSqlName(d, this.pivotTable)} (${wrapSqlName(d, this.foreignPivotKey)}, ${wrapSqlName(d, this.relatedPivotKey)}, ${wrapSqlName(d, this.morphTypeColumn)}) VALUES (?, ?, ?)`,
-        [this.#parentId(), id, this.morphType],
-      );
-    }
+    await insertPivotRows(
+      this.#conn(),
+      this.pivotTable,
+      list.map((id) => ({
+        [this.foreignPivotKey]: this.#parentId(),
+        [this.relatedPivotKey]: id,
+        [this.morphTypeColumn]: this.morphType,
+      })),
+    );
   }
 
-  async detach(ids?: Array<string | number> | string | number): Promise<void> {
+  async detach(ids?: Array<string | number> | string | number): Promise<number> {
     const d = this.#conn().dialect;
     const base = `DELETE FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ? AND ${wrapSqlName(d, this.morphTypeColumn)} = ?`;
+    const baseParams = [this.#parentId(), this.morphType];
     if (ids === undefined) {
-      await this.#conn().run(base, [this.#parentId(), this.morphType]);
-      return;
+      return Number((await this.#conn().run(base, baseParams)) ?? 0);
     }
     const list = Array.isArray(ids) ? ids : [ids];
-    for (const id of list) {
-      await this.#conn().run(
-        `${base} AND ${wrapSqlName(d, this.relatedPivotKey)} = ?`,
-        [this.#parentId(), this.morphType, id],
-      );
-    }
+    return deletePivotIn(this.#conn(), base, baseParams, this.relatedPivotKey, list);
   }
 
   async #currentIds(): Promise<Set<string>> {

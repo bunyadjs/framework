@@ -368,7 +368,7 @@ roles() {
 
 The third argument may be a pivot table string or an options bag (`MorphToManyOptions`): `table`, `foreignPivotKey`, `relatedPivotKey`, `morphTypeColumn`, `morphTypes`, `pivotTenantKey`, `parentTenantKey`.
 
-`MorphToMany` supports the same attach / detach / sync / syncWithoutDetaching / toggle / get API as `belongsToMany`, scoped by morph type (and optional tenant).
+`MorphToMany` supports the same attach / detach / sync / syncWithoutDetaching / toggle / get API as `belongsToMany`, scoped by morph type (and optional tenant). `attach` writes multi-row inserts and `sync` only changes the rows that differ, so existing pivot rows stay untouched.
 
 ### Morphed by many
 
