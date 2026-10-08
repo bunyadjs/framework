@@ -107,6 +107,10 @@ await User.create({
 });
 ```
 
+### Decimal and bigint edge cases
+
+`decimal:N` rounds half away from zero on the decimal text, so `1.005` is stored as `"1.01"` and `0.1 + 0.2` as `"0.30"`, on every driver. `bigint` reads back as a JavaScript `bigint`. PostgreSQL and MySQL keep every digit; SQLite returns integers above 2^53 as plain numbers, so values past `9007199254740991` lose precision there. Store such values in a `decimal:0` / string column if you need exactness on SQLite.
+
 ### Array and JSON casting
 
 `array` and `json` both parse a JSON column into a plain value on read and stringify on write:
@@ -123,6 +127,8 @@ const user = await User.find(1);
 user.options.theme = "light";
 await user.save();
 ```
+
+Writes always JSON-encode the value, so a plain string such as `"just text"` is stored as `"\"just text\""` and reads back as the same string. Do not pre-encode the value yourself. An empty stored string reads as `null`; corrupt JSON throws instead of returning a guess.
 
 Use `collection` when you want a fluent `Collection` instead of a raw array:
 
@@ -153,6 +159,8 @@ static casts() {
   };
 }
 ```
+
+Saving a value that is not a valid date (for example `"garbage"`) throws `Cannot cast … to date: not a valid date.` and writes nothing.
 
 When you serialize the model with `toArray()` / `toJSON()`, `Date` values become ISO-8601 strings. See [ORM Serialization](/docs/1.x/orm-serialization).
 
