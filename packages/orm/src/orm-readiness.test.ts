@@ -1,6 +1,6 @@
 /**
- * Karobar readiness suite — existence + behavior for ORM APIs
- * we need before wiring Bunyad into Nest (see docs/KAROBAR_STRANGLER_MIGRATION_PLAN.md).
+ * Readiness suite — existence and behavior of the ORM APIs a real application
+ * (lists, finance reports, soft deletes, tenant scopes) depends on.
  */
 import { expect, test } from "bun:test";
 import { connectSqlite, schemaFor } from "@bunyad/database";

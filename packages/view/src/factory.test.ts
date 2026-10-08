@@ -25,11 +25,11 @@ test("shared global helpers are available in templates without @use", async () =
   const g = globalThis as { asset?: unknown; config?: unknown };
   const { asset, config } = g;
   g.asset = (p: string) => `https://cdn.test/${p}`;
-  g.config = () => "Karobar";
+  g.config = () => "Acme";
   try {
     const factory = new ViewFactory(dir);
     expect(factory.render("link")).toBe(
-      `<a href="https://cdn.test/css/app.css">Karobar</a>`,
+      `<a href="https://cdn.test/css/app.css">Acme</a>`,
     );
   } finally {
     // Other suites in the same process rely on the real helpers.
@@ -157,10 +157,10 @@ test("share merges into every render", async () => {
   await writeFile(join(dir, "home.view"), "{{ appName }} {{ title }}");
   const factory = new ViewFactory(dir);
   setViewFactory(factory);
-  factory.share("appName", "Karobar");
+  factory.share("appName", "Acme");
   factory.share({ title: "Home" });
-  expect(factory.render("home")).toBe("Karobar Home");
-  expect(factory.render("home", { title: "Override" })).toBe("Karobar Override");
+  expect(factory.render("home")).toBe("Acme Home");
+  expect(factory.render("home", { title: "Override" })).toBe("Acme Override");
   View.share("brand", "KP");
   await writeFile(join(dir, "branded.view"), "{{ brand }}");
   expect(factory.render("branded")).toBe("KP");

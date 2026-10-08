@@ -82,7 +82,7 @@ The same record is visible to `@include` unless you pass a second argument that 
 ```ts
 import { View } from "@bunyad/view";
 
-View.share("appName", "Karobar");
+View.share("appName", "Acme");
 View.share({ locale: "en" });
 ```
 
