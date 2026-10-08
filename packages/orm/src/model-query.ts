@@ -2557,6 +2557,9 @@ export class ModelQuery<
             `${parentTable}.${localKey}`,
           );
         }
+        if (meta.typeColumn) {
+          sub.where(`${selfAlias ?? relatedTable}.${meta.typeColumn}`, meta.morphType);
+        }
         applyRelated?.(sub);
       };
     } else if (meta.kind === "belongsToMany" || meta.kind === "morphToMany") {
@@ -3051,6 +3054,7 @@ export class ModelQuery<
             `${parentTable}.${meta.localKey}`,
           );
         }
+        if (meta.typeColumn) sub.where(`${relatedTable}.${meta.typeColumn}`, meta.morphType);
       } else if (
         meta.kind === "belongsToMany" ||
         meta.kind === "morphToMany"
@@ -3239,19 +3243,15 @@ export class ModelQuery<
     // Column prefix for the related side (aliased when the relation is self-referencing).
     let relatedRef = relatedTable;
     switch (meta.kind) {
-      case "has":
-      case "morph": {
-        const foreignKey = meta.kind === "has" ? meta.foreignKey : meta.idColumn;
+      case "has": {
         if (relatedTable === parentTable) {
           relatedRef = `${relatedTable}_has`;
           sub.from(`${relatedTable} as ${relatedRef}`);
         } else {
           sub.from(relatedTable);
         }
-        sub.whereColumn(`${relatedRef}.${foreignKey}`, `${parentTable}.${meta.localKey}`);
-        if (meta.kind === "morph") {
-          sub.where(`${relatedRef}.${meta.typeColumn}`, meta.morphType);
-        }
+        sub.whereColumn(`${relatedRef}.${meta.foreignKey}`, `${parentTable}.${meta.localKey}`);
+        if (meta.typeColumn) sub.where(`${relatedRef}.${meta.typeColumn}`, meta.morphType);
         break;
       }
       case "belongsTo":

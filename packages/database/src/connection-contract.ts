@@ -45,6 +45,11 @@ type ConnectionCore = Omit<
   | "getPdo"
 >;
 
+/** The INSERT a `insertGetId*` call issues (for query listeners; the driver builds its own text). */
+function insertSql(table: string, columns: string[]): string {
+  return `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`;
+}
+
 /** Attach `getDriverName` / `getName` / `getDatabaseName` / `getConfig` / `getPdo`. */
 export function attachConnectionContract(
   core: ConnectionCore,
@@ -199,6 +204,32 @@ export function attachConnectionContract(
       core.allSync?.bind(core),
       (sql: string) => sql,
       (_sql: string, params: unknown[] = []) => params,
+    ),
+    // These used to bypass the listener, so model finds (SQLite) and model inserts
+    // (every driver) never showed up in the debugbar, slow-query logs or query counts.
+    getSync1: timed(
+      "getSync1",
+      core.getSync1?.bind(core),
+      (sql: string, _value: unknown) => sql,
+      (_sql: string, value: unknown) => [value],
+    ),
+    insertGetId: timed(
+      "insertGetId",
+      core.insertGetId.bind(core),
+      (table: string, columns: string[], _values: unknown[], _idColumn?: string) => insertSql(table, columns),
+      (_table: string, _columns: string[], values: unknown[], _idColumn?: string) => values,
+    )!,
+    insertGetIdSync: timed(
+      "insertGetIdSync",
+      core.insertGetIdSync?.bind(core),
+      (table: string, columns: string[], _values: unknown[], _idColumn?: string) => insertSql(table, columns),
+      (_table: string, _columns: string[], values: unknown[], _idColumn?: string) => values,
+    ),
+    insertGetIdSync1: timed(
+      "insertGetIdSync1",
+      core.insertGetIdSync1?.bind(core),
+      (table: string, column: string, _value: unknown) => insertSql(table, [column]),
+      (_table: string, _column: string, value: unknown) => [value],
     ),
   } as Connection;
   return connection;

@@ -480,6 +480,17 @@ flight!.getPrevious(); // original values of the attributes changed by the last 
 flight!.wasChanged("name");
 ```
 
+`json`, `array`, `object` and `collection` attributes are compared by content, so editing one in place makes the model dirty and the edit is saved, while assigning an identical value is not a change. Dates compare by instant. `getOriginal()` and `getPrevious()` return the pristine value, not the object you edited. (`encrypted:*` attributes are still compared by reference: reassign them after editing.)
+
+```ts
+flight.options.theme = "dark"; // edited in place
+flight.isDirty("options");     // true
+flight.getOriginal("options"); // { theme: "light" } — the pristine value
+await flight.save();
+```
+
+Inside `updated` and `saved` listeners the save is still visible through `isDirty()` and `getOriginal()`, and `wasChanged()` / `getChanges()` / `getPrevious()` are already set. The original values are synced after `saved`, as in Laravel.
+
 `refresh()` reloads from the database. `refreshForUpdate()` locks the row where the driver supports it. `fresh()` returns a new instance for the same key.
 
 ```ts

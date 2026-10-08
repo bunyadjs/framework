@@ -1882,6 +1882,9 @@ export type RelationMeta =
       related: ModelClass;
       foreignKey: string;
       localKey: string;
+      /** morphOne / morphMany: the related rows must also carry this morph type. */
+      typeColumn?: string;
+      morphType?: string;
     }
   | {
       kind: "belongsTo";
@@ -1961,6 +1964,16 @@ export function resolveRelation(
       foreignKey: rel.getForeignKeyName(),
       localKey: rel.getLocalKeyName(),
     };
+  } else if (rel instanceof MorphMany || rel instanceof MorphOne) {
+    // Same shape as hasMany plus the morph type column.
+    meta = {
+      kind: "has",
+      related: rel.getRelated(),
+      foreignKey: rel.getIdColumn(),
+      localKey: rel.getLocalKeyName(),
+      typeColumn: rel.getTypeColumn(),
+      morphType: rel.getMorphType(),
+    };
   } else if (rel instanceof BelongsTo) {
     meta = {
       kind: "belongsTo",
@@ -2029,41 +2042,14 @@ export function resolveRelation(
   return meta;
 }
 
-/** Relation metadata for aggregate subqueries (adds morphOne / morphMany). */
-export type AggregateRelationMeta =
-  | RelationMeta
-  | {
-      kind: "morph";
-      related: ModelClass;
-      typeColumn: string;
-      idColumn: string;
-      morphType: string;
-      localKey: string;
-    };
+/** Relation metadata for aggregate subqueries (morphOne / morphMany resolve as `has` + morph type). */
+export type AggregateRelationMeta = RelationMeta;
 
 export function resolveAggregateRelation(
   model: ModelClass,
   relation: string,
 ): AggregateRelationMeta | null {
-  const meta = resolveRelation(model, relation);
-  if (meta) return meta;
-  let rel: unknown;
-  try {
-    rel = new model().related(relation);
-  } catch {
-    return null;
-  }
-  if (rel instanceof MorphMany || rel instanceof MorphOne) {
-    return {
-      kind: "morph",
-      related: rel.getRelated(),
-      typeColumn: rel.getTypeColumn(),
-      idColumn: rel.getIdColumn(),
-      morphType: rel.getMorphType(),
-      localKey: rel.getLocalKeyName(),
-    };
-  }
-  return null;
+  return resolveRelation(model, relation);
 }
 
 export async function countRelation(model: Model, relation: string): Promise<number> {
@@ -2087,6 +2073,7 @@ export async function aggregateRelation(
 
   if (meta.kind === "has") {
     let q = meta.related.where(meta.foreignKey, id);
+    if (meta.typeColumn) q = q.where(meta.typeColumn, meta.morphType);
     if (fn === "exists") return (await q.exists()) ? 1 : 0;
     if (fn === "count") return q.count();
     if (fn === "sum") return q.sum(column!);

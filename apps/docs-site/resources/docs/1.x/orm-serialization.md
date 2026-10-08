@@ -152,7 +152,16 @@ const post = await Post.find(1);
 post!.toArray().published_at; // "2026-03-01T08:30:00.000Z"
 ```
 
-Cast definitions control how dates are stored and hydrated. Serialization always uses `Date.prototype.toISOString()` for values that are `Date` instances at serialize time.
+Cast definitions control how dates are stored and hydrated. Serialization uses `Date.prototype.toISOString()` for values that are `Date` instances at serialize time, unless the attribute has a `date:FORMAT` / `datetime:FORMAT` cast, which formats the output (`date:Y-m-d` gives `"2026-03-01"`; tokens are listed in [Mutators and Casting](/docs/1.x/orm-mutators)).
+
+`created_at` and `updated_at` are not cast by default, so SQLite returns them as stored text while Postgres and MySQL return `Date` values (serialized as ISO). Add `created_at: "datetime"` to `casts()` if you need one format on every driver.
+
+To take a subset of the attributes, use `only`:
+
+```ts
+user.only("id", "name");        // { id: 1, name: "Ada" }
+user.only(["id", "email"]);     // array form works too
+```
 
 ## Casting and serialization together
 

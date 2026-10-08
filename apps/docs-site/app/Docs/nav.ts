@@ -119,6 +119,8 @@ export const nav: DocGroup[] = [
       { slug: "orm-resources", title: "API Resources", file: "orm-resources.md" },
       { slug: "orm-serialization", title: "Serialization", file: "orm-serialization.md" },
       { slug: "orm-factories", title: "Factories", file: "orm-factories.md" },
+      { slug: "orm-from-eloquent", title: "Coming from Eloquent", file: "orm-from-eloquent.md" },
+      { slug: "orm-from-lucid", title: "Coming from Lucid", file: "orm-from-lucid.md" },
     ],
   },
   {

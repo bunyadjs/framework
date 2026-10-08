@@ -1145,6 +1145,7 @@ async function eagerLoadOneAggregate(
     let q = meta.related.whereIn(meta.foreignKey, parentIds).selectRaw(
       `${fk} as __bunyad_k`,
     );
+    if (meta.typeColumn) q = q.where(meta.typeColumn, meta.morphType);
     if (spec.fn === "exists") {
       q = q.selectRaw("1 as __bunyad_v");
     } else if (spec.fn === "count") {
