@@ -1,5 +1,5 @@
 // Compiled by strict-names.test.ts with the default settings. Lines ending in an ERROR marker comment must fail; every other line must compile.
-import { Model, unsafeName } from "../../src/index.ts";
+import { Model, unsafeName, type OrmCollection } from "../../src/index.ts";
 
 // No configuration: strict names are the default.
 class Post extends Model {
@@ -19,6 +19,25 @@ class User extends Model {
 class Comment extends Model {
   static table = "comments";
   declare body: string;
+}
+
+// Relations described by `static relations` + declared properties (no relation methods).
+class Article extends Model {
+  static table = "articles";
+  declare id: number;
+  declare title: string;
+  declare comments: OrmCollection<Comment>;
+  declare author: User | null;
+  static relations = {
+    comments: (m: Article) => m.hasMany(Comment, "article_id"),
+    author: (m: Article) => m.belongsTo(User, "author_id"),
+  };
+}
+static_check: {
+  Article.with("comments", "author", "comments.replies");
+  Article.whereHas("comments").where("title", "x");
+  Article.with("coments");                          // ERROR typo in a declared-property relation
+  Article.with("title");                            // ERROR a column is not a relation
 }
 
 // ── accepted ──

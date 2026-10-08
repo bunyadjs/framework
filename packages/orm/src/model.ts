@@ -144,6 +144,15 @@ export type RelationsMap =
   | Record<string, RelationFactory>
   | (() => Record<string, RelationFactory>);
 
+/**
+ * What a relation definition needs from the related class. Deliberately small:
+ * `hasMany(Product)` is checked for every model graph (Brand ↔ Product ↔ …), and comparing
+ * the full `typeof Model` static side there recurses until the compiler overflows its stack.
+ */
+export type RelatedModel = (abstract new (...args: any[]) => Model) & {
+  table: string;
+};
+
 export type ModelClass = typeof Model & {
   table: string;
   primaryKey: string;
@@ -1535,6 +1544,8 @@ export class Model {
   }
 
 
+  // Terminal forwarders take `any[]` on purpose: an app may define its own static with the same name
+  // (`static exists(id)`), and a stricter base signature would make `typeof User` stop satisfying `typeof Model`.
   // ── Query-builder forwarding (`__callStatic`): `User.whereBetween(...)`, `User.has('posts')`, … ──
   static whereBetween<T extends typeof Model>(
     this: T,
@@ -2133,7 +2144,7 @@ export class Model {
 
   static count<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["count"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["count"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2142,7 +2153,7 @@ export class Model {
 
   static sum<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["sum"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["sum"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2151,7 +2162,7 @@ export class Model {
 
   static avg<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["avg"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["avg"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2160,7 +2171,7 @@ export class Model {
 
   static min<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["min"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["min"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2169,7 +2180,7 @@ export class Model {
 
   static max<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["max"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["max"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2178,7 +2189,7 @@ export class Model {
 
   static exists<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["exists"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["exists"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2187,7 +2198,7 @@ export class Model {
 
   static doesntExist<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["doesntExist"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["doesntExist"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2196,7 +2207,7 @@ export class Model {
 
   static sole<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["sole"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["sole"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2205,7 +2216,7 @@ export class Model {
 
   static soleValue<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["soleValue"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["soleValue"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2214,7 +2225,7 @@ export class Model {
 
   static valueOrFail<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["valueOrFail"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["valueOrFail"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2223,7 +2234,7 @@ export class Model {
 
   static toSql<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["toSql"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["toSql"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2232,7 +2243,7 @@ export class Model {
 
   static toRawSql<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["toRawSql"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["toRawSql"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2241,7 +2252,7 @@ export class Model {
 
   static getBindings<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["getBindings"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["getBindings"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -2250,7 +2261,7 @@ export class Model {
 
   static firstOrFail<T extends typeof Model>(
     this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["firstOrFail"]>
+    ...args: any[]
   ): ReturnType<ModelQuery<InstanceType<T>>["firstOrFail"]> {
     this.bootIfNotBooted();
     const q = this.newQuery() as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -3685,25 +3696,25 @@ export class Model {
   }
 
   /** `$this->hasMany(Related::class)`. */
-  hasMany<R extends ModelClass>(
+  hasMany<R extends RelatedModel>(
     related: R,
     foreignKey?: string,
     localKey?: string,
   ): HasMany<InstanceType<R>> {
     const key =
       foreignKey ?? `${singular((this.constructor as ModelClass).table)}_id`;
-    return new HasMany(this, related, key, localKey);
+    return new HasMany(this, related as unknown as ModelClass, key, localKey);
   }
 
   /** `$this->hasOne(Related::class)`. */
-  hasOne<R extends ModelClass>(
+  hasOne<R extends RelatedModel>(
     related: R,
     foreignKey?: string,
     localKey?: string,
   ): HasOne<InstanceType<R>> {
     const key =
       foreignKey ?? `${singular((this.constructor as ModelClass).table)}_id`;
-    return new HasOne(this, related, key, localKey);
+    return new HasOne(this, related as unknown as ModelClass, key, localKey);
   }
 
   /**
@@ -3754,17 +3765,17 @@ export class Model {
   }
 
   /** `$this->belongsTo(Related::class)`. */
-  belongsTo<R extends ModelClass>(
+  belongsTo<R extends RelatedModel>(
     related: R,
     foreignKey?: string,
     ownerKey?: string,
   ): BelongsTo<InstanceType<R>> {
     const key = foreignKey ?? `${singular(related.table)}_id`;
-    return new BelongsTo(this, related, key, ownerKey);
+    return new BelongsTo(this, related as unknown as ModelClass, key, ownerKey);
   }
 
   /** `$this->belongsToMany(Related::class, pivot)`. */
-  belongsToMany<R extends ModelClass>(
+  belongsToMany<R extends RelatedModel>(
     related: R,
     table?: string,
     foreignPivotKey?: string,
@@ -3778,14 +3789,14 @@ export class Model {
       foreignPivotKey ?? `${singular(parent.table)}_id`;
     const relatedKey =
       relatedPivotKey ?? `${singular(related.table)}_id`;
-    return new BelongsToMany(this, related, pivot, foreign, relatedKey);
+    return new BelongsToMany(this, related as unknown as ModelClass, pivot, foreign, relatedKey);
   }
 
   /**
    * Polymorphic many-to-many (`model_has_roles`-style pivots).
    * Third argument may be the pivot table name or an options bag (tenant/legacy morph types).
    */
-  morphToMany<R extends ModelClass>(
+  morphToMany<R extends RelatedModel>(
     related: R,
     name: string,
     tableOrOptions?: string | MorphToManyOptions,
@@ -3814,7 +3825,7 @@ export class Model {
           );
     return new MorphToMany(
       this,
-      related,
+      related as unknown as ModelClass,
       table,
       foreign,
       relatedKey,
@@ -3829,7 +3840,7 @@ export class Model {
    * `$this->morphedByMany(Related::class, name)` — inverse of Laravel's `morphToMany`.
    * Defaults: pivot `{name}s`, `{name}_id`, `{name}_type`, parent key `{parent}_id`.
    */
-  morphedByMany<R extends ModelClass>(
+  morphedByMany<R extends RelatedModel>(
     related: R,
     name: string,
     table?: string,
@@ -3839,17 +3850,17 @@ export class Model {
     const parent = this.constructor as ModelClass;
     return new MorphedByMany(
       this,
-      related,
+      related as unknown as ModelClass,
       table ?? `${name}s`,
       foreignPivotKey ?? `${singular(parent.table)}_id`,
       relatedPivotKey ?? `${name}_id`,
       `${name}_type`,
-      morphTypeFor(related),
+      morphTypeFor(related as unknown as ModelClass),
     );
   }
 
   /** `$this->morphMany(Related::class, name)`. */
-  morphMany<R extends ModelClass>(
+  morphMany<R extends RelatedModel>(
     related: R,
     name: string,
     type?: string,
@@ -3858,7 +3869,7 @@ export class Model {
   ): MorphMany<InstanceType<R>> {
     return new MorphMany(
       this,
-      related,
+      related as unknown as ModelClass,
       type ?? `${name}_type`,
       id ?? `${name}_id`,
       morphTypeFor(this.constructor as ModelClass),
@@ -3867,7 +3878,7 @@ export class Model {
   }
 
   /** `$this->morphOne(Related::class, name)`. */
-  morphOne<R extends ModelClass>(
+  morphOne<R extends RelatedModel>(
     related: R,
     name: string,
     type?: string,
@@ -3876,7 +3887,7 @@ export class Model {
   ): MorphOne<InstanceType<R>> {
     return new MorphOne(
       this,
-      related,
+      related as unknown as ModelClass,
       type ?? `${name}_type`,
       id ?? `${name}_id`,
       morphTypeFor(this.constructor as ModelClass),

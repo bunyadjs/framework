@@ -511,6 +511,8 @@ Post.with("autor");        // error: "autor" is not a relation of Post
 Post.where("titel", "x");  // error: "titel" is not a column of Post
 ```
 
+Relations can be written either way: as methods (`posts() { return this.hasMany(Post); }`) or as declared properties with a `static relations` map (`declare posts: OrmCollection<Post>;`). Both are recognised.
+
 Checked: `with` (strings and the `{ relation: constraint }` form), `has`, `doesntHave`, `whereHas`, `orWhereHas`, `whereDoesntHave`, `withWhereHas`, and the column of `where`, `orWhere`, `whereIn`, `whereNull`, `whereNotNull`, `orderBy`, `orderByDesc`. A nested path (`comments.replies`) and an alias (`comments as c`) are accepted when the first segment is a relation, and a qualified `table.column` is accepted for columns. `id`, `created_at`, `updated_at` and `deleted_at` are always valid columns. Other columns must be declared on the class (`declare title: string;`) or merged in from the interface that `bunyad schema:types` generates.
 
 For a name that is only known at run time (a column from a request, an alias from `selectRaw`), wrap it in `unsafeName`:
