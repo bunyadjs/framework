@@ -61,6 +61,8 @@ type ListenerEntry = {
 const booted = new WeakSet<ModelCtor>();
 const listeners = new WeakMap<ModelCtor, Map<ModelEventName, ListenerEntry[]>>();
 const eventsDisabled = new WeakMap<ModelCtor, number>();
+/** `Model.withoutEvents()` called on the base class: every model is muted (seeders, imports). */
+let globalEventsDisabled = 0;
 
 function listenerMap(ctor: ModelCtor): Map<ModelEventName, ListenerEntry[]> {
   let map = listeners.get(ctor);
@@ -73,7 +75,7 @@ function listenerMap(ctor: ModelCtor): Map<ModelEventName, ListenerEntry[]> {
 
 /** Whether events are currently suppressed for this model class. */
 export function modelEventsDisabled(ctor: ModelCtor): boolean {
-  return (eventsDisabled.get(ctor) ?? 0) > 0;
+  return globalEventsDisabled > 0 || (eventsDisabled.get(ctor) ?? 0) > 0;
 }
 
 /**
@@ -156,13 +158,22 @@ export function hasAnyModelEventListeners(ctor: ModelCtor): boolean {
   return false;
 }
 
-/** Run `callback` with model events disabled for `ctor`. */
+/**
+ * Run `callback` with model events disabled for `ctor`, or for every model
+ * when `all` is true (`Model.withoutEvents(...)` on the base class).
+ */
 export function withoutModelEvents<T>(
   ctor: ModelCtor,
   callback: () => T | Promise<T>,
+  all = false,
 ): T | Promise<T> {
-  eventsDisabled.set(ctor, (eventsDisabled.get(ctor) ?? 0) + 1);
+  if (all) globalEventsDisabled++;
+  else eventsDisabled.set(ctor, (eventsDisabled.get(ctor) ?? 0) + 1);
   const finish = () => {
+    if (all) {
+      globalEventsDisabled = Math.max(0, globalEventsDisabled - 1);
+      return;
+    }
     const depth = (eventsDisabled.get(ctor) ?? 1) - 1;
     if (depth <= 0) eventsDisabled.delete(ctor);
     else eventsDisabled.set(ctor, depth);
