@@ -244,6 +244,41 @@ export default class User extends Model {
 }
 ```
 
+### Value objects
+
+`get` can return any object, and `set` turns it back into the stored form. The model keeps the object, compares it against what was loaded, and serializes it through its own `toJSON()`:
+
+```ts
+class Money {
+  constructor(readonly cents: number, readonly currency = "USD") {}
+  plus(other: Money) {
+    return new Money(this.cents + other.cents, this.currency);
+  }
+  toJSON() {
+    return { amount: this.cents / 100, currency: this.currency };
+  }
+}
+
+class Invoice extends Model {
+  static casts() {
+    return {
+      total: Attribute.make({
+        get: (value) => (value == null ? null : new Money(Number(value))),
+        set: (value) => (value instanceof Money ? value.cents : value),
+      }),
+    };
+  }
+}
+
+const invoice = await Invoice.find(1);
+invoice.total.cents;                          // 1250 (a Money)
+invoice.total = invoice.total.plus(new Money(50));
+await invoice.save();                          // stores 1300
+await Invoice.where("total", 1300).first();    // queries compare the stored form
+```
+
+Replace the object (as above) rather than mutating it: `isDirty()` notices a new object, not a changed field inside a custom value object.
+
 ### Building a value from multiple attributes
 
 The `get` callback receives `(value, attributes)`. Use `attributes` when the public field is derived from other columns:

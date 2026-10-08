@@ -57,5 +57,6 @@
   "resolveModelBuilder",
   "tsTypeForColumn",
   "ulid",
+  "unsafeName",
   "uuid7"
 ]
