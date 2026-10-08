@@ -8,6 +8,7 @@ export {
   BelongsTo,
   BelongsToMany,
   MorphToMany,
+  MorphedByMany,
   MorphMany,
   MorphOne,
   MorphTo,

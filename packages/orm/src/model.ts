@@ -72,6 +72,7 @@ import {
   MorphOne,
   MorphTo,
   MorphToMany,
+  MorphedByMany,
   aggregateRelation,
   clearMorphMap,
   morphMap,
@@ -2821,6 +2822,29 @@ export class Model {
     );
   }
 
+  /**
+   * `$this->morphedByMany(Related::class, name)` — inverse of Laravel's `morphToMany`.
+   * Defaults: pivot `{name}s`, `{name}_id`, `{name}_type`, parent key `{parent}_id`.
+   */
+  morphedByMany<R extends ModelClass>(
+    related: R,
+    name: string,
+    table?: string,
+    foreignPivotKey?: string,
+    relatedPivotKey?: string,
+  ): MorphedByMany<InstanceType<R>> {
+    const parent = this.constructor as ModelClass;
+    return new MorphedByMany(
+      this,
+      related,
+      table ?? `${name}s`,
+      foreignPivotKey ?? `${singular(parent.table)}_id`,
+      relatedPivotKey ?? `${name}_id`,
+      `${name}_type`,
+      morphTypeFor(related),
+    );
+  }
+
   /** `$this->morphMany(Related::class, name)`. */
   morphMany<R extends ModelClass>(
     related: R,
@@ -2897,6 +2921,7 @@ export {
   MorphOne,
   MorphTo,
   MorphToMany,
+  MorphedByMany,
   clearMorphMap,
   morphMap,
   type MorphToManyOptions,

@@ -25,6 +25,7 @@ import {
   MorphOne,
   MorphTo,
   MorphToMany,
+  MorphedByMany,
   aggregateRelation,
   applyPivotAttributes,
   resolveMorphType,
@@ -210,6 +211,9 @@ function eagerLoadOneRelation(
   }
   if (sampleRel instanceof MorphToMany) {
     return eagerLoadMorphToMany(models, relation, sampleRel, constraint);
+  }
+  if (sampleRel instanceof MorphedByMany) {
+    return eagerLoadMorphedByMany(models, relation, sampleRel, constraint);
   }
   if (sampleRel instanceof MorphMany) {
     return eagerLoadMorphMany(models, relation, sampleRel, constraint);
@@ -815,6 +819,57 @@ async function eagerLoadMorphToMany(
       }
     });
   }
+  for (const model of models) {
+    const id = (model as unknown as Record<string, unknown>)[parentKey];
+    (model as unknown as Record<string, unknown>)[relation] = new OrmCollection(
+      id == null ? [] : (byParent.get(String(id)) ?? []),
+      { owned: true },
+    );
+  }
+}
+
+async function eagerLoadMorphedByMany(
+  models: Model[],
+  relation: string,
+  sample: MorphedByMany,
+  constraint?: EagerRelationConstraint,
+): Promise<void> {
+  const Related = sample.getRelated();
+  const parent = models[0]!.constructor as ModelClass;
+  const parentKey = parent.primaryKey;
+  const pivotTable = sample.getPivotTable();
+  const foreignPivotKey = sample.getForeignPivotKeyName();
+  const relatedPivotKey = sample.getRelatedPivotKeyName();
+  const morphTypeColumn = sample.getMorphTypeColumn();
+  const morphType = sample.getMorphType();
+  const parentIds = uniqueKeys(
+    models.map(
+      (model) => (model as unknown as Record<string, unknown>)[parentKey],
+    ),
+  );
+  const byParent = new Map<string, Model[]>();
+  await forEachIdChunk(parentIds, async (chunk) => {
+    const q = Related.newQuery()
+      .join(
+        pivotTable,
+        `${pivotTable}.${relatedPivotKey}`,
+        "=",
+        `${Related.table}.${Related.primaryKey}`,
+      )
+      .whereIn(`${pivotTable}.${foreignPivotKey}`, chunk)
+      .where(`${pivotTable}.${morphTypeColumn}`, morphType)
+      .select(`${Related.table}.*`)
+      .selectRaw(`${pivotTable}.${foreignPivotKey} as __bunyad_parent_id`);
+    applyConstraint(q, constraint);
+    for (const row of (await q.get()).all()) {
+      const rec = row as unknown as Record<string, unknown>;
+      const key = String(rec.__bunyad_parent_id);
+      delete rec.__bunyad_parent_id;
+      const list = byParent.get(key) ?? [];
+      list.push(row);
+      byParent.set(key, list);
+    }
+  });
   for (const model of models) {
     const id = (model as unknown as Record<string, unknown>)[parentKey];
     (model as unknown as Record<string, unknown>)[relation] = new OrmCollection(

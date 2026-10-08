@@ -1238,6 +1238,134 @@ export class MorphToMany<T extends Model = Model> {
   }
 }
 
+/**
+ * `morphedByMany` — inverse of a Laravel-style `morphToMany` (`taggables` pivot).
+ * Parent is the "tag" side; the pivot stores the related model's id and morph type.
+ */
+export class MorphedByMany<T extends Model = Model> {
+  constructor(
+    private parent: Model,
+    private related: ModelClass,
+    private pivotTable: string,
+    private foreignPivotKey: string,
+    private relatedPivotKey: string,
+    private morphTypeColumn: string,
+    private morphType: string,
+  ) {}
+
+  getRelated(): ModelClass {
+    return this.related;
+  }
+
+  getPivotTable(): string {
+    return this.pivotTable;
+  }
+
+  getForeignPivotKeyName(): string {
+    return this.foreignPivotKey;
+  }
+
+  getRelatedPivotKeyName(): string {
+    return this.relatedPivotKey;
+  }
+
+  getMorphTypeColumn(): string {
+    return this.morphTypeColumn;
+  }
+
+  getMorphType(): string {
+    return this.morphType;
+  }
+
+  #parentId(): unknown {
+    const parentKey = (this.parent.constructor as ModelClass).primaryKey;
+    return (this.parent as unknown as Record<string, unknown>)[parentKey];
+  }
+
+  #conn() {
+    return (this.parent.constructor as ModelClass).getConnection();
+  }
+
+  async get(): Promise<OrmCollection<T>> {
+    const related = this.related;
+    const d = this.#conn().dialect;
+    const qRelated = wrapSqlName(d, related.table);
+    const qPivot = wrapSqlName(d, this.pivotTable);
+    const rows = await this.#conn().all<Record<string, unknown>>(
+      `SELECT ${qRelated}.* FROM ${qRelated}
+       INNER JOIN ${qPivot}
+         ON ${qPivot}.${wrapSqlName(d, this.relatedPivotKey)} = ${qRelated}.${wrapSqlName(d, related.primaryKey)}
+       WHERE ${qPivot}.${wrapSqlName(d, this.foreignPivotKey)} = ?
+         AND ${qPivot}.${wrapSqlName(d, this.morphTypeColumn)} = ?${softDeleteAliasSql(related, qRelated)}`,
+      [this.#parentId(), this.morphType],
+    );
+    return new OrmCollection(rows.map((row) => new related(row) as T), {
+      owned: true,
+    });
+  }
+
+  async attach(ids: Array<string | number> | string | number): Promise<void> {
+    const list = Array.isArray(ids) ? ids : [ids];
+    const d = this.#conn().dialect;
+    for (const id of list) {
+      await this.#conn().run(
+        `INSERT INTO ${wrapSqlName(d, this.pivotTable)} (${wrapSqlName(d, this.foreignPivotKey)}, ${wrapSqlName(d, this.relatedPivotKey)}, ${wrapSqlName(d, this.morphTypeColumn)}) VALUES (?, ?, ?)`,
+        [this.#parentId(), id, this.morphType],
+      );
+    }
+  }
+
+  async detach(ids?: Array<string | number> | string | number): Promise<void> {
+    const d = this.#conn().dialect;
+    const base = `DELETE FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ? AND ${wrapSqlName(d, this.morphTypeColumn)} = ?`;
+    if (ids === undefined) {
+      await this.#conn().run(base, [this.#parentId(), this.morphType]);
+      return;
+    }
+    const list = Array.isArray(ids) ? ids : [ids];
+    for (const id of list) {
+      await this.#conn().run(
+        `${base} AND ${wrapSqlName(d, this.relatedPivotKey)} = ?`,
+        [this.#parentId(), this.morphType, id],
+      );
+    }
+  }
+
+  async #currentIds(): Promise<Set<string>> {
+    const d = this.#conn().dialect;
+    const rows = await this.#conn().all<Record<string, unknown>>(
+      `SELECT ${wrapSqlName(d, this.relatedPivotKey)} AS id FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ? AND ${wrapSqlName(d, this.morphTypeColumn)} = ?`,
+      [this.#parentId(), this.morphType],
+    );
+    return new Set(rows.map((r) => String(r.id)));
+  }
+
+  /** Detach missing ids, attach new ones; keeps rows that stay (Laravel `sync`). */
+  async sync(ids: Array<string | number>): Promise<void> {
+    const existing = await this.#currentIds();
+    const wanted = new Set(ids.map(String));
+    const detach = [...existing].filter((id) => !wanted.has(id));
+    const attach = ids.filter((id) => !existing.has(String(id)));
+    if (detach.length > 0) await this.detach(detach);
+    if (attach.length > 0) await this.attach(attach);
+  }
+
+  async syncWithoutDetaching(ids: Array<string | number>): Promise<void> {
+    const existing = await this.#currentIds();
+    const missing = ids.filter((id) => !existing.has(String(id)));
+    if (missing.length > 0) await this.attach(missing);
+  }
+
+  async toggle(ids: Array<string | number> | string | number): Promise<void> {
+    const list = Array.isArray(ids) ? ids : [ids];
+    const existing = await this.#currentIds();
+    const detach = list.filter((id) => existing.has(String(id)));
+    const attach = list.filter((id) => !existing.has(String(id)));
+    if (detach.length > 0) await this.detach(detach);
+    if (attach.length > 0) await this.attach(attach);
+  }
+}
+
 export type RelationMeta =
   | {
       kind: "has";
