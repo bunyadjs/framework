@@ -390,6 +390,31 @@ const castShapeCache = new WeakMap<
   { keys: string[]; force: boolean } | null
 >();
 
+/**
+ * Attributes whose cast value is a mutable object (`json`, `array`, `object`,
+ * `collection`). They are compared by content, so an in-place edit
+ * (`row.meta.theme = "dark"`) is dirty and an identical re-assignment is not.
+ */
+const objectCastKeysCache = new WeakMap<ModelClass, string[]>();
+function objectCastKeys(ctor: ModelClass): string[] {
+  let keys = objectCastKeysCache.get(ctor);
+  if (!keys) {
+    keys = [];
+    for (const [key, definition] of Object.entries(ctor.getCasts())) {
+      if (typeof definition !== "string") continue;
+      const type = parseCast(definition)?.type;
+      if (type === "json" || type === "array" || type === "collection") keys.push(key);
+    }
+    objectCastKeysCache.set(ctor, keys);
+  }
+  return keys;
+}
+
+function jsonSnapshot(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  return JSON.stringify(value);
+}
+
 /** Reuse DatabaseManager per Connection — avoids `new Db()` on every list build. */
 const dbManagerByConnection = new WeakMap<Connection, DatabaseManager>();
 
@@ -611,6 +636,10 @@ export class Model {
 
   /** Set in constructor / hydrate — avoid empty `{}` alloc before assign. */
   #original!: Record<string, unknown>;
+  /** Raw (pre-cast) row this model was hydrated from; lets object casts be compared lazily. */
+  #rawRow?: Record<string, unknown>;
+  /** JSON snapshots of object-cast attributes taken at the last `syncOriginal()`. */
+  #snapshots?: Map<string, string | undefined>;
   /** Lazy: allocated on first mutation tracking. */
   #changes: Record<string, unknown> | undefined;
   #previous: Record<string, unknown> | undefined;
@@ -653,6 +682,7 @@ export class Model {
     assignOwn(self, casted);
     // Avoid a second own-key scan via syncOriginal()/getAttributes() on hydrate.
     this.#original = { ...casted };
+    if (objectCastKeys(ctor as ModelClass).length > 0) this.#rawRow = attributes;
   }
 
   /**
@@ -671,7 +701,42 @@ export class Model {
   /** Snapshot current attributes as the original set. */
   syncOriginal(): this {
     this.#original = this.getAttributes();
+    this.#rawRow = undefined;
+    const keys = objectCastKeys(this.constructor as ModelClass);
+    if (keys.length > 0) {
+      const snapshots = new Map<string, string | undefined>();
+      for (const key of keys) {
+        if (key in this.#original) snapshots.set(key, jsonSnapshot(this.#original[key]));
+      }
+      this.#snapshots = snapshots;
+    } else {
+      this.#snapshots = undefined;
+    }
     return this;
+  }
+
+  /** JSON of an object-cast attribute as it was when hydrated / last synced. */
+  #objectSnapshot(key: string): string | undefined {
+    if (this.#snapshots?.has(key)) return this.#snapshots.get(key);
+    const raw = this.#rawRow;
+    if (raw && key in raw) {
+      const definition = (this.constructor as ModelClass).getCasts()[key];
+      const parsed = castFromStorage(raw[key], definition as CastType);
+      const snapshot = jsonSnapshot(parsed);
+      (this.#snapshots ??= new Map()).set(key, snapshot);
+      return snapshot;
+    }
+    return jsonSnapshot(this.#original?.[key]);
+  }
+
+  /** The pristine value of `key` (a fresh copy for object casts, so in-place edits don't leak in). */
+  #originalValue(key: string): unknown {
+    const original = this.#original ?? {};
+    if (objectCastKeys(this.constructor as ModelClass).includes(key) && key in original) {
+      const snapshot = this.#objectSnapshot(key);
+      return snapshot === undefined ? undefined : JSON.parse(snapshot);
+    }
+    return original[key];
   }
 
   /** Current attribute bag (non-function own properties). */
@@ -741,8 +806,19 @@ export class Model {
   getDirty(): Record<string, unknown> {
     const dirty: Record<string, unknown> = {};
     const original = this.#original ?? {};
+    const objectKeys = objectCastKeys(this.constructor as ModelClass);
     for (const [key, value] of Object.entries(this.getAttributes())) {
-      if (!Object.is(value, original[key])) dirty[key] = value;
+      if (objectKeys.length > 0 && objectKeys.includes(key) && key in original) {
+        if (jsonSnapshot(value) !== this.#objectSnapshot(key)) dirty[key] = value;
+        continue;
+      }
+      const before = original[key];
+      // Equal instants are not a change (`row.born = new Date(sameTime)`).
+      if (value instanceof Date && before instanceof Date) {
+        if (value.getTime() !== before.getTime()) dirty[key] = value;
+        continue;
+      }
+      if (!Object.is(value, before)) dirty[key] = value;
     }
     return dirty;
   }
@@ -752,8 +828,14 @@ export class Model {
   getOriginal(key: string): unknown;
   getOriginal(key?: string): unknown {
     const original = this.#original ?? {};
-    if (key === undefined) return { ...original };
-    return original[key];
+    if (key === undefined) {
+      const out = { ...original };
+      for (const objectKey of objectCastKeys(this.constructor as ModelClass)) {
+        if (objectKey in out) out[objectKey] = this.#originalValue(objectKey);
+      }
+      return out;
+    }
+    return this.#originalValue(key);
   }
 
   /** `getChanges` — attributes changed by the last save. */
@@ -770,13 +852,32 @@ export class Model {
     return previous[key];
   }
 
+  /** `getChanges()` / `getPrevious()` for the write that just happened (set before `created` / `updated`). */
+  #recordChanges(
+    dirty: Record<string, unknown>,
+    exists: boolean,
+    usesTimestamps: boolean,
+  ): void {
+    const row = this as unknown as Record<string, unknown>;
+    this.#changes = { ...dirty };
+    if (usesTimestamps) {
+      if ("updated_at" in row && (!exists || "updated_at" in dirty || Object.keys(dirty).length > 0)) {
+        this.#changes.updated_at = row.updated_at;
+      }
+      if (!exists && "created_at" in row) {
+        this.#changes.created_at = row.created_at;
+      }
+    }
+    this.#capturePrevious(!exists);
+  }
+
   #capturePrevious(created = false): void {
     const original = this.#original ?? {};
     const previous: Record<string, unknown> = {};
     if (!created) {
       for (const key of Object.keys(this.#changes ?? {})) {
         if (Object.prototype.hasOwnProperty.call(original, key)) {
-          previous[key] = original[key];
+          previous[key] = this.#originalValue(key);
         }
       }
     }
@@ -3078,6 +3179,7 @@ export class Model {
       }
       this.#exists = true;
       this.#wasRecentlyCreated = true;
+      this.#recordChanges(dirty, false, usesTimestamps);
       await fireModelEvent(this, "created");
     } else {
       if ((await fireModelEvent(this, "updating")) === false) return this;
@@ -3092,24 +3194,18 @@ export class Model {
           );
         }
         this.#wasRecentlyCreated = false;
+        this.#recordChanges(dirty, true, usesTimestamps);
         await fireModelEvent(this, "updated");
       } else {
         this.#wasRecentlyCreated = false;
+        this.#recordChanges(dirty, true, usesTimestamps);
       }
     }
 
-    this.#changes = { ...dirty };
-    if (usesTimestamps) {
-      if ("updated_at" in row && (!exists || "updated_at" in dirty || Object.keys(dirty).length > 0)) {
-        this.#changes.updated_at = row.updated_at;
-      }
-      if (!exists && "created_at" in row) {
-        this.#changes.created_at = row.created_at;
-      }
-    }
-    this.#capturePrevious(!exists);
-    this.syncOriginal();
+    // Laravel `finishSave`: `saved` fires first, then the original set is synced,
+    // so `isDirty()` / `getOriginal()` still describe the save inside `updated` and `saved`.
     await fireModelEvent(this, "saved");
+    this.syncOriginal();
     // finishSave → touchOwners (Relation.touch honors withoutTouching on related).
     await this.touchOwners();
     return this;
@@ -3130,6 +3226,8 @@ export class Model {
     if (fresh) {
       Object.assign(this, fresh.getAttributes());
       this.#original = { ...fresh.#original };
+      this.#rawRow = fresh.#rawRow;
+      this.#snapshots = fresh.#snapshots;
       this.#exists = true;
     }
     return this;
@@ -3150,6 +3248,8 @@ export class Model {
     if (fresh) {
       Object.assign(this, fresh.getAttributes());
       this.#original = { ...fresh.#original };
+      this.#rawRow = fresh.#rawRow;
+      this.#snapshots = fresh.#snapshots;
       this.#exists = true;
     }
     return this;
