@@ -876,6 +876,7 @@ export class BelongsTo<T extends Model = Model> {
 export class BelongsToMany<T extends Model = Model> {
   #baseQuery: ModelQuery<T> | null = null;
   #pivotColumns: string[] = [];
+  #pivotTimestamps = false;
 
   constructor(
     private parent: Model,
@@ -978,73 +979,196 @@ export class BelongsToMany<T extends Model = Model> {
     return model;
   }
 
+  /** `withTimestamps` — stamp `created_at` / `updated_at` on pivot writes. */
+  withTimestamps(): this {
+    this.#pivotTimestamps = true;
+    return this;
+  }
+
+  #conn() {
+    return (this.parent.constructor as ModelClass).getConnection();
+  }
+
+  /** Normalize `1`, `[1, 2]` or `{ 1: { role: "x" } }` into `[id, attributes]` pairs. */
+  #normalize(
+    ids: PivotIds,
+    attributes: Record<string, unknown> = {},
+  ): Array<[string | number, Record<string, unknown>]> {
+    if (ids instanceof Model) {
+      return [[(ids as unknown as Record<string, string | number>)[this.related.primaryKey]!, attributes]];
+    }
+    if (Array.isArray(ids)) {
+      return ids.map((id) => [
+        id instanceof Model
+          ? (id as unknown as Record<string, string | number>)[this.related.primaryKey]!
+          : id,
+        attributes,
+      ]);
+    }
+    if (ids !== null && typeof ids === "object") {
+      return Object.entries(ids).map(([id, attrs]) => [id, { ...attributes, ...attrs }]);
+    }
+    return [[ids, attributes]];
+  }
+
+  #stamp(row: Record<string, unknown>, created: boolean): Record<string, unknown> {
+    if (!this.#pivotTimestamps) return row;
+    const now = nowForConnection(this.#conn());
+    if (created && row.created_at === undefined) row.created_at = now;
+    if (row.updated_at === undefined) row.updated_at = now;
+    return row;
+  }
+
+  async #currentIds(): Promise<Set<string>> {
+    const d = this.#conn().dialect;
+    const rows = await this.#conn().all<Record<string, unknown>>(
+      `SELECT ${wrapSqlName(d, this.relatedPivotKey)} AS id FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ?`,
+      [this.#parentId()],
+    );
+    return new Set(rows.map((r) => String(r.id)));
+  }
+
+  /** `attach` — one multi-row INSERT per chunk; optional pivot attributes. */
   async attach(
-    ids: Array<string | number> | string | number,
+    ids: PivotIds,
+    attributes: Record<string, unknown> = {},
   ): Promise<void> {
-    const list = Array.isArray(ids) ? ids : [ids];
-    const parent = this.parent.constructor as ModelClass;
-    for (const id of list) {
-      await parent.getConnection().run(
-        `INSERT INTO ${this.pivotTable} (${this.foreignPivotKey}, ${this.relatedPivotKey}) VALUES (?, ?)`,
-        [this.#parentId(), id],
-      );
+    const pairs = this.#normalize(ids, attributes);
+    if (pairs.length === 0) return;
+    const d = this.#conn().dialect;
+    const parentId = this.#parentId();
+    const rows = pairs.map(([id, attrs]) =>
+      this.#stamp(
+        { ...attrs, [this.foreignPivotKey]: parentId, [this.relatedPivotKey]: id },
+        true,
+      ),
+    );
+    // Group rows by column set so a multi-row INSERT stays rectangular.
+    const groups = new Map<string, Record<string, unknown>[]>();
+    for (const row of rows) {
+      const cols = Object.keys(row).sort().join("\u0000");
+      const group = groups.get(cols);
+      if (group) group.push(row);
+      else groups.set(cols, [row]);
+    }
+    for (const [colKey, group] of groups) {
+      const cols = colKey.split("\u0000");
+      const colSql = cols.map((c) => wrapSqlName(d, c)).join(", ");
+      const rowSql = `(${cols.map(() => "?").join(", ")})`;
+      const perChunk = Math.max(1, Math.floor(900 / cols.length));
+      for (let i = 0; i < group.length; i += perChunk) {
+        const chunk = group.slice(i, i + perChunk);
+        await this.#conn().run(
+          `INSERT INTO ${wrapSqlName(d, this.pivotTable)} (${colSql}) VALUES ${chunk.map(() => rowSql).join(", ")}`,
+          chunk.flatMap((row) => cols.map((c) => row[c])),
+        );
+      }
     }
   }
 
-  async detach(
-    ids?: Array<string | number> | string | number,
-  ): Promise<void> {
-    const parent = this.parent.constructor as ModelClass;
+  /** `detach` — returns the number of deleted pivot rows. */
+  async detach(ids?: PivotIds): Promise<number> {
+    const d = this.#conn().dialect;
+    const base = `DELETE FROM ${wrapSqlName(d, this.pivotTable)} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ?`;
     if (ids === undefined) {
-      await parent.getConnection().run(
-        `DELETE FROM ${this.pivotTable} WHERE ${this.foreignPivotKey} = ?`,
-        [this.#parentId()],
+      const result = await this.#conn().run(base, [this.#parentId()]);
+      return Number(result ?? 0);
+    }
+    const list = this.#normalize(ids).map(([id]) => id);
+    let deleted = 0;
+    for (let i = 0; i < list.length; i += 900) {
+      const chunk = list.slice(i, i + 900);
+      const result = await this.#conn().run(
+        `${base} AND ${wrapSqlName(d, this.relatedPivotKey)} IN (${chunk.map(() => "?").join(", ")})`,
+        [this.#parentId(), ...chunk],
       );
-      return;
+      deleted += Number(result ?? 0);
     }
-    const list = Array.isArray(ids) ? ids : [ids];
-    for (const id of list) {
-      await parent.getConnection().run(
-        `DELETE FROM ${this.pivotTable}
-         WHERE ${this.foreignPivotKey} = ? AND ${this.relatedPivotKey} = ?`,
-        [this.#parentId(), id],
-      );
-    }
+    return deleted;
   }
 
-  async sync(ids: Array<string | number>): Promise<void> {
-    await this.detach();
-    await this.attach(ids);
-  }
-
-  /** Attach missing ids only. */
-  async syncWithoutDetaching(ids: Array<string | number>): Promise<void> {
-    const existing = new Set(
-      (await this.get()).map((m) =>
-        String((m as unknown as Record<string, unknown>)[this.related.primaryKey]),
-      ),
+  /** `updateExistingPivot` — update pivot columns for one related id. Returns affected rows. */
+  async updateExistingPivot(
+    id: string | number | Model,
+    attributes: Record<string, unknown>,
+  ): Promise<number> {
+    const relatedId = this.#normalize(id)[0]![0];
+    const data = this.#stamp({ ...attributes }, false);
+    const cols = Object.keys(data);
+    if (cols.length === 0) return 0;
+    const d = this.#conn().dialect;
+    const result = await this.#conn().run(
+      `UPDATE ${wrapSqlName(d, this.pivotTable)} SET ${cols.map((c) => `${wrapSqlName(d, c)} = ?`).join(", ")} WHERE ${wrapSqlName(d, this.foreignPivotKey)} = ? AND ${wrapSqlName(d, this.relatedPivotKey)} = ?`,
+      [...cols.map((c) => data[c]), this.#parentId(), relatedId],
     );
-    const missing = ids.filter((id) => !existing.has(String(id)));
-    if (missing.length > 0) await this.attach(missing);
+    return Number(result ?? 0);
   }
 
-  /** Attach missing, detach present. */
-  async toggle(ids: Array<string | number> | string | number): Promise<void> {
-    const list = Array.isArray(ids) ? ids : [ids];
-    const existing = new Set(
-      (await this.get()).map((m) =>
-        String((m as unknown as Record<string, unknown>)[this.related.primaryKey]),
-      ),
-    );
-    const attachIds: Array<string | number> = [];
-    const detachIds: Array<string | number> = [];
-    for (const id of list) {
-      if (existing.has(String(id))) detachIds.push(id);
-      else attachIds.push(id);
+  /**
+   * `sync` — diff against existing rows: attach new, detach removed, and update
+   * pivot attributes of kept rows when the map form supplies them.
+   */
+  async sync(ids: PivotIds, detaching = true): Promise<PivotSyncResult> {
+    const pairs = this.#normalize(ids);
+    const existing = await this.#currentIds();
+    const result: PivotSyncResult = { attached: [], detached: [], updated: [] };
+    const wanted = new Set(pairs.map(([id]) => String(id)));
+    if (detaching) {
+      const gone = [...existing].filter((id) => !wanted.has(id));
+      if (gone.length > 0) {
+        await this.detach(gone);
+        result.detached = gone;
+      }
     }
-    if (detachIds.length > 0) await this.detach(detachIds);
-    if (attachIds.length > 0) await this.attach(attachIds);
+    const toAttach: Array<[string | number, Record<string, unknown>]> = [];
+    for (const [id, attrs] of pairs) {
+      if (!existing.has(String(id))) {
+        toAttach.push([id, attrs]);
+        result.attached.push(id);
+      } else if (Object.keys(attrs).length > 0) {
+        if ((await this.updateExistingPivot(id, attrs)) > 0) result.updated.push(id);
+      }
+    }
+    if (toAttach.length > 0) {
+      await this.attach(Object.fromEntries(toAttach));
+    }
+    return result;
   }
+
+  /** `syncWithoutDetaching`. */
+  async syncWithoutDetaching(ids: PivotIds): Promise<PivotSyncResult> {
+    return this.sync(ids, false);
+  }
+
+  /** `toggle` — attach missing, detach present. */
+  async toggle(
+    ids: PivotIds,
+  ): Promise<{ attached: Array<string | number>; detached: Array<string | number> }> {
+    const pairs = this.#normalize(ids);
+    const existing = await this.#currentIds();
+    const attach: Array<[string | number, Record<string, unknown>]> = [];
+    const detached: Array<string | number> = [];
+    for (const [id, attrs] of pairs) {
+      if (existing.has(String(id))) detached.push(id);
+      else attach.push([id, attrs]);
+    }
+    if (detached.length > 0) await this.detach(detached);
+    if (attach.length > 0) await this.attach(Object.fromEntries(attach));
+    return { attached: attach.map(([id]) => id), detached };
+  }
+}
+
+export type PivotIds =
+  | string
+  | number
+  | Model
+  | Array<string | number | Model>
+  | Record<string | number, Record<string, unknown>>;
+
+export interface PivotSyncResult {
+  attached: Array<string | number>;
+  detached: Array<string | number>;
+  updated: Array<string | number>;
 }
 
 /** Options for `morphToMany` beyond the positional args. */

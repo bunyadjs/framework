@@ -36,7 +36,7 @@ Supported relationship kinds:
 - Many to many (`belongsToMany`)
 - Has many through (`hasManyThrough`)
 - Polymorphic one to one / one to many (`morphOne` / `morphMany` / `morphTo`)
-- Polymorphic many to many (`morphToMany`)
+- Polymorphic many to many (`morphToMany`) and its inverse (`morphedByMany`)
 
 ## Defining relationships
 
@@ -282,14 +282,22 @@ const user = await User.find(1);
 const roles = user!.related("roles");
 
 await roles.attach([1, 2]);
-await roles.detach(1);
+await roles.attach(3, { active: true }); // pivot attributes
+await roles.attach({ 4: { active: false }, 5: { active: true } }); // per-id attributes
+await roles.detach(1); // returns the number of deleted rows
 await roles.detach(); // all
-await roles.sync([2, 3]); // detach all, then attach
+await roles.updateExistingPivot(3, { active: false }); // returns affected rows
+await roles.sync([2, 3]); // diff: attach new, detach removed, keep the rest
+await roles.sync({ 2: { active: true }, 6: { active: false } }); // sync with pivot attributes
 await roles.syncWithoutDetaching([4]); // attach missing only
 await roles.toggle([2, 5]); // attach missing, detach present
 
 const collection = await roles.get();
 ```
+
+`sync` and `syncWithoutDetaching` return `{ attached, detached, updated }`; `toggle` returns `{ attached, detached }`. `sync` compares against the existing pivot rows, so rows that stay keep their pivot data. `attach` writes one multi-row `INSERT` per chunk, so attaching thousands of ids is cheap. Ids may also be model instances.
+
+To stamp `created_at` / `updated_at` on pivot writes, call `withTimestamps()` when defining the relation.
 
 Extra pivot columns: call `withPivot` when defining the relation. Those columns (plus the pivot foreign keys) are available on each related model as `model.pivot`:
 
@@ -361,6 +369,23 @@ roles() {
 The third argument may be a pivot table string or an options bag (`MorphToManyOptions`): `table`, `foreignPivotKey`, `relatedPivotKey`, `morphTypeColumn`, `morphTypes`, `pivotTenantKey`, `parentTenantKey`.
 
 `MorphToMany` supports the same attach / detach / sync / syncWithoutDetaching / toggle / get API as `belongsToMany`, scoped by morph type (and optional tenant).
+
+### Morphed by many
+
+`morphedByMany` is the inverse of Laravel's `morphToMany`. The pivot stores the related model's id and morph type, so a `Tag` can own posts and videos through one `taggables` table:
+
+```ts
+class Tag extends Model {
+  posts() {
+    return this.morphedByMany(Post, "taggable");
+  }
+  videos() {
+    return this.morphedByMany(Video, "taggable");
+  }
+}
+```
+
+Defaults follow Laravel: pivot table `taggables`, columns `taggable_id` / `taggable_type`, and `tag_id` for the parent. Pass `table`, `foreignPivotKey` and `relatedPivotKey` to override them. It supports `get`, `attach`, `detach`, `sync`, `syncWithoutDetaching`, `toggle` and eager loading with `with("posts")`. `whereHas` is not supported yet.
 
 ### Custom polymorphic types
 

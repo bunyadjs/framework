@@ -385,6 +385,7 @@ flight!.isClean("name");
 flight!.getDirty();
 flight!.getOriginal("name");
 flight!.getChanges(); // after the last save
+flight!.getPrevious(); // original values of the attributes changed by the last save
 flight!.wasChanged("name");
 ```
 
