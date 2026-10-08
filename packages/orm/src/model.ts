@@ -2229,22 +2229,48 @@ export class Model {
     return q.whereDate(column, String(opOrValue), value);
   }
 
-  /** `Model::whereNot(closure)`. */
+  /** `Model::whereNot(closure | column, [op], value)`. */
   static whereNot<T extends typeof Model>(
     this: T,
     callback: (query: ModelQuery<InstanceType<T>>) => void,
-  ): ModelQuery<InstanceType<T>> {
+  ): ModelQuery<InstanceType<T>>;
+  static whereNot<T extends typeof Model>(
+    this: T,
+    column: ColumnHint<InstanceType<T>>,
+    value: unknown,
+  ): ModelQuery<InstanceType<T>>;
+  static whereNot<T extends typeof Model>(
+    this: T,
+    column: ColumnHint<InstanceType<T>>,
+    op: string,
+    value: unknown,
+  ): ModelQuery<InstanceType<T>>;
+  static whereNot<T extends typeof Model>(this: T, ...args: unknown[]): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().whereNot(callback);
+    const q = this.newQuery() as unknown as { whereNot: (...a: unknown[]) => ModelQuery<InstanceType<T>> };
+    return q.whereNot(...args);
   }
 
-  /** `Model::orWhereNot(closure)`. */
+  /** `Model::orWhereNot(closure | column, [op], value)`. */
   static orWhereNot<T extends typeof Model>(
     this: T,
     callback: (query: ModelQuery<InstanceType<T>>) => void,
-  ): ModelQuery<InstanceType<T>> {
+  ): ModelQuery<InstanceType<T>>;
+  static orWhereNot<T extends typeof Model>(
+    this: T,
+    column: ColumnHint<InstanceType<T>>,
+    value: unknown,
+  ): ModelQuery<InstanceType<T>>;
+  static orWhereNot<T extends typeof Model>(
+    this: T,
+    column: ColumnHint<InstanceType<T>>,
+    op: string,
+    value: unknown,
+  ): ModelQuery<InstanceType<T>>;
+  static orWhereNot<T extends typeof Model>(this: T, ...args: unknown[]): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().orWhereNot(callback);
+    const q = this.newQuery() as unknown as { orWhereNot: (...a: unknown[]) => ModelQuery<InstanceType<T>> };
+    return q.orWhereNot(...args);
   }
 
   /** `withTrashed()`. */

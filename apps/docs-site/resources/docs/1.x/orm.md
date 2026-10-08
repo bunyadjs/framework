@@ -290,6 +290,58 @@ const all = Flight.allSync();
 
 Like Laravel's `__callStatic`, builder methods can be called straight on the model class, so `User.whereBetween("age", [18, 30])` is the same as `User.query().whereBetween(...)`. This includes the where family (`whereNotIn`, `whereRaw`, `whereColumn`, `whereLike`, `orWhereIn`, …), `has` / `doesntHave` and the morph variants, `groupBy` / `having` / `selectRaw`, `offset`, `when` / `unless`, `inRandomOrder`, `lockForUpdate`, and the finders and terminals `firstWhere`, `findMany`, `chunkById`, `count`, `sum`, `max`, `exists`, `toSql`.
 
+### Query builder reference
+
+These helpers follow Laravel's names and argument order. Every example below is covered by a test that runs on SQLite, Postgres and MySQL.
+
+**Negation and grouped columns**
+
+```ts
+await User.whereNot("status", "banned").get();
+await User.whereNot("age", ">", 35).get();
+await User.whereNot((q) => q.where("status", "banned").where("age", ">", 45)).get();
+await User.where("age", "<", 25).orWhereNot("status", "active").get();
+
+// Match any / all / none of several columns
+await User.query().whereAny(["name", "email"], "like", "%@example.com").get();
+await User.query().whereAll(["name", "status"], "like", "%a%").get();
+await User.query().whereNone(["name", "status"], "like", "%o%").get();
+```
+
+**`orWhere` variants**
+
+`orWhereIn`, `orWhereNotIn`, `orWhereNull`, `orWhereNotNull`, `orWhereBetween`, `orWhereNotBetween`, `orWhereLike`, `orWhereNotLike`, `orWhereColumn` and `orWhereRaw` take the same arguments as their `where` counterparts:
+
+```ts
+await User.where("name", "ann").orWhereNull("email").get();
+await User.where("name", "zzz").orWhereBetween("age", [25, 45]).get();
+```
+
+**Keys, paging and shaping**
+
+```ts
+await User.query().whereKey([1, 2]).get();
+await User.query().whereKeyNot(1).get();
+await User.query().orderBy("id").take(10).get();        // alias of limit
+await User.query().orderBy("id").forPage(2, 15).get();  // page 2, 15 per page
+await User.query().select("status").distinct().rows().get();
+await User.query().tap((q) => audit(q)).get();          // run a callback, keep chaining
+await User.where("name", "nobody").firstOr(() => User.firstOrFail());
+```
+
+**Joins and locks**
+
+`join`, `leftJoin` and `rightJoin` take `(table, first, operator, second)`. `lockForUpdate()` and `sharedLock()` add a row lock inside a transaction. `toSql()` returns the SQL with `?` placeholders; `toRawSql()` inlines the bindings (for debugging only).
+
+**Hidden attributes**
+
+```ts
+user.makeVisible("secret");        // show a hidden attribute for this instance
+user.makeHidden("secret", "email");
+user.setHidden(["name"]);          // replace the hidden list
+user.getHidden();
+```
+
 ## Retrieving single models and aggregates
 
 ```ts

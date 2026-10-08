@@ -87,6 +87,19 @@ export type AggregateRelations =
       true | string | { as?: string } | ((query: ModelQuery) => void)
     >;
 
+/** `whereNot('col', v)` / `whereNot('col', op, v)` become a negated one-condition group. */
+function notGroupCallback<T extends Model>(
+  callbackOrColumn: ((query: ModelQuery<T>) => void) | string,
+  opOrValue?: unknown,
+  value?: unknown,
+): (query: ModelQuery<T>) => void {
+  if (typeof callbackOrColumn === "function") return callbackOrColumn;
+  return (q) => {
+    if (value === undefined) q.where(callbackOrColumn, opOrValue);
+    else q.where(callbackOrColumn, String(opOrValue), value);
+  };
+}
+
 const MQ_EMPTY: never[] = Object.freeze([]) as unknown as never[];
 const MQ_EMPTY_OBJ: Record<string, never> = Object.freeze({}) as Record<string, never>;
 
@@ -819,15 +832,37 @@ export class ModelQuery<
   }
 
   /** `whereNot(closure)` nested group. */
-  whereNot(callback: (query: ModelQuery<T>) => void): this {
+  whereNot(callback: (query: ModelQuery<T>) => void): this;
+  whereNot(column: ColumnHint<T>, value: unknown): this;
+  whereNot(column: ColumnHint<T>, op: string, value: unknown): this;
+  whereNot(
+    callbackOrColumn: ((query: ModelQuery<T>) => void) | string,
+    opOrValue?: unknown,
+    value?: unknown,
+  ): this {
     this.#simple = false;
-    (this.#nestedGroups = mqMut(this.#nestedGroups)).push({ boolean: "and", not: true, callback });
+    (this.#nestedGroups = mqMut(this.#nestedGroups)).push({
+      boolean: "and",
+      not: true,
+      callback: notGroupCallback(callbackOrColumn, opOrValue, value),
+    });
     return this;
   }
 
-  orWhereNot(callback: (query: ModelQuery<T>) => void): this {
+  orWhereNot(callback: (query: ModelQuery<T>) => void): this;
+  orWhereNot(column: ColumnHint<T>, value: unknown): this;
+  orWhereNot(column: ColumnHint<T>, op: string, value: unknown): this;
+  orWhereNot(
+    callbackOrColumn: ((query: ModelQuery<T>) => void) | string,
+    opOrValue?: unknown,
+    value?: unknown,
+  ): this {
     this.#simple = false;
-    (this.#nestedGroups = mqMut(this.#nestedGroups)).push({ boolean: "or", not: true, callback });
+    (this.#nestedGroups = mqMut(this.#nestedGroups)).push({
+      boolean: "or",
+      not: true,
+      callback: notGroupCallback(callbackOrColumn, opOrValue, value),
+    });
     return this;
   }
 
