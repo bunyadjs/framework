@@ -28,7 +28,7 @@ class ScGroup extends Model {
   rows() { return this.hasMany(ScRow, "group_id"); }
 }
 
-async function within<T>(ms: number, run: () => Promise<T>): Promise<T> {
+async function within<T>(ms: number, run: () => T | Promise<T>): Promise<T> {
   const start = performance.now();
   const result = await run();
   const took = performance.now() - start;
