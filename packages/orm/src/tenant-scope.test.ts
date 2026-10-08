@@ -20,7 +20,8 @@ class TsProject extends Model {
       if (currentTenant !== null) q.where("ts_projects.tenant_id", currentTenant);
     });
     // … and new rows are stamped with it.
-    TsProject.creating((project) => {
+    TsProject.creating((model) => {
+      const project = model as TsProject;
       if (currentTenant !== null && project.tenant_id === undefined) project.tenant_id = currentTenant;
     });
   }
