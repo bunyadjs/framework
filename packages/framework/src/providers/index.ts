@@ -16,6 +16,7 @@ import { LiveServiceProvider } from "./LiveServiceProvider.ts";
 import { HeadServiceProvider } from "./HeadServiceProvider.ts";
 import { InertiaServiceProvider } from "./InertiaServiceProvider.ts";
 import { FeatureServiceProvider } from "./FeatureServiceProvider.ts";
+import { PermissionServiceProvider } from "./PermissionServiceProvider.ts";
 import { DumpServiceProvider } from "./DumpServiceProvider.ts";
 import { loadFrameworkConfig } from "./load-config.ts";
 
@@ -53,6 +54,7 @@ export { HeadServiceProvider } from "./HeadServiceProvider.ts";
 export { InertiaServiceProvider } from "./InertiaServiceProvider.ts";
 export { DumpServiceProvider, registerDumpQueryListener } from "./DumpServiceProvider.ts";
 export { FeatureServiceProvider } from "./FeatureServiceProvider.ts";
+export { PermissionServiceProvider, type PermissionsConfig } from "./PermissionServiceProvider.ts";
 
 /** Providers `registerFrameworkProviders` can skip. Order is boot order. */
 export const FRAMEWORK_PROVIDERS = [
@@ -70,6 +72,7 @@ export const FRAMEWORK_PROVIDERS = [
   ["notifications", NotificationServiceProvider],
   ["broadcasting", BroadcastServiceProvider],
   ["auth", AuthServiceProvider],
+  ["permissions", PermissionServiceProvider],
   ["live", LiveServiceProvider],
   ["head", HeadServiceProvider],
   ["inertia", InertiaServiceProvider],

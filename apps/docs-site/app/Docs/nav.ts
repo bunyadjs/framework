@@ -91,6 +91,7 @@ export const nav: DocGroup[] = [
     pages: [
       { slug: "authentication", title: "Authentication", file: "authentication.md" },
       { slug: "authorization", title: "Authorization", file: "authorization.md" },
+      { slug: "roles-permissions", title: "Roles and Permissions", file: "roles-permissions.md" },
       { slug: "verification", title: "Email Verification", file: "verification.md" },
       { slug: "two-factor", title: "Two-Factor Authentication", file: "two-factor.md" },
       { slug: "encryption", title: "Encryption", file: "encryption.md" },

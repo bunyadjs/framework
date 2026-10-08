@@ -494,6 +494,7 @@
         "@bunyad/notifications": "workspace:^",
         "@bunyad/oauth": "workspace:^",
         "@bunyad/orm": "workspace:^",
+        "@bunyad/permissions": "workspace:^",
         "@bunyad/queue": "workspace:^",
         "@bunyad/router": "workspace:^",
         "@bunyad/schedule": "workspace:^",
@@ -628,6 +629,21 @@
       "dependencies": {
         "@bunyad/common": "workspace:^",
         "@bunyad/database": "workspace:^",
+      },
+    },
+    "packages/permissions": {
+      "name": "@bunyad/permissions",
+      "version": "0.2.0-beta.1",
+      "dependencies": {
+        "@bunyad/auth": "workspace:^",
+        "@bunyad/core": "workspace:^",
+        "@bunyad/http": "workspace:^",
+        "@bunyad/router": "workspace:^",
+      },
+      "devDependencies": {
+        "@bunyad/database": "workspace:^",
+        "@bunyad/orm": "workspace:^",
+        "@bunyad/view": "workspace:^",
       },
     },
     "packages/queue": {
@@ -1031,6 +1047,8 @@
     "@bunyad/oauth": ["@bunyad/oauth@workspace:packages/oauth"],
 
     "@bunyad/orm": ["@bunyad/orm@workspace:packages/orm"],
+
+    "@bunyad/permissions": ["@bunyad/permissions@workspace:packages/permissions"],
 
     "@bunyad/queue": ["@bunyad/queue@workspace:packages/queue"],
 

@@ -70,6 +70,7 @@
     "@bunyad/notifications": "workspace:^",
     "@bunyad/orm": "workspace:^",
     "@bunyad/features": "workspace:^",
+    "@bunyad/permissions": "workspace:^",
     "@bunyad/metrics": "workspace:^",
     "@bunyad/queue": "workspace:^",
     "@bunyad/router": "workspace:^",

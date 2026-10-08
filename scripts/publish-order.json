@@ -35,6 +35,7 @@
   "notifications",
   "session",
   "oauth",
+  "permissions",
   "search",
   "testing",
   "framework",

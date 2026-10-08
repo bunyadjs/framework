@@ -243,6 +243,25 @@ export {
 } from "@bunyad/features";
 
 export {
+  Permissions,
+  ScopeTree,
+  GLOBAL_SCOPE,
+  HasPermissions,
+  CacheVersionStore,
+  MemoryVersionStore,
+  createPermissionTables,
+  definePermissions,
+  getPermissions,
+  installPermissionGate,
+  registerPermissionCommands,
+  registerPermissionMiddleware,
+  scopeOf,
+  setPermissions,
+  type PermissionMethods,
+  type PermissionsOptions,
+} from "@bunyad/permissions";
+
+export {
   Metrics,
   Entry as MetricsEntry,
   MetricsManager,
@@ -709,6 +728,8 @@ export {
   HeadServiceProvider,
   InertiaServiceProvider,
   FeatureServiceProvider,
+  PermissionServiceProvider,
+  type PermissionsConfig,
   defaultDatabaseConfig,
   defaultRedisConfig,
   mysqlConnectionFromEnv,
