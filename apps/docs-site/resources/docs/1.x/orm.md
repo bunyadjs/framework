@@ -333,6 +333,41 @@ await User.where("name", "nobody").firstOr(() => User.firstOrFail());
 
 `join`, `leftJoin` and `rightJoin` take `(table, first, operator, second)`. `lockForUpdate()` and `sharedLock()` add a row lock inside a transaction. `toSql()` returns the SQL with `?` placeholders; `toRawSql()` inlines the bindings (for debugging only).
 
+**Subqueries, unions and joins on subqueries**
+
+A subquery can be a closure that configures a query builder, a query builder, or another model query:
+
+```ts
+// A correlated subquery as a column
+await User.query()
+  .select("users.*")
+  .selectSub(
+    Post.query().selectRaw("COUNT(*)").whereColumn("posts.user_id", "users.id"),
+    "post_count",
+  )
+  .get();
+
+// EXISTS / NOT EXISTS (and orWhereExists, orWhereNotExists)
+await User.query()
+  .whereExists(Post.query().whereColumn("posts.user_id", "users.id").where("views", ">", 100))
+  .get();
+
+// UNION / UNION ALL: both sides must select the same columns
+await User.query().select("name").where("age", "<", 25)
+  .union(User.query().select("name").where("age", ">", 65))
+  .get();
+
+// Join against an aggregate subquery (joinSub, leftJoinSub, rightJoinSub)
+const totals = Post.query().select("user_id").selectRaw("SUM(views) AS total").groupBy("user_id");
+await User.query()
+  .select("users.name", "t.total")
+  .leftJoinSub(totals, "t", "t.user_id", "=", "users.id")
+  .rows()
+  .get();
+```
+
+`crossJoin(table)` and `groupByRaw(sql, bindings)` are available too. Like `selectRaw`, columns that come from a subquery are not model attributes; use `.rows()` to read them as plain objects.
+
 **Hidden attributes**
 
 ```ts
@@ -483,6 +518,25 @@ await Flight.upsert(
 ```
 
 Unique columns are the second argument. The third lists columns to update on conflict. Timestamps are maintained when enabled.
+
+Bypass the guard when you really need to:
+
+```ts
+flight.forceFill({ name: "Cairo Express", status: "internal" }); // ignores fillable / guarded
+await Flight.forceCreate({ name: "Seed", status: "internal" });
+
+flight.isFillable("name");  // true
+flight.isGuarded("status"); // true
+
+// For seeders and imports: turn protection off globally, or only inside a callback.
+Flight.unguard();
+Flight.reguard();
+await Flight.unguarded(async () => {
+  await Flight.create({ name: "Imported", status: "internal" });
+});
+```
+
+Attributes you assign directly (`flight.status = "x"; await flight.save()`) are always saved. A fillable column you leave unset is left out of the `INSERT`, so the database default applies.
 
 ## Deleting models
 

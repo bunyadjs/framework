@@ -83,6 +83,17 @@ Prefer `casts()` when the map includes enum objects or `Attribute.make(...)` ins
 | `encrypted:collection` | Decrypted `Collection` | Encrypted JSON array |
 | `hashed` | Stored hash unchanged | bcrypt hash when the value is not already hashed |
 
+Laravel's parameterized forms are supported too:
+
+| Cast | On read | Notes |
+| --- | --- | --- |
+| `decimal:2` | Fixed-digit string (`"12.50"`) | Keeps money-like values exact; writes the same fixed-digit string |
+| `date:Y-m-d`, `datetime:d/m/Y H:i` | `Date` | The format applies when the model is serialized (`toJSON` / `toArray`), in UTC. Tokens: `d j m n Y y H G h g i s A a U M F D l`; `\x` escapes a character |
+| `immutable_date`, `immutable_datetime` | `Date` | Same as `date` / `datetime` (JavaScript dates are always plain values) |
+| `object` | Parsed object | Same as `json` |
+
+An unknown cast name (for example a typo such as `decimall:2`) throws `Unknown cast type …` the first time the model's casts are read, instead of silently leaving the attribute uncast.
+
 Boolean set-casts treat `"0"`, `"false"`, `"no"`, and `"off"` as false, and `"1"`, `"true"`, `"yes"`, and `"on"` as true, so sync and form payloads stay consistent on SQLite.
 
 ```ts
