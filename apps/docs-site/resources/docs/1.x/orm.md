@@ -587,6 +587,22 @@ await Flight.forceDestroy([1, 2]);
 
 Customize the column with `@SoftDeletes("archived_at")` or `static deletedAt`.
 
+#### Cascading soft deletes
+
+Soft deletes do not cascade on their own. Delete the children in a `deleting` listener, and restore them in `restored` if you want the reverse:
+
+```ts
+static booted() {
+  this.deleting(async (team) => {
+    for (const project of (await team.related("projects").get()).all()) {
+      await project.delete();
+    }
+  });
+}
+```
+
+Restoring the parent does not restore its children unless you add the matching `restored` listener.
+
 ### Pruning models
 
 Decorate models that should be purged on a schedule:
@@ -896,6 +912,26 @@ await Flight.withoutEvents(async () => {
 await flight.saveQuietly();
 await flight.deleteQuietly();
 ```
+
+Called on a model class, `withoutEvents` mutes that model only. Called on `Model` itself it mutes every model, which is what a seeder or an import usually wants:
+
+```ts
+await Model.withoutEvents(async () => {
+  await User.factory().count(50).create();
+  await Post.factory().count(200).create();
+});
+```
+
+## Known limitations
+
+- **SQLite and concurrency.** All requests share one connection. Top-level transactions from concurrent requests queue, but plain queries issued while another request's transaction is open run inside that transaction. Use Postgres or MySQL when requests overlap.
+- **Rolling back does not reset models.** After a transaction rolls back, a model saved inside it still reports `exists` and keeps its id (as in Laravel). Reload it if you need its real state.
+- **Unfinished row defaults.** An empty `fillable` with the default `guarded = ["*"]` lets everything through, unlike Laravel. Set `fillable` on models that take user input.
+- **Pivot events.** `attach`, `sync` and `updateExistingPivot` do not fire pivot model events, even with `using()`.
+- **Encrypted JSON casts** (`encrypted:json`, `encrypted:array`) are compared by reference. Reassign them after editing.
+- **Per-parent eager limits** trim in memory after one batched query, so keep the constraint selective when a parent can have very many related rows.
+- **`created_at` / `updated_at` are not cast by default.** SQLite returns text, Postgres and MySQL return `Date`. Add them to `casts()` for one type everywhere.
+- **Timestamps in `date:FORMAT` casts** format in UTC.
 
 ## Custom query builders
 

@@ -199,6 +199,24 @@ const first = await post!.related("comments").first();
 
 `HasMany` provides `get()` (returns [`OrmCollection`](/docs/1.x/orm-collections)), `first()`, `create()`, and `touch()`.
 
+### Setting the parent on loaded children (`chaperone`)
+
+By default a loaded child does not know its parent, so `post.user` costs another query. Call `chaperone()` on a `hasMany`, `hasOne` or `morphMany` relation to set the parent on every loaded child, both for eager loading and for `relation().get()`:
+
+```ts
+class User extends Model {
+  posts() {
+    return this.hasMany(Post).chaperone();          // children get `post.user`
+    // or name the property: .chaperone("author")
+  }
+}
+
+const user = await User.with("posts").find(1);
+user.posts.first().user === user; // true, no extra query
+```
+
+The inverse name defaults to the parent class in camelCase. The back-reference is not enumerable, so it never appears in `toJSON()` and never loops back into the parent.
+
 ### Default models
 
 `belongsTo`, `hasOne` and `morphOne` can return an empty model instead of `null` when nothing matches, so templates and serializers don't need null checks. The default is a new, unsaved model; for `hasOne` / `morphOne` it already carries the owner's foreign key (and morph type):

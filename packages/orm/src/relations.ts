@@ -288,6 +288,7 @@ function buildDefault<T extends Model>(
 /** MorphMany relation. */
 export class MorphMany<T extends Model = Model> {
   #baseQuery: ModelQuery<T> | null = null;
+  #inverse?: string | true;
 
   constructor(
     private parent: Model,
@@ -327,6 +328,29 @@ export class MorphMany<T extends Model = Model> {
   }
 
   /** Constrained related query (`morphMany().where(…).get()`). */
+  /**
+   * `chaperone($inverse)` — set the parent on every loaded child (`post.user` without a query).
+   * The inverse name defaults to the parent class name in camelCase.
+   */
+  chaperone(inverse?: string): this {
+    this.#inverse = inverse ?? true;
+    return this;
+  }
+
+  /** Property the parent is set on, or `undefined` when `chaperone()` was not called. */
+  getInverse(): string | undefined {
+    if (this.#inverse === undefined) return undefined;
+    if (typeof this.#inverse === "string") return this.#inverse;
+    const name = (this.parent.constructor as ModelClass).name;
+    return name.charAt(0).toLowerCase() + name.slice(1);
+  }
+
+  #hydrateInverse(rows: T[]): void {
+    const inverse = this.getInverse();
+    if (inverse === undefined) return;
+    for (const row of rows) setInverse(row, inverse, this.parent);
+  }
+
   getQuery(): ModelQuery<T> {
     if (!this.#baseQuery) {
       this.#baseQuery = this.related
@@ -338,11 +362,15 @@ export class MorphMany<T extends Model = Model> {
 
   async get(): Promise<OrmCollection<T>> {
     const rows = await this.getQuery().get();
-    return new OrmCollection(rows.all() as T[], { owned: true });
+    const models = rows.all() as T[];
+    this.#hydrateInverse(models);
+    return new OrmCollection(models, { owned: true });
   }
 
   async first(): Promise<T | null> {
-    return this.getQuery().first() as Promise<T | null>;
+    const row = (await this.getQuery().first()) as T | null;
+    if (row) this.#hydrateInverse([row]);
+    return row;
   }
 
   async create(attributes: Record<string, unknown>): Promise<T> {
@@ -546,6 +574,7 @@ export class MorphTo {
 /** HasMany relation. */
 export class HasMany<T extends Model = Model> {
   #baseQuery: ModelQuery<T> | null = null;
+  #inverse?: string | true;
 
   constructor(
     private parent: Model,
@@ -575,6 +604,29 @@ export class HasMany<T extends Model = Model> {
   }
 
   /** Constrained related query (`hasMany().where(…).orderBy(…).get()`). */
+  /**
+   * `chaperone($inverse)` — set the parent on every loaded child (`post.user` without a query).
+   * The inverse name defaults to the parent class name in camelCase.
+   */
+  chaperone(inverse?: string): this {
+    this.#inverse = inverse ?? true;
+    return this;
+  }
+
+  /** Property the parent is set on, or `undefined` when `chaperone()` was not called. */
+  getInverse(): string | undefined {
+    if (this.#inverse === undefined) return undefined;
+    if (typeof this.#inverse === "string") return this.#inverse;
+    const name = (this.parent.constructor as ModelClass).name;
+    return name.charAt(0).toLowerCase() + name.slice(1);
+  }
+
+  #hydrateInverse(rows: T[]): void {
+    const inverse = this.getInverse();
+    if (inverse === undefined) return;
+    for (const row of rows) setInverse(row, inverse, this.parent);
+  }
+
   getQuery(): ModelQuery<T> {
     if (!this.#baseQuery) {
       this.#baseQuery = this.related.where(
@@ -587,11 +639,15 @@ export class HasMany<T extends Model = Model> {
 
   async get(): Promise<OrmCollection<T>> {
     const rows = await this.getQuery().get();
-    return new OrmCollection(rows.all() as T[], { owned: true });
+    const models = rows.all() as T[];
+    this.#hydrateInverse(models);
+    return new OrmCollection(models, { owned: true });
   }
 
   async first(): Promise<T | null> {
-    return this.getQuery().first() as Promise<T | null>;
+    const row = (await this.getQuery().first()) as T | null;
+    if (row) this.#hydrateInverse([row]);
+    return row;
   }
 
   async create(attributes: Record<string, unknown>): Promise<T> {
@@ -621,6 +677,7 @@ export class HasOne<T extends Model = Model> {
   #ofManyColumn?: string;
   #ofManyAggregate?: "min" | "max";
   #baseQuery: ModelQuery<T> | null = null;
+  #inverse?: string | true;
   #default?: DefaultSpec<T>;
 
   constructor(
@@ -697,6 +754,29 @@ export class HasOne<T extends Model = Model> {
     return buildDefault<T>(this.related, this.#default ?? true, this.parent, { [this.foreignKey]: (this.parent as unknown as Record<string, unknown>)[this.getLocalKeyName()] });
   }
 
+  /**
+   * `chaperone($inverse)` — set the parent on every loaded child (`post.user` without a query).
+   * The inverse name defaults to the parent class name in camelCase.
+   */
+  chaperone(inverse?: string): this {
+    this.#inverse = inverse ?? true;
+    return this;
+  }
+
+  /** Property the parent is set on, or `undefined` when `chaperone()` was not called. */
+  getInverse(): string | undefined {
+    if (this.#inverse === undefined) return undefined;
+    if (typeof this.#inverse === "string") return this.#inverse;
+    const name = (this.parent.constructor as ModelClass).name;
+    return name.charAt(0).toLowerCase() + name.slice(1);
+  }
+
+  #hydrateInverse(rows: T[]): void {
+    const inverse = this.getInverse();
+    if (inverse === undefined) return;
+    for (const row of rows) setInverse(row, inverse, this.parent);
+  }
+
   getQuery(): ModelQuery<T> {
     if (!this.#baseQuery) {
       let q = this.related.where(
@@ -730,6 +810,12 @@ export class HasOne<T extends Model = Model> {
   }
 
   async #firstRow(): Promise<T | null> {
+    const row = await this.#firstRowRaw();
+    if (row) this.#hydrateInverse([row]);
+    return row;
+  }
+
+  async #firstRowRaw(): Promise<T | null> {
     return this.getQuery().first() as Promise<T | null>;
   }
 
@@ -1030,6 +1116,19 @@ export class BelongsTo<T extends Model = Model> {
 }
 
 /** BelongsToMany relation. */
+
+/**
+ * Point `child[inverse]` at its parent without making it enumerable: a back-reference
+ * must not be serialized (`toJSON`) or treated as an attribute, or parent → child → parent recurses.
+ */
+export function setInverse(child: unknown, inverse: string, parent: Model): void {
+  Object.defineProperty(child, inverse, {
+    value: parent,
+    enumerable: false,
+    writable: true,
+    configurable: true,
+  });
+}
 
 /** `wherePivot*` constraints on a many-to-many pivot table (AND only). */
 export type PivotWhere =

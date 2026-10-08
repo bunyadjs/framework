@@ -30,6 +30,7 @@ import {
   aggregateRelation,
   applyPivotAttributes,
   applyPivotWheres,
+  setInverse,
   resolveMorphType,
   resolveRelation,
 } from "./relations.ts";
@@ -264,6 +265,16 @@ function eagerLoadOneRelationRaw(
   }
 }
 
+function fillDefaults(models: Model[], relation: string): void {
+  for (const model of models) {
+    const row = model as unknown as Record<string, unknown>;
+    if (row[relation] == null) {
+      const rel = model.related(relation) as { makeDefault(): Model };
+      row[relation] = rel.makeDefault();
+    }
+  }
+}
+
 /** Load one relation, then fill `withDefault()` relations that matched nothing. */
 function eagerLoadOneRelation(
   models: Model[],
@@ -275,16 +286,24 @@ function eagerLoadOneRelation(
     | null;
   const withDefault = Boolean(sampleRel?.hasDefault?.());
   const loaded = eagerLoadOneRelationRaw(models, relation, constraint);
-  if (!withDefault) return loaded;
-  const fill = () => {
-    for (const model of models) {
-      const row = model as unknown as Record<string, unknown>;
-      if (row[relation] == null) {
-        const rel = model.related(relation) as { makeDefault(): Model };
-        row[relation] = rel.makeDefault();
+  const inverseName = (sampleRel as { getInverse?: () => string | undefined } | null)?.getInverse?.();
+  if (inverseName !== undefined) {
+    const attach = () => {
+      for (const model of models) {
+        const value = (model as unknown as Record<string, unknown>)[relation];
+        const children = value == null ? [] : Array.isArray(value) ? value : typeof (value as { all?: unknown }).all === "function" ? (value as { all(): unknown[] }).all() : [value];
+        for (const child of children) setInverse(child, inverseName, model);
       }
+    };
+    if (loaded instanceof Promise) {
+      const chained = loaded.then(attach);
+      if (!withDefault) return chained;
+      return chained.then(() => fillDefaults(models, relation));
     }
-  };
+    attach();
+  }
+  if (!withDefault) return loaded;
+  const fill = () => fillDefaults(models, relation);
   if (loaded instanceof Promise) return loaded.then(fill);
   fill();
 }

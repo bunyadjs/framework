@@ -1126,7 +1126,8 @@ export class Model {
     this: typeof Model,
     callback: () => T | Promise<T>,
   ): T | Promise<T> {
-    return withoutModelEvents(this, callback);
+    // Called on `Model` itself it mutes every model class (Laravel's `Model::withoutEvents`).
+    return withoutModelEvents(this, callback, this === Model);
   }
 
   static retrieved(callback: ModelEventListener): void {
