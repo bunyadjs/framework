@@ -2188,23 +2188,19 @@ export class Model {
     if ((await fireModelEvent(this, "saving")) === false) return this;
 
     const usesTimestamps = ctor.timestamps !== false;
-    if (usesTimestamps) {
-      const now = nowForConnection(this.getConnection());
-      if (!exists) {
-        row.updated_at = now;
-        row.created_at = row.created_at ?? now;
-      } else {
-        this.#stampUpdatedAt(now);
-      }
-    }
-
-    const dirty = this.getDirty();
     const persistCtor = ctor as unknown as ModelClass;
-
     const table = new Db(this.getConnection()).table(ctor.table);
+    // Laravel order: saving → creating/updating → timestamps → write → created/updated → saved.
+    let dirty: Record<string, unknown>;
 
     if (!exists) {
       if ((await fireModelEvent(this, "creating")) === false) return this;
+      if (usesTimestamps) {
+        const now = nowForConnection(this.getConnection());
+        row.updated_at = now;
+        row.created_at = row.created_at ?? now;
+      }
+      dirty = this.getDirty();
       const attributes = persistableAttributes(
         persistCtor,
         row,
@@ -2233,14 +2229,21 @@ export class Model {
       await fireModelEvent(this, "created");
     } else {
       if ((await fireModelEvent(this, "updating")) === false) return this;
-      const attributes = persistableAttributes(persistCtor, dirty, key);
-      if (Object.keys(attributes).length > 0) {
-        await withoutQueryWriteHook(() =>
-          table.where(key, id).update(ctor.castAttributes(attributes, "set")),
-        );
+      if (usesTimestamps) this.#stampUpdatedAt(nowForConnection(this.getConnection()));
+      dirty = this.getDirty();
+      // `updated` fires only when something was written (Laravel performUpdate).
+      if (Object.keys(dirty).length > 0) {
+        const attributes = persistableAttributes(persistCtor, dirty, key);
+        if (Object.keys(attributes).length > 0) {
+          await withoutQueryWriteHook(() =>
+            table.where(key, id).update(ctor.castAttributes(attributes, "set")),
+          );
+        }
+        this.#wasRecentlyCreated = false;
+        await fireModelEvent(this, "updated");
+      } else {
+        this.#wasRecentlyCreated = false;
       }
-      this.#wasRecentlyCreated = false;
-      await fireModelEvent(this, "updated");
     }
 
     this.#changes = { ...dirty };
@@ -2468,8 +2471,8 @@ export class Model {
 
     if (usesSoftDeletes(ctor as ModelClass)) {
       await this.#performSoftDelete();
-      await fireModelEvent(this, "deleted");
       await fireModelEvent(this, "trashed");
+      await fireModelEvent(this, "deleted");
       return;
     }
 
@@ -2500,9 +2503,11 @@ export class Model {
     const ctor = this.constructor as typeof Model;
     ctor.bootIfNotBooted();
     if ((await fireModelEvent(this, "forceDeleting")) === false) return;
+    if ((await fireModelEvent(this, "deleting")) === false) return;
+    await this.touchOwners();
     await this.#performForceDelete();
-    await fireModelEvent(this, "forceDeleted");
     await fireModelEvent(this, "deleted");
+    await fireModelEvent(this, "forceDeleted");
   }
 
   /** `$model->deleteQuietly()`. */

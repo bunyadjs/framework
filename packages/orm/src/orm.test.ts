@@ -1333,7 +1333,7 @@ test("model boot booted and lifecycle events", async () => {
 
   const note = (await Note.create({ body: "n1" })) as Note;
   await note.delete();
-  expect(softLog).toEqual(["deleting", "deleted", "trashed"]);
+  expect(softLog).toEqual(["deleting", "trashed", "deleted"]);
   expect(note.trashed()).toBe(true);
 
   softLog.length = 0;

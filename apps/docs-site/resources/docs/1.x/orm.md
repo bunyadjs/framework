@@ -574,6 +574,8 @@ Models fire lifecycle hooks so you can run code around retrieve, create, update,
 | `restoring` / `restored` | Before / after restoring a soft-deleted model |
 | `replicating` | When `replicate()` builds a copy |
 
+Order follows Laravel. Create: `saving`, `creating`, `created`, `saved`. Update: `saving`, `updating`, `updated`, `saved`. Soft delete: `deleting`, `trashed`, `deleted`. Force delete: `forceDeleting`, `deleting`, `deleted`, `forceDeleted`. Restore: `restoring`, `restored`. `created_at` / `updated_at` are set after `creating` / `updating`, and `updated` fires only when something was written, so saving an unchanged model fires `saving` and `updating` but not `updated`.
+
 Events ending in `-ing` run before the change is persisted. Events ending in `-ed` run after. Return `false` from a before-event (`creating`, `saving`, `updating`, `deleting`, …) to cancel the operation.
 
 Mass `update()`, `delete()`, `insert()`, and `upsert()` on the query builder do **not** fire these events — the models are never loaded. Prefer instance `save()` / `delete()` when listeners must run.
@@ -737,6 +739,18 @@ import Flight from "@/Models/Flight.ts";
 import FlightObserver from "@/Observers/FlightObserver.ts";
 
 Flight.observe(FlightObserver);
+```
+
+Set `afterCommit = true` on an observer to dispatch its after-events (`created`, `updated`, `saved`, `deleted`, …) once the outermost database transaction commits. Outside a transaction they run immediately, and inside one they are dropped if it rolls back. Before-events (`creating`, `saving`, …) always run in place:
+
+```ts
+export default class OrderObserver {
+  afterCommit = true;
+
+  created(order: Order) {
+    // runs only if the surrounding transaction commits
+  }
+}
 ```
 
 Call `observe` from a provider `boot()` method, or from the model’s own `booted()`:
