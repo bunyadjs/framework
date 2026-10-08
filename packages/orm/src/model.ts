@@ -3635,8 +3635,13 @@ export class Model {
     return this;
   }
 
+  /** `toArray()` with `bigint` values as decimal strings, since JSON has no `bigint`. */
   toJSON(): Record<string, unknown> {
-    return this.toArray();
+    const out = this.toArray();
+    for (const key in out) {
+      if (typeof out[key] === "bigint") out[key] = String(out[key]);
+    }
+    return out;
   }
 
   /** Alias of {@link toJSON}. */

@@ -87,7 +87,9 @@ export class CursorPaginator<T = unknown> {
     return this.options.previousCursor === null;
   }
 
-  toJSON(data: readonly unknown[] = this.items): Record<string, unknown> {
+  toJSON(replacement?: unknown): Record<string, unknown> {
+    // `JSON.stringify` calls `toJSON(key)`; only an array replaces the items.
+    const data: readonly unknown[] = Array.isArray(replacement) ? replacement : this.items;
     const name = this.options.cursorName ?? "cursor";
     const path = this.options.path ?? "";
     const urlFor = (cursor: string | null) => {
@@ -263,7 +265,9 @@ export class LengthAwarePaginator<T = unknown> extends AbstractPaginator {
   }
 
   /** `{ data, links, meta }` — pass `data` to replace raw `items`. */
-  toJSON(data: readonly unknown[] = this.items): Record<string, unknown> {
+  toJSON(replacement?: unknown): Record<string, unknown> {
+    // `JSON.stringify` calls `toJSON(key)`; only an array replaces the items.
+    const data: readonly unknown[] = Array.isArray(replacement) ? replacement : this.items;
     return {
       data,
       links: this.links(),
@@ -303,7 +307,9 @@ export class Paginator<T = unknown> extends AbstractPaginator {
     };
   }
 
-  toJSON(data?: readonly unknown[]): Record<string, unknown> {
+  toJSON(replacement?: unknown): Record<string, unknown> {
+    // `JSON.stringify` calls `toJSON(key)`; only an array replaces the items.
+    const data = Array.isArray(replacement) ? replacement : undefined;
     return {
       data: data ?? this.pageItems(),
       links: this.links(),

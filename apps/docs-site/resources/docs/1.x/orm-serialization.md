@@ -40,7 +40,7 @@ users.all().map((user) => user.toArray());
 
 ### Serializing to JSON
 
-`toJSON()` returns the same object as `toArray()`. `toJson()` is an alias of `toJSON()` — both return a plain object; call `JSON.stringify` when you need a string:
+`toJSON()` returns the same object as `toArray()`, except that `bigint` values become decimal strings (JSON has no `bigint`; `toArray()` keeps the native value). `toJson()` is an alias of `toJSON()` — both return a plain object; call `JSON.stringify` when you need a string:
 
 ```ts
 const user = await User.find(1);
@@ -48,6 +48,8 @@ const user = await User.find(1);
 user!.toJSON();
 JSON.stringify(user); // uses `toJSON` when the runtime serializes the model
 ```
+
+Paginators serialize the same way: `JSON.stringify(await Post.paginate(15))` gives `{ data, links, meta }`, with every model following its own hidden, visible and appended rules. This also holds for `simplePaginate` and `cursorPaginate`.
 
 ### Relationships
 
