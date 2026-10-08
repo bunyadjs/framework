@@ -540,7 +540,7 @@ await Customer.withSum(
   .get();
 ```
 
-Constraints work for `withCount`, `withSum`, `withAvg`, `withMin`, `withMax`, `withExists` and `withAggregate`. Aggregates work on `hasMany`, `hasOne`, `belongsTo`, `belongsToMany`, `hasManyThrough`, `hasOneThrough`, `morphMany`, `morphOne` and `morphToMany`. Soft-deleted related rows are not counted, and aggregating an unknown relation throws. For a single table, use `selectRaw("SUM(CASE WHEN status = ? THEN amount ELSE 0 END) as paid_total", ["paid"])`.
+Constraints work for `withCount`, `withSum`, `withAvg`, `withMin`, `withMax`, `withExists` and `withAggregate`. Aggregates work on `hasMany`, `hasOne`, `belongsTo`, `belongsToMany`, `hasManyThrough`, `hasOneThrough`, `morphMany`, `morphOne` and `morphToMany`. Soft-deleted rows and the related model's global scopes are applied (call `q.withoutGlobalScopes()` inside the closure to opt out), and aggregating an unknown relation throws. `whereHas` and many-to-many eager loads apply the related model's global scopes the same way. For a single table, use `selectRaw("SUM(CASE WHEN status = ? THEN amount ELSE 0 END) as paid_total", ["paid"])`.
 
 ## Eager loading
 

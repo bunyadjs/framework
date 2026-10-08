@@ -10,6 +10,7 @@ import {
   type EagerRelationConstraint,
   type NormalizedEagerRelation,
 } from "./model-helpers.ts";
+import { hasGlobalScopes } from "./scopes.ts";
 import { eagerFetchByKeys } from "./eager-fetch.ts";
 import { Model, type ModelClass } from "./model.ts";
 import type { ModelQuery } from "./model-query.ts";
@@ -652,7 +653,7 @@ async function eagerLoadBelongsToMany(
             .join(", ")}`
         : "";
     await forEachIdChunk(parentIds, async (chunk) => {
-      if (constraint) {
+      if (constraint || hasGlobalScopes(Related)) {
         let q = Related.newQuery()
           .join(
             pivotTable,
@@ -746,7 +747,7 @@ async function eagerLoadMorphToMany(
     const soft = softDeleteAliasSql(Related, qRelated);
     const morphPlaceholders = morphTypes.map(() => "?").join(", ");
     await forEachIdChunk(parentIds, async (chunk) => {
-      if (constraint) {
+      if (constraint || hasGlobalScopes(Related)) {
         let q = Related.newQuery()
           .join(
             pivotTable,

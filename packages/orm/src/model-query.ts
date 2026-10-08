@@ -2128,6 +2128,24 @@ export class ModelQuery<
     return q;
   }
 
+  /**
+   * Apply this model's global scopes onto a correlated subquery (`whereHas`, `withCount`, …),
+   * qualifying columns with `table` so joined pivot / parent columns never clash.
+   * Honors `withoutGlobalScopes()` called inside the user's constraint closure.
+   */
+  applyGlobalScopesToSubquery(q: QueryBuilder, table: string): QueryBuilder {
+    if (this.#withoutGlobalScopes === true) return q;
+    if (!hasGlobalScopes(this.model)) return q;
+    for (const [name, scope] of getGlobalScopes(this.model)) {
+      if (this.#withoutGlobalScopes?.has(name)) continue;
+      const temp = new ModelQuery(this.model, { withoutGlobalScopes: true });
+      scope(temp as ModelQuery);
+      temp.qualifyColumns(table);
+      q = temp.applyConstraintsTo(q);
+    }
+    return q;
+  }
+
   #applyGlobalScopesTo(q: QueryBuilder): QueryBuilder {
     if (this.#withoutGlobalScopes === true) return q;
     if (!hasGlobalScopes(this.model)) return q;
@@ -2323,17 +2341,27 @@ export class ModelQuery<
     ) {
       let applyRelated: ((sub: QueryBuilder) => void) | undefined;
       let relatedQuery: ModelQuery | undefined;
-      if (callback) {
-        const rq = meta.related.newQuery({
-          withoutGlobalScopes: true,
-        }) as ModelQuery;
-        callback(rq);
+      const scoped = hasGlobalScopes(meta.related);
+      const relatedRef =
+        meta.kind === "has" && meta.related.table === this.model.table
+          ? `${meta.related.table}_has`
+          : meta.related.table;
+      if (callback || scoped) {
+        const rq = meta.related.newQuery() as ModelQuery;
+        callback?.(rq);
         if (this.#relatedConstraintsAreMergeable(rq)) {
-          applyRelated = this.#bindFlatRelatedApply(rq);
+          const flat = this.#bindFlatRelatedApply(rq);
+          applyRelated = scoped
+            ? (sub) => {
+                flat(sub);
+                rq.applyGlobalScopesToSubquery(sub, relatedRef);
+              }
+            : flat;
         } else {
           relatedQuery = rq;
           applyRelated = (sub) => {
             rq.applyConstraintsTo(sub);
+            rq.applyGlobalScopesToSubquery(sub, relatedRef);
           };
         }
       }
@@ -3144,10 +3172,11 @@ export class ModelQuery<
     if (usesSoftDeletes(related)) {
       sub.whereNull(`${relatedRef}.${deletedAtColumn(related)}`);
     }
-    if (agg.constraint) {
-      const rq = related.newQuery({ withoutGlobalScopes: true }) as ModelQuery;
-      agg.constraint(rq);
+    if (agg.constraint || hasGlobalScopes(related)) {
+      const rq = related.newQuery() as ModelQuery;
+      agg.constraint?.(rq);
       rq.applyConstraintsTo(sub);
+      rq.applyGlobalScopesToSubquery(sub, relatedRef);
     }
     if (agg.fn === "exists") {
       sub.select("1");
