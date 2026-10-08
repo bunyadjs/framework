@@ -124,7 +124,7 @@ Both set `incrementing = false` and `keyType = "string"`. Helpers `uuid7()` and 
 
 ### Timestamps
 
-With `static timestamps = true` (the default), `save` and `create` maintain `created_at` and `updated_at`. Set `timestamps = false` to skip them. Run a block without touching timestamps:
+With `static timestamps = true` (the default), `save` and `create` maintain `created_at` and `updated_at`. `save` only bumps `updated_at` when the model has changes (and you did not set `updated_at` yourself), so saving an unchanged model issues no `UPDATE`. Set `timestamps = false` to skip them. Run a block without touching timestamps:
 
 ```ts
 await Flight.withoutTimestamps(async () => {

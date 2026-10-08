@@ -2017,6 +2017,21 @@ export class Model {
     return this.save();
   }
 
+  /**
+   * Laravel `updateTimestamps`: bump `updated_at` only when the model is dirty
+   * and the caller did not set `updated_at` themselves. A no-op `save()` must
+   * not issue an UPDATE.
+   */
+  #stampUpdatedAt(now: Date | string): void {
+    const dirty = this.getDirty();
+    for (const _ in dirty) {
+      if (!("updated_at" in dirty)) {
+        (this as unknown as Record<string, unknown>).updated_at = now;
+      }
+      return;
+    }
+  }
+
   #persistSync(conn: Connection): this {
     const ctor = this.constructor as typeof Model;
     const key = ctor.primaryKey;
@@ -2030,9 +2045,11 @@ export class Model {
     const usesTimestamps = ctor.timestamps !== false;
     if (usesTimestamps) {
       const now = nowForConnection(conn);
-      row.updated_at = now;
       if (!exists) {
+        row.updated_at = now;
         row.created_at = row.created_at ?? now;
+      } else {
+        this.#stampUpdatedAt(now);
       }
     }
 
@@ -2155,9 +2172,11 @@ export class Model {
     const usesTimestamps = ctor.timestamps !== false;
     if (usesTimestamps) {
       const now = nowForConnection(this.getConnection());
-      row.updated_at = now;
       if (!exists) {
+        row.updated_at = now;
         row.created_at = row.created_at ?? now;
+      } else {
+        this.#stampUpdatedAt(now);
       }
     }
 
@@ -2208,7 +2227,9 @@ export class Model {
 
     this.#changes = { ...dirty };
     if (usesTimestamps) {
-      if ("updated_at" in row) this.#changes.updated_at = row.updated_at;
+      if ("updated_at" in row && (!exists || "updated_at" in dirty || Object.keys(dirty).length > 0)) {
+        this.#changes.updated_at = row.updated_at;
+      }
       if (!exists && "created_at" in row) {
         this.#changes.created_at = row.created_at;
       }

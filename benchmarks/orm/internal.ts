@@ -86,11 +86,10 @@ async function setup(conn: Connection) {
       rows.flat(),
     );
   }
-  if (conn.driver === "sqlite") {
-    await conn.run("CREATE INDEX b_posts_author ON b_posts(author_id)");
-    await conn.run("CREATE INDEX b_pt_post ON b_post_tag(post_id)");
-    await conn.run("CREATE INDEX b_pt_tag ON b_post_tag(tag_id)");
-  }
+  // Foreign keys are indexed on every driver (a real schema would be).
+  await conn.run("CREATE INDEX b_posts_author ON b_posts(author_id)");
+  await conn.run("CREATE INDEX b_pt_post ON b_post_tag(post_id)");
+  await conn.run("CREATE INDEX b_pt_tag ON b_post_tag(tag_id)");
 }
 
 type Leg = { name: string; run: () => Promise<unknown> };
