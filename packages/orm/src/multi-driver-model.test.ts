@@ -6,6 +6,7 @@ import { testDrivers } from "./test-drivers.ts";
 // One model class used against every available database in the same process
 // (compiled-SQL caches must not leak identifier quoting between dialects).
 class Shared extends Model {
+  declare n: number;
   static table = "md_shared";
   static fillable = ["body", "n"];
   static softDeletes = true;

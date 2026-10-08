@@ -172,7 +172,7 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
       expect([Number(b!.posts_count), Number(b!.videos_count)]).toEqual([0, 0]);
     });
 
-    test("default pivot naming follows Laravel", () => {
+    test("default pivot naming", () => {
       class T2 extends Model {
         static table = "tags";
         posts() {

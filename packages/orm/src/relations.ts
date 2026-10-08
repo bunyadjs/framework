@@ -1365,7 +1365,7 @@ export class BelongsToMany<T extends Model = Model> {
   withTimestamps(): this {
     this.#baseQuery = null;
     this.#pivotTimestamps = true;
-    // Like Laravel, the timestamp columns are also read onto the pivot.
+    // The timestamp columns are also read onto the pivot.
     for (const col of ["created_at", "updated_at"]) {
       if (!this.#pivotColumns.includes(col)) this.#pivotColumns.push(col);
     }
@@ -1851,7 +1851,7 @@ export class MorphToMany<T extends Model = Model> {
 }
 
 /**
- * `morphedByMany` — inverse of a Laravel-style `morphToMany` (`taggables` pivot).
+ * `morphedByMany` — inverse of a `morphToMany` (`taggables` pivot).
  * Parent is the "tag" side; the pivot stores the related model's id and morph type.
  */
 export class MorphedByMany<T extends Model = Model> {
@@ -1949,7 +1949,7 @@ export class MorphedByMany<T extends Model = Model> {
     return new Set(rows.map((r) => String(r.id)));
   }
 
-  /** Detach missing ids, attach new ones; keeps rows that stay (Laravel `sync`). */
+  /** Detach missing ids, attach new ones; keeps rows that stay */
   async sync(ids: Array<string | number>): Promise<void> {
     const existing = await this.#currentIds();
     const wanted = new Set(ids.map(String));

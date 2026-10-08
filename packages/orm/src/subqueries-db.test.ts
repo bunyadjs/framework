@@ -16,7 +16,9 @@ class SqPost extends Model {
   static table = "sq_posts";
   static fillable = ["author_id", "title", "views"];
   declare id: number;
+  declare author_id: number;
   declare title: string;
+  declare views: number;
 }
 
 describe.each(drivers.map((d) => [d.name, d] as const))(

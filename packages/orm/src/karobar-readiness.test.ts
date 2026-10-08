@@ -41,6 +41,7 @@ async function productCatalogSchema() {
   class Brand extends Model {
     static table = "brands";
     static fillable = ["name"];
+    declare name: string;
     products() {
       return this.hasMany(Product, "brand_id");
     }
@@ -289,6 +290,7 @@ test("whereHas two belongsTo on the same table uses distinct join aliases", asyn
     static fillable = ["type", "category"];
   }
   class Txn extends Model {
+    declare status: string;
     static table = "transactions";
     static timestamps = false;
     static fillable = ["status", "debit_account_id", "credit_account_id"];

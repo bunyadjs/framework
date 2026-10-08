@@ -210,7 +210,7 @@ export function observeModel<T extends Model>(
       if (typeof method === "function") {
         const isBefore = event.endsWith("ing") && event !== "replicating";
         if (instance.afterCommit === true && !isBefore) {
-          // Laravel `ShouldHandleEventsAfterCommit`: run once the outermost
+          // Run once the outermost
           // transaction commits (immediately when there is none); dropped on rollback.
           registerModelEvent(ctor, event, (model) => {
             model.getConnection().afterCommit(async () => {

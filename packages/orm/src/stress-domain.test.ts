@@ -44,6 +44,7 @@ class SUser extends Model {
   roles() { return this.morphToMany(SRole, "model", { table: "s_model_roles", foreignPivotKey: "model_id", relatedPivotKey: "role_id", morphTypes: ["user"] }); }
 }
 class SRole extends Model {
+  declare name: string;
   static table = "s_roles";
   static fillable = ["name"];
   declare id: number;
@@ -64,6 +65,7 @@ class STask extends Model {
   comments() { return this.morphMany(SComment, "commentable"); }
 }
 class SOrder extends Model {
+  declare user_id: number;
   static table = "s_orders";
   static fillable = ["user_id", "total", "status"];
   declare id: number;
@@ -79,6 +81,7 @@ class SItem extends Model {
   declare id: number;
 }
 class SPayment extends Model {
+  declare status: string;
   static table = "s_payments";
   static fillable = ["order_id", "amount", "status"];
   declare id: number;
@@ -355,7 +358,7 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
     });
 
     test("bulk: upsert, mass update and mass delete report correct counts", async () => {
-      await // Explicit high id: Postgres does not advance the sequence for explicit ids (same as Laravel).
+      // Explicit high id: Postgres does not advance the sequence for explicit ids.
       await SRole.upsert([{ id: 1, name: "admin2" }, { id: 1000, name: "auditor" }], ["id"], ["name"]);
       expect((await SRole.find(1) as any).name).toBe("admin2");
       expect((await SRole.find(1000) as any).name).toBe("auditor");

@@ -19,6 +19,7 @@ class QbAuthor extends Model {
   notes() { return this.morphMany(QbNote, "noteable"); }
 }
 class QbPost extends Model {
+  declare views: number;
   static table = "qb_posts";
   static fillable = ["author_id", "title", "views"];
   declare id: number;
@@ -26,6 +27,7 @@ class QbPost extends Model {
   tags() { return this.belongsToMany(QbTag, "qb_post_tag", "post_id", "tag_id"); }
 }
 class QbTag extends Model {
+  declare name: string;
   static table = "qb_tags";
   static fillable = ["name"];
   declare id: number;

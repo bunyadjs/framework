@@ -242,7 +242,7 @@ export abstract class Factory<T extends Model = Model> {
     return this;
   }
 
-  /** A recycled model of `Ctor`, chosen at random (Laravel picks randomly too). */
+  /** A recycled model of `Ctor`, chosen at random. */
   #recycledFor(Ctor: ModelClass): Model | undefined {
     const matches = this.#recycled.filter((m) => m.constructor === Ctor);
     if (matches.length === 0) return undefined;
@@ -300,7 +300,7 @@ export abstract class Factory<T extends Model = Model> {
 
   /**
    * Foreign key for `for(parent)`: the child's `belongsTo` relation named after
-   * the parent class (Laravel guesses `team()` for a `Team`), else `team_id`.
+   * the parent class (a `Team` parent looks for `team()`), else `team_id`.
    */
   #belongsToKey(Parent: ModelClass, relationship?: string): string {
     const camel = relationship ?? Parent.name.charAt(0).toLowerCase() + Parent.name.slice(1);
@@ -432,7 +432,7 @@ export abstract class Factory<T extends Model = Model> {
     const items: T[] = [];
     for (let i = 0; i < n; i++) {
       const base = await this.#resolveAttributes(attributes);
-      // `afterMaking` runs on the unsaved model, then it is persisted (Laravel order).
+      // `afterMaking` runs on the unsaved model, then it is persisted.
       const model = (await ModelClass.forceCreate(base, async (unsaved) => {
         for (const cb of this.#afterMaking) await cb(unsaved as T);
       })) as T;

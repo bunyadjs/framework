@@ -300,7 +300,7 @@ export function castFromStorage(
   const parsed = parseCast(definition)!;
   const type = parsed.type;
   if (value == null) return value;
-  // `decimal:2` keeps money-like values exact as a fixed-digit string (Laravel parity).
+  // `decimal:2` keeps money-like values exact as a fixed-digit string.
   if (type === "decimal" && parsed.arg !== undefined) {
     return toNumber(value).toFixed(Number(parsed.arg));
   }

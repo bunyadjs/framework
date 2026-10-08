@@ -83,7 +83,7 @@ Prefer `casts()` when the map includes enum objects or `Attribute.make(...)` ins
 | `encrypted:collection` | Decrypted `Collection` | Encrypted JSON array |
 | `hashed` | Stored hash unchanged | bcrypt hash when the value is not already hashed |
 
-Laravel's parameterized forms are supported too:
+Parameterized forms are supported too:
 
 | Cast | On read | Notes |
 | --- | --- | --- |

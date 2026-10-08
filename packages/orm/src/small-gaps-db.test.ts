@@ -24,6 +24,7 @@ class SgMember extends Model {
   declare name: string;
 }
 class SgProject extends Model {
+  declare team_id: number;
   static table = "sg_projects";
   static fillable = ["team_id", "name", "active"];
   static softDeletes = true;
@@ -150,7 +151,7 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
         }),
       ).rejects.toThrow("abort");
       expect(await SgMember.where("name", "rolled back").count()).toBe(0);
-      // Same as Laravel: the instance still believes it was saved.
+      // The instance still believes it was saved.
       expect(m.exists).toBe(true);
       expect(m.id).toBeDefined();
     });

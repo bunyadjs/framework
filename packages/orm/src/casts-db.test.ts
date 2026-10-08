@@ -186,7 +186,7 @@ class ParamCasts extends Model {
 }
 
 describe.each(drivers.map((d) => [d.name, d] as const))(
-  "Laravel parameterized casts (%s)",
+  "parameterized casts (%s)",
   (_name, driver) => {
     const c = driver.connection;
     beforeAll(async () => {

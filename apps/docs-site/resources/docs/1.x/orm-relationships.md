@@ -376,7 +376,7 @@ user.membership.active; // true (cast)
 user.membership.perms;  // ["read", "write"]
 ```
 
-`withTimestamps()` also reads `created_at` / `updated_at` onto the pivot, as Laravel does. Pivot model events are not fired by `attach` / `sync`.
+`withTimestamps()` also reads `created_at` / `updated_at` onto the pivot. Pivot model events are not fired by `attach` / `sync`.
 
 Constrain or order by pivot columns with `wherePivot`, `wherePivotIn`, `wherePivotNotIn`, `wherePivotNull`, `wherePivotNotNull`, `wherePivotBetween`, `wherePivotNotBetween` and `orderByPivot`. The constraint applies everywhere the relation is used: `get()`, eager loading, `whereHas`, `withCount` and the other aggregates. It also scopes the writes. `attach` fills `wherePivot(column, value)` equality constraints as defaults, and `sync`, `detach` and `updateExistingPivot` only touch rows that match, so two relations can share one pivot table:
 
@@ -455,7 +455,7 @@ The third argument may be a pivot table string or an options bag (`MorphToManyOp
 
 ### Morphed by many
 
-`morphedByMany` is the inverse of Laravel's `morphToMany`. The pivot stores the related model's id and morph type, so a `Tag` can own posts and videos through one `taggables` table:
+`morphedByMany` is the inverse of `morphToMany`. The pivot stores the related model's id and morph type, so a `Tag` can own posts and videos through one `taggables` table:
 
 ```ts
 class Tag extends Model {
@@ -468,7 +468,7 @@ class Tag extends Model {
 }
 ```
 
-Defaults follow Laravel: pivot table `taggables`, columns `taggable_id` / `taggable_type`, and `tag_id` for the parent. Pass `table`, `foreignPivotKey` and `relatedPivotKey` to override them. It supports `get`, `attach`, `detach`, `sync`, `syncWithoutDetaching`, `toggle` and eager loading with `with("posts")`. `whereHas`, `withCount` and the other aggregates work on it too.
+Defaults: pivot table `taggables`, columns `taggable_id` / `taggable_type`, and `tag_id` for the parent. Pass `table`, `foreignPivotKey` and `relatedPivotKey` to override them. It supports `get`, `attach`, `detach`, `sync`, `syncWithoutDetaching`, `toggle` and eager loading with `with("posts")`. `whereHas`, `withCount` and the other aggregates work on it too.
 
 ### Custom polymorphic types
 
@@ -487,7 +487,7 @@ morphMap({
 
 `morphTypeFor` uses the alias when present; otherwise the model class name. Classes the ORM has already used are resolved by name when a stored type has no alias, so an unmapped `commentable_type = "Post"` still loads through `morphTo`. If two different model classes share a name, the name is never resolved on its own (it would be a guess), so map that type explicitly. A type the ORM has never seen throws `No morph map entry for [Type]`, so register aliases during boot for every type you persist.
 
-Like Laravel, `morphMap()` with no arguments returns the current map, and `morphMap(map, false)` replaces it instead of merging. To stop class names from ever being stored, enforce the map:
+`morphMap()` with no arguments returns the current map, and `morphMap(map, false)` replaces it instead of merging. To stop class names from ever being stored, enforce the map:
 
 ```ts
 import { enforceMorphMap, requireMorphMap } from "@bunyad/orm";
@@ -501,35 +501,9 @@ requireMorphMap(false); // turn enforcement off again
 
 `getMorphedModel("post")` returns the class registered for an alias.
 
-### Editor hints for relation names
+### Checked relation and column names
 
-`with`, `whereHas`, `has`, `withWhereHas` and friends suggest your model's relation methods as you type, and `where`, `orderBy`, `whereIn`, `whereNull` suggest its declared fields. Any other string still compiles, so `"posts.comments"`, `"posts as p"`, `"orders.total"` and names built at runtime keep working:
-
-```ts
-await User.with("posts")           // suggests: posts, profile, …
-  .where("email", "ada@example.com") // suggests: id, name, email, …
-  .orderBy("created_at", "desc")
-  .get();
-```
-
-The helper types `RelationNames<User>` and `ColumnNames<User>` are exported if you want to type your own helpers.
-
-#### Strict names
-
-The hints above never reject a string. To make a typo fail the build for the whole app, turn on strict names once, in any `.d.ts` file your `tsconfig.json` includes (for example `types/orm.d.ts`):
-
-```ts
-// types/orm.d.ts
-declare module "@bunyad/orm" {
-  interface OrmTypeOptions {
-    strictNames: true;
-  }
-}
-
-export {};
-```
-
-Every model then checks its relation and column names:
+Relation and column names are checked at compile time. `with`, `whereHas`, `has` and the other relation methods only accept your model's relation methods, and `where`, `orderBy` and friends only accept its declared columns, so a typo fails the build and the editor suggests the real names as you type:
 
 ```ts
 Post.with("author", "comments.replies").where("title", "like", "%x%"); // ok
@@ -537,17 +511,37 @@ Post.with("autor");        // error: "autor" is not a relation of Post
 Post.where("titel", "x");  // error: "titel" is not a column of Post
 ```
 
-For a name that is only known at run time, wrap it in `unsafeName`:
+Relations can be written either way: as methods (`posts() { return this.hasMany(Post); }`) or as declared properties with a `static relations` map (`declare posts: OrmCollection<Post>;`). Both are recognised.
+
+Checked: `with` (strings and the `{ relation: constraint }` form), `has`, `doesntHave`, `whereHas`, `orWhereHas`, `whereDoesntHave`, `withWhereHas`, and the column of `where`, `orWhere`, `whereIn`, `whereNull`, `whereNotNull`, `orderBy`, `orderByDesc`. A nested path (`comments.replies`) and an alias (`comments as c`) are accepted when the first segment is a relation, and a qualified `table.column` is accepted for columns. `id`, `created_at`, `updated_at` and `deleted_at` are always valid columns. Other columns must be declared on the class (`declare title: string;`) or merged in from the interface that `bunyad schema:types` generates.
+
+For a name that is only known at run time (a column from a request, an alias from `selectRaw`), wrap it in `unsafeName`:
 
 ```ts
 import { unsafeName } from "@bunyad/orm";
 
 Post.with(unsafeName(request.query("include")));
+Post.query().selectRaw("COUNT(*) AS n").orderBy(unsafeName("n"));
 ```
 
-Checked: `with` (strings and the `{ relation: constraint }` form), `has`, `doesntHave`, `whereHas`, `orWhereHas`, `whereDoesntHave`, `withWhereHas`, and the column of `where`, `orWhere`, `whereIn`, `whereNull`, `whereNotNull`, `orderBy`, `orderByDesc`. A nested path (`comments.replies`) and an alias (`comments as c`) are accepted when the first segment is a relation; a qualified `table.column` is accepted for columns. `id`, `created_at`, `updated_at` and `deleted_at` are always valid columns. Other columns must be declared on the class (`declare title: string;`) or merged in from the interface that `bunyad schema:types` generates. Other query methods keep their normal types.
+The check only changes types, so it costs nothing at run time. Other query methods keep their normal types.
 
-The switch only changes types, so it costs nothing at run time and is safe to turn on or off at any time. Turn it on after your models declare their columns, or the first build will list every undeclared column.
+#### Turning the check off
+
+If an app has many undeclared columns and you want to migrate gradually, accept any string again with one declaration, in any `.d.ts` file your `tsconfig.json` includes (for example `types/orm.d.ts`):
+
+```ts
+// types/orm.d.ts
+declare module "@bunyad/orm" {
+  interface OrmTypeOptions {
+    strictNames: false;
+  }
+}
+
+export {};
+```
+
+The editor still suggests names in this mode; it just no longer rejects the others. Run `bunyad schema:types` to generate the column interfaces, merge them into your models, then delete the declaration to turn the check on.
 
 ## Querying relations
 

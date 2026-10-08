@@ -18,6 +18,7 @@ import type {
   MorphedByMany,
 } from "./relations.ts";
 import type { Model } from "./model.ts";
+import type { OrmCollection } from "./orm-collection.ts";
 import type { ModelQuery } from "./model-query.ts";
 import type { OrmTypeOptions } from "./index.ts";
 
@@ -34,11 +35,21 @@ type AnyRelation =
   | MorphToMany<any>
   | MorphedByMany<any>;
 
-/** Methods on the model that return a relation (`posts()`, `author()`, …). */
+/**
+ * Relations of a model: methods that return a relation (`posts() { return this.hasMany(Post) }`)
+ * and declared relation properties (`declare posts: OrmCollection<Post>`, `declare author: User | null`),
+ * which is how models that define `static relations = { … }` describe them.
+ */
 export type RelationNames<T> = {
   [K in Exclude<keyof T, keyof Model> & string]: T[K] extends () => AnyRelation
     ? K
-    : never;
+    : T[K] extends (...args: any[]) => unknown
+      ? never
+      : [NonNullable<T[K]>] extends [never]
+        ? never
+        : NonNullable<T[K]> extends OrmCollection<any> | readonly Model[] | Model
+          ? K
+          : never;
 }[Exclude<keyof T, keyof Model> & string];
 
 /** Members `Model` itself declares that are really columns (every table has `id`). */
@@ -58,7 +69,8 @@ export type ColumnNames<T> =
 /** Suggest `K` in the editor but accept any string. */
 export type Hint<K extends string> = K | (string & {});
 
-type StrictNames = OrmTypeOptions extends { strictNames: true } ? true : false;
+// Strict by default; an app opts out with `strictNames: false` (see OrmTypeOptions).
+type StrictNames = OrmTypeOptions extends { strictNames: false } ? false : true;
 
 /**
  * Strict relation name: a relation method, optionally with a nested path
