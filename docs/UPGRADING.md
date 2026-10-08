@@ -8,6 +8,34 @@ Every breaking change in a beta (or later) release is listed here with what to c
 2. Upgrade all `@bunyad/*` packages together, because they share one version: `bun add @bunyad/framework@beta` (or the individual packages you use).
 3. Run `bun run typecheck` and your tests. Removed or renamed exports show up as type errors.
 
+## From 0.2.0-beta.1 to 0.2.0-beta.2
+
+No names were removed from the public API. Check these behaviour changes:
+
+### Strict relation and column names
+
+Relation and column names are now checked by the types. If `bun run typecheck` reports unknown names in `with()`, `where()` and similar calls, fix the name, or opt out for the whole app:
+
+```ts
+declare module "@bunyad/orm" {
+  interface OrmTypeOptions {
+    strictNames: false;
+  }
+}
+```
+
+### Model events
+
+Events now fire in a fixed order (`saving`, `creating`, `created`, `saved` on create), `updated` fires only when something was written, and `updated_at` only changes when the model is dirty. If a test asserts on the order of events or on `updated_at` after saving an unchanged model, update it.
+
+### Global scopes in relation queries
+
+Global scopes of the related model now apply in `whereHas`, relation aggregates and many-to-many eager loads, and relation aggregates skip soft-deleted rows. Use `withoutGlobalScopes()` on the constraint if you relied on the old, wider result. A relation aggregate on an unknown relation name now throws.
+
+### New package
+
+`@bunyad/permissions` (roles, permissions, teams and tenants) is new and optional. `@bunyad/framework` registers its provider only when `config/permissions.ts` exists, so apps that do not use it are unaffected.
+
 ## From 0.2.0-beta.0 to 0.2.0-beta.1
 
 No names were removed from the public API. Check these three behaviour changes:

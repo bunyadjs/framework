@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/core",
-  "version": "0.2.0-beta.1",
+  "version": "0.2.0-beta.2",
   "description": "Application kernel for Bunyad: bootstrapping, providers and the HTTP lifecycle.",
   "license": "MIT",
   "author": "Shah Khalid",

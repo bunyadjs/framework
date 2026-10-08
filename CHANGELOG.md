@@ -2,13 +2,41 @@
 
 All `@bunyad/*` packages and `create-bunyad` share one version number and are released together. See [docs/STABILITY.md](docs/STABILITY.md) for what each stage promises and [docs/UPGRADING.md](docs/UPGRADING.md) for how to move between releases.
 
+## 0.2.0-beta.2
+
+Published under the `beta` npm tag. No names were removed from the recorded public API (`api/*.json`); it only gained names. Behaviour changes are listed under "Changed", and [docs/UPGRADING.md](docs/UPGRADING.md) says what to check.
+
+### Added
+
+- **`@bunyad/permissions`:** roles, permissions, teams and tenants. Roles and grants live in a scope (`*`, `tenant:7`, `team:42`) and apply in the scopes below it. A check is a bit test: a warm check runs no queries and a cold one runs one statement. Includes the `HasPermissions` model mixin, `permission:` / `permission.any:` / `role:` route middleware, a Gate hook so `Gate.allows('posts.update')` and `@can('posts.update')` in views work, `whereCan` / `whereHasRole` query conditions, `grantMany`, expiring grants, `copyRoles` for tenant onboarding, API tokens that can only narrow their owner, and `permissions:*` commands (`sync`, `warm`, `cache-clear`, `prune`, `rebuild`, `check-routes`, `doctor`). Publish the migration and config with `bunyad publish --tag=permissions-migrations` and `--tag=permissions-config`; table names are configurable. Cache version counters keep many servers in step without clearing anything, and a failing cache falls back to the database. Optional ways to skip the grants query: keep a user's grants in a column on the user row, or carry them as claims in a signed token. `@bunyad/framework` adds `PermissionServiceProvider` (off until `config/permissions.ts` exists) and re-exports the common names.
+- **ORM relations:** `morphedByMany` with `attach`, `sync`, `toggle` and eager loading; `wherePivot` and `orderByPivot`; `withDefault`; per-parent eager-load limits; custom pivot models (`using`, `as`) and the pivot model events (`attach`, `detach`, `sync`, `toggle`, `updateExistingPivot`); `whereHas` and aggregates on `morphMany`, `morphOne` and `morphedByMany`; scoped lazy `morphToMany`; morph map controls, and an error for ambiguous morph class names; `chaperone`.
+- **ORM writes:** many-to-many and morph pivot writes are batched and `sync` is diff-based (it keeps pivot data and returns `attached`, `detached` and `updated`); `updateExistingPivot` and `withTimestamps`; `Model.getPrevious()`; parameterized casts; `forceFill` and `unguard`; `only()`; a global `Model.withoutEvents`; `afterCommit` observers.
+- **ORM queries:** subquery, union and sub-join methods on model queries; constraint closures in `withCount`, `withSum` and the other relation aggregates, which now also work on through and morph relations; `whereNot` accepts a column.
+- **ORM tooling:** `strict()` for compile-time checked relation and column names, with editor suggestions; `schema:check` and `schema:types` (backed by `Schema.getColumns`); query-budget tests, and `find` and insert queries are now reported to query listeners; richer model factories (a shared `for()` parent, morph and pivot relationships, `createMany`, quiet creators, `recycle`).
+- **Tests and docs:** scale tests on 100k rows, a bundle-size guard for the ORM, ORM micro-benchmarks, a documented tenant-scoping pattern with a global scope, and docs for value objects through `Attribute.make`.
+
+### Changed
+
+- **Relation and column names are strict in the types by default.** An unknown name in `with()`, `where()` and friends is now a type error. Opt out for the whole app with `strictNames: false` in `OrmTypeOptions`. Runtime behaviour is unchanged.
+- **Model events fire in a fixed order.** Create: `saving`, `creating`, `created`, `saved`. Update: `saving`, `updating`, `updated`, `saved`. `created_at` and `updated_at` are set after `creating` / `updating`, and `updated` fires only when something was written.
+- **`updated_at` only changes when the model is dirty.**
+- **Related global scopes apply in `whereHas`, relation aggregates and many-to-many eager loads.** Relation aggregates skip soft-deleted rows, and a relation aggregate on an unknown relation name throws.
+
+### Fixed
+
+- Compiler stack overflow on circular models; relations declared as properties are recognised.
+- SQLite inserts dropped attributes that were not fillable, and database defaults.
+- MySQL affected-row counts and per-driver SQL caches.
+- In-place edits of `json`, `array` and collection attributes are detected, and `saved` listeners see the save.
+- `json` string round trips, decimal rounding and invalid date writes in casts.
+- Paginator JSON data and `bigint` serialization.
+
 ## 0.2.0-beta.1
 
 Published under the `beta` npm tag; `latest` still does not move until 1.0. No breaking API changes: the recorded public API (`api/*.json`) only gained names. Behaviour changes are listed under "Changed", and [docs/UPGRADING.md](docs/UPGRADING.md) says what to check.
 
 ### Added
 
-- **`@bunyad/permissions`:** roles, permissions, teams and tenants. Roles and grants live in a scope (`*`, `tenant:7`, `team:42`) and apply in the scopes below it. A check is a bit test: a warm check runs no queries and a cold one runs one statement. Includes the `HasPermissions` model mixin, `permission:` / `permission.any:` / `role:` route middleware, a Gate hook so `Gate.allows('posts.update')` and `@can('posts.update')` in views work, `whereCan` / `whereHasRole` query conditions, `grantMany`, expiring grants, `copyRoles` for tenant onboarding, API tokens that can only narrow their owner, and `permissions:*` commands (`sync`, `warm`, `cache-clear`, `prune`, `rebuild`, `check-routes`, `doctor`). Publish the migration and config with `bunyad publish --tag=permissions-migrations` and `--tag=permissions-config`; table names are configurable. Cache version counters keep many servers in step without clearing anything, and a failing cache falls back to the database. Optional ways to skip the grants query: keep a user's grants in a column on the user row, or carry them as claims in a signed token. `@bunyad/framework` adds `PermissionServiceProvider` (off until `config/permissions.ts` exists) and re-exports the common names.
 - **`@bunyad/debugbar`:** a development debug bar with queries, timeline, request, logs, cache and exceptions tabs, retained request history, and a `/_debugbar` JSON API. Records scheduled tasks automatically and any work you wrap in `Debugbar.profile()` as their own history entries. Masks secrets and personal data (including SQL bindings, by column) before anything is stored or sent to an agent. Registers seven `debugbar_*` tools with `@bunyad/mcp` so an AI agent can inspect recorded requests, including two that analyse every recorded request (`debugbar_hot_queries`, `debugbar_routes`). Adds `listenLog()` to `@bunyad/log`, `listenException()` to `@bunyad/core`, `listenDispatched()` to `@bunyad/events`, `wrapScheduledRuns()` to `@bunyad/schedule`, and a `callSites` option on `listen()` in `@bunyad/database` (`listen(cb, { callSites: true })` adds the stack captured when each query was issued, so async drivers can report where a query came from).
 - **`@bunyad/mcp`:** one MCP server per app. Packages register tools with `Mcp.tool()`; `bunyad mcp` boots the app and serves them to an AI agent over stdio. Includes argument validation, output caps and stdout protection.
 - **Streaming reads:** `cursor()` on the query builder and the ORM now streams rows from a single query, through an optional `Connection.stream()` implemented per driver (a fallback to chunked paging where a driver has no primitive). New static `Model.cursor()`, `lazy()`, `lazyById()` and `lazyByIdDesc()`; `cursor()`, `lazy()` and `lazyById()` return a `LazyCollection`.

@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/mcp",
-  "version": "0.2.0-beta.1",
+  "version": "0.2.0-beta.2",
   "description": "One MCP server per Bunyad app: packages register tools, AI agents call them over stdio.",
   "license": "MIT",
   "author": "Shah Khalid",
