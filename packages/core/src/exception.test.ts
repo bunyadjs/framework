@@ -219,7 +219,7 @@ test("QueryException HTML shows app source SQL and previous exception", () => {
 
     const html = renderExceptionHtml(err, {
       debug: true,
-      appName: "Karobar Point",
+      appName: "Acme",
       env: "development",
     });
     expect(html).toContain("QueryException");

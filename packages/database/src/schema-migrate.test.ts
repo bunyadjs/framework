@@ -15,7 +15,7 @@ import {
   type MigratorOptions,
 } from "../src/index.ts";
 
-const KAROBAR_MIGRATOR: MigratorOptions = {
+const CUSTOM_MIGRATOR: MigratorOptions = {
   table: "_schema_migrations",
   migrationColumn: "name",
   batchColumn: false,
@@ -224,7 +224,7 @@ test("alter add column index and sqlite rename", async () => {
   });
 });
 
-test("schema.raw creates a partial unique index Karobar uses", async () => {
+test("schema.raw creates a partial unique index", async () => {
   await withSqlite(async (connection) => {
     const schema = schemaFor(connection);
     await schema.create("contacts", (table) => {
@@ -256,8 +256,8 @@ test("schema.raw creates a partial unique index Karobar uses", async () => {
   });
 });
 
-test("custom migrations table matches Karobar _schema_migrations shape", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "bunyad-karobar-mig-"));
+test("custom migrations table matches a custom _schema_migrations shape", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "bunyad-custom-mig-"));
   await Bun.write(
     join(dir, "0001_notes.ts"),
     `import type { Schema } from ${JSON.stringify(schemaUrl)};
@@ -271,7 +271,7 @@ export async function down(schema: Schema) {
   );
 
   await withSqlite(async (connection) => {
-    expect(await migrate(connection, dir, KAROBAR_MIGRATOR)).toEqual([
+    expect(await migrate(connection, dir, CUSTOM_MIGRATOR)).toEqual([
       "0001_notes.ts",
     ]);
     expect(await schemaFor(connection).hasTable("notes")).toBe(true);
@@ -285,13 +285,13 @@ export async function down(schema: Schema) {
     );
     expect(rows.map((r) => r.name)).toEqual(["0001_notes.ts"]);
 
-    const statusRows = await status(connection, dir, KAROBAR_MIGRATOR);
+    const statusRows = await status(connection, dir, CUSTOM_MIGRATOR);
     expect(statusRows[0]?.migration).toBe("0001_notes.ts");
     expect(statusRows[0]?.batch).not.toBeNull();
 
-    expect(await migrate(connection, dir, KAROBAR_MIGRATOR)).toEqual([]);
+    expect(await migrate(connection, dir, CUSTOM_MIGRATOR)).toEqual([]);
 
-    expect(await rollback(connection, dir, 1, KAROBAR_MIGRATOR)).toEqual([
+    expect(await rollback(connection, dir, 1, CUSTOM_MIGRATOR)).toEqual([
       "0001_notes.ts",
     ]);
     expect(await schemaFor(connection).hasTable("notes")).toBe(false);
@@ -316,7 +316,7 @@ test("migrateCompiled records into a custom table", async () => {
           },
         },
       ],
-      KAROBAR_MIGRATOR,
+      CUSTOM_MIGRATOR,
     );
     expect(applied).toEqual(["0002_tags.ts"]);
     const rows = await connection.all<{ name: string }>(
@@ -373,7 +373,7 @@ test("postgres schema indexes foreign keys alter and custom migrator", async () 
           },
         },
       ],
-      KAROBAR_MIGRATOR,
+      CUSTOM_MIGRATOR,
     );
     expect(applied).toEqual(["0001_pg_notes.ts"]);
     const rows = await connection.all<{ name: string }>(

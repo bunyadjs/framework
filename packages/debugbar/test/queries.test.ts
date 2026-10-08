@@ -92,7 +92,7 @@ test("wallTimeMs counts overlapping queries once", () => {
 });
 
 test("wallTimeMs matches a real parallel-loading request", () => {
-  // Recorded from karobar's products list: 12 queries summing to 10.6ms in a 9.6ms request.
+  // Recorded from a products list: 12 queries summing to 10.6ms in a 9.6ms request.
   const real = [
     [0.14, 0.91], [0.19, 0.96], [1.22, 0.85], [1.27, 0.85], [2.89, 0.98], [3.98, 0.78],
     [5.02, 0.84], [5.13, 2.14], [7.68, 0.54], [7.57, 0.75], [7.79, 0.62], [8.59, 0.39],

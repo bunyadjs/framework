@@ -1533,7 +1533,7 @@ export class Model {
     return (q as ModelQuery<any>).where(columnOrCallback, String(opOrValue), value);
   }
 
-  /** Karobar-style multi-column LIKE search. */
+  /** Multi-column LIKE search. */
   static search<T extends typeof Model>(
     this: T,
     columns: string[],
@@ -2341,7 +2341,7 @@ export class Model {
     return this.newQuery().orderByRaw(sql);
   }
 
-  /** Karobar alias for `orderByRaw`. */
+  /** Alias for `orderByRaw`. */
   static orderBySql<T extends typeof Model>(
     this: T,
     sql: string,
