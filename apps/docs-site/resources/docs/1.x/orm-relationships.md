@@ -529,7 +529,7 @@ await User.orWhereHas("posts").get();
 await User.orWhereDoesntHave("posts").get();
 ```
 
-`whereHas` / `has` work for `hasMany`, `hasOne`, `belongsTo`, `belongsToMany`, and `morphToMany`. Belongs-to existence uses an inner join on the parent query; has-many / many-to-many use `EXISTS` (or an `IN` subquery where that is cheaper).
+`whereHas` / `has` / `doesntHave` work for `hasMany`, `hasOne`, `belongsTo`, `belongsToMany`, `morphMany`, `morphOne`, `morphToMany` and `morphedByMany`. For `morphMany` / `morphOne` the morph type is part of the match, so a `Post` with id 1 never matches comments that belong to a `Video` with id 1. Belongs-to existence uses an inner join on the parent query; has-many / many-to-many use `EXISTS` (or an `IN` subquery where that is cheaper).
 
 Shorthand column constraints:
 
