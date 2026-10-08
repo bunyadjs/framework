@@ -1,5 +1,12 @@
 // Compiled by strict-names.test.ts. Lines ending in an ERROR marker comment must fail; every other line must compile.
-import { Model, strict, unsafeName } from "../../src/index.ts";
+import { Model, unsafeName } from "../../src/index.ts";
+
+// One line of app config turns strict names on for every model.
+declare module "../../src/index.ts" {
+  interface OrmTypeOptions {
+    strictNames: true;
+  }
+}
 
 class Post extends Model {
   static table = "posts";
@@ -21,31 +28,29 @@ class Comment extends Model {
 }
 
 // ── accepted ──
-strict(Post).with("author", "comments");
-strict(Post).with("comments.replies");              // nested path: the first segment is checked
-strict(Post).with("comments as c");                 // alias
-strict(Post).with({ comments: (q) => q.where("body", "x") });
-strict(Post).whereHas("author", (q) => q.where("name", "Ada"));
-strict(Post).has("comments").doesntHave("author");
-strict(Post).where("title", "x").orderBy("views", "desc").whereIn("id", [1, 2]).whereNull("title");
-strict(Post).where("title", "like", "%x").where((q) => q.where("views", ">", 1));
-strict(Post).where("posts.title", "x");             // qualified column
-strict(Post).with("author").with("comments").where("views", 1);   // chaining keeps the checks
-strict(Post).with(unsafeName("anything" + Date.now()));
-strict(Post).where(unsafeName("dynamic"), 1);
-strict(Post).where("views", 1).limit(5).get();      // every other method still works
-strict(Post).where("views", 1).orWhere("title", "x").count();
-const lenient: string = "whatever";
-Post.with(lenient);                                  // the normal API stays lenient
+Post.with("author", "comments");
+Post.with("comments.replies");              // nested path: the first segment is checked
+Post.with("comments as c");                 // alias
+Post.with({ comments: (q) => q.where("body", "x") });
+Post.whereHas("author", (q) => q.where("name", "Ada"));
+Post.has("comments").doesntHave("author");
+Post.where("title", "x").orderBy("views", "desc").whereIn("id", [1, 2]).whereNull("title");
+Post.where("title", "like", "%x").where((q) => q.where("views", ">", 1));
+Post.where("posts.title", "x");             // qualified column
+Post.with("author").with("comments").where("views", 1);   // chaining keeps the checks
+Post.with(unsafeName("anything" + Date.now()));
+Post.where(unsafeName("dynamic"), 1);
+Post.where("views", 1).limit(5).get();      // every other method still works
+Post.where("views", 1).orWhere("title", "x").count();
 
 // ── rejected ──
-strict(Post).with("autor");                         // ERROR relation typo
-strict(Post).with("comments", "comment");           // ERROR relation typo (second argument)
-strict(Post).whereHas("coments");                   // ERROR relation typo
-strict(Post).has("authors");                        // ERROR relation typo
-strict(Post).with("helper");                        // ERROR a method that is not a relation
-strict(Post).where("titel", "x");                   // ERROR column typo
-strict(Post).orderBy("view");                       // ERROR column typo
-strict(Post).whereIn("idd", [1]);                   // ERROR column typo
-strict(Post).where("views", 1).whereNull("tittle"); // ERROR typo later in a chain
-strict(Post).with("author").where("naem", "x");     // ERROR typo after a strict call
+Post.with("autor");                         // ERROR relation typo
+Post.with("comments", "comment");           // ERROR relation typo (second argument)
+Post.whereHas("coments");                   // ERROR relation typo
+Post.has("authors");                        // ERROR relation typo
+Post.with("helper");                        // ERROR a method that is not a relation
+Post.where("titel", "x");                   // ERROR column typo
+Post.orderBy("view");                       // ERROR column typo
+Post.whereIn("idd", [1]);                   // ERROR column typo
+Post.where("views", 1).whereNull("tittle"); // ERROR typo later in a chain
+Post.with("author").where("naem", "x");     // ERROR typo after a strict call

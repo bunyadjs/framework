@@ -86,7 +86,7 @@ import {
   type MorphToManyOptions,
 } from "./relations.ts";
 import type { AggregateRelations } from "./model-query.ts";
-import type { ColumnHint, RelationHint } from "./typed-names.ts";
+import type { ColumnHint, RelationHint, WithMap } from "./typed-names.ts";
 import {
   eagerLoadAggregates,
   eagerLoadModels,
@@ -1360,7 +1360,7 @@ export class Model {
       // `.call` is required so subclasses can use Model's #fastFind; assert InstanceType<T>.
       return Model.#fastFind.call(this, id) as InstanceType<T> | null;
     }
-    return this.newQuery()
+    return (this.newQuery() as ModelQuery<any>)
       .where(this.primaryKey, id)
       .first();
   }
@@ -1383,7 +1383,7 @@ export class Model {
       return this.find(value);
     }
     this.bootIfNotBooted();
-    return this.newQuery().where(column, value).first();
+    return (this.newQuery() as ModelQuery<any>).where(column, value).first();
   }
 
   /**
@@ -1398,7 +1398,7 @@ export class Model {
   ): InstanceType<T> | null | Promise<InstanceType<T> | null> {
     const column = field ?? this.getRouteKeyName();
     this.bootIfNotBooted();
-    return this.newQuery({ withTrashed: true }).where(column, value).first();
+    return (this.newQuery({ withTrashed: true }) as ModelQuery<any>).where(column, value).first();
   }
 
   static #fastFind<T extends typeof Model>(
@@ -1520,8 +1520,8 @@ export class Model {
     if (typeof columnOrCallback === "function") {
       return q.where(columnOrCallback);
     }
-    if (value === undefined) return q.where(columnOrCallback, opOrValue);
-    return q.where(columnOrCallback, String(opOrValue), value);
+    if (value === undefined) return (q as ModelQuery<any>).where(columnOrCallback, opOrValue);
+    return (q as ModelQuery<any>).where(columnOrCallback, String(opOrValue), value);
   }
 
   /** Karobar-style multi-column LIKE search. */
@@ -2260,18 +2260,18 @@ export class Model {
   /** Start a new query and forward common builder methods (`__callStatic`). */
   static orWhere<T extends typeof Model>(
     this: T,
-    column: string,
+    column: ColumnHint<InstanceType<T>>,
     value: unknown,
   ): ModelQuery<InstanceType<T>>;
   static orWhere<T extends typeof Model>(
     this: T,
-    column: string,
+    column: ColumnHint<InstanceType<T>>,
     op: string,
     value: unknown,
   ): ModelQuery<InstanceType<T>>;
   static orWhere<T extends typeof Model>(
     this: T,
-    column: string,
+    column: ColumnHint<InstanceType<T>>,
     opOrValue: unknown,
     value?: unknown,
   ): ModelQuery<InstanceType<T>> {
@@ -2283,27 +2283,27 @@ export class Model {
 
   static whereIn<T extends typeof Model>(
     this: T,
-    column: string,
+    column: ColumnHint<InstanceType<T>>,
     values: unknown[],
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().whereIn(column, values);
+    return (this.newQuery() as ModelQuery<any>).whereIn(column, values);
   }
 
   static whereNull<T extends typeof Model>(
     this: T,
-    column: string,
+    column: ColumnHint<InstanceType<T>>,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().whereNull(column);
+    return (this.newQuery() as ModelQuery<any>).whereNull(column);
   }
 
   static whereNotNull<T extends typeof Model>(
     this: T,
-    column: string,
+    column: ColumnHint<InstanceType<T>>,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().whereNotNull(column);
+    return (this.newQuery() as ModelQuery<any>).whereNotNull(column);
   }
 
   static orderBy<T extends typeof Model>(
@@ -2317,9 +2317,9 @@ export class Model {
 
   static orderByDesc<T extends typeof Model>(
     this: T,
-    column: string,
+    column: ColumnHint<InstanceType<T>>,
   ): ModelQuery<InstanceType<T>> {
-    return this.orderBy(column, "desc");
+    return (this as any).orderBy(column, "desc");
   }
 
   static orderByRaw<T extends typeof Model>(
@@ -2487,7 +2487,7 @@ export class Model {
     ...relations: Array<
       | RelationHint<InstanceType<T>>
       | RelationHint<InstanceType<T>>[]
-      | Record<string, unknown>
+      | WithMap<InstanceType<T>>
     >
   ): ModelQuery<InstanceType<T>> {
     return this.newQuery({
@@ -2508,21 +2508,21 @@ export class Model {
   /** `Model::whereDoesntHave`. */
   static whereDoesntHave<T extends typeof Model>(
     this: T,
-    relation: string,
+    relation: RelationHint<InstanceType<T>>,
     callback?: (query: ModelQuery) => void,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().whereDoesntHave(relation, callback);
+    return (this.newQuery() as ModelQuery<any>).whereDoesntHave(relation, callback);
   }
 
   /** `Model::orWhereHas`. */
   static orWhereHas<T extends typeof Model>(
     this: T,
-    relation: string,
+    relation: RelationHint<InstanceType<T>>,
     callback?: (query: ModelQuery) => void,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().orWhereHas(relation, callback);
+    return (this.newQuery() as ModelQuery<any>).orWhereHas(relation, callback);
   }
 
   /** `Model::whereRelation`. */
@@ -2605,11 +2605,11 @@ export class Model {
 
   static withWhereHas<T extends typeof Model>(
     this: T,
-    relation: string,
+    relation: RelationHint<InstanceType<T>>,
     callback?: (query: ModelQuery) => void,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().withWhereHas(relation, callback);
+    return (this.newQuery() as ModelQuery<any>).withWhereHas(relation, callback);
   }
 
   static whereBelongsTo<T extends typeof Model>(
@@ -2836,7 +2836,7 @@ export class Model {
   ): Promise<InstanceType<T>> {
     let q = this.newQuery();
     for (const [column, value] of Object.entries(attributes)) {
-      q = q.where(column, value);
+      q = (q as ModelQuery<any>).where(column, value);
     }
     const existing = await q.first();
     if (existing) return existing;
@@ -2851,7 +2851,7 @@ export class Model {
   ): Promise<InstanceType<T>> {
     let q = this.newQuery();
     for (const [column, value] of Object.entries(attributes)) {
-      q = q.where(column, value);
+      q = (q as ModelQuery<any>).where(column, value);
     }
     const existing = await q.first();
     if (existing) return existing;
@@ -2866,7 +2866,7 @@ export class Model {
   ): Promise<InstanceType<T>> {
     let q = this.newQuery();
     for (const [column, value] of Object.entries(attributes)) {
-      q = q.where(column, value);
+      q = (q as ModelQuery<any>).where(column, value);
     }
     const existing = await q.first();
     if (existing) {
@@ -3675,7 +3675,7 @@ export class Model {
     if (list.length === 0) return 0;
     this.bootIfNotBooted();
     const key = this.primaryKey;
-    const models = await this.newQuery().withTrashed().whereIn(key, list).get();
+    const models = await (this.newQuery().withTrashed() as ModelQuery<any>).whereIn(key, list).get();
     let n = 0;
     for (const model of models) {
       await model.forceDelete();

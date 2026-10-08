@@ -55,7 +55,6 @@
   "resetModelStrictnessForTests",
   "resolveConnection",
   "resolveModelBuilder",
-  "strict",
   "tsTypeForColumn",
   "ulid",
   "unsafeName",

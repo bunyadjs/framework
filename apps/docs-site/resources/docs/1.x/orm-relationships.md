@@ -516,19 +516,38 @@ The helper types `RelationNames<User>` and `ColumnNames<User>` are exported if y
 
 #### Strict names
 
-The hints above never reject a string. For code where a typo should fail the build, wrap the model in `strict()`. Relation and column names are then checked at compile time, and the wrapper is the same class at runtime:
+The hints above never reject a string. To make a typo fail the build for the whole app, turn on strict names once, in any `.d.ts` file your `tsconfig.json` includes (for example `types/orm.d.ts`):
 
 ```ts
-import { strict, unsafeName } from "@bunyad/orm";
+// types/orm.d.ts
+declare module "@bunyad/orm" {
+  interface OrmTypeOptions {
+    strictNames: true;
+  }
+}
 
-strict(Post).with("author", "comments.replies").where("title", "like", "%x%"); // ok
-strict(Post).with("autor");        // error: "autor" is not a relation of Post
-strict(Post).where("titel", "x");  // error: "titel" is not a column of Post
-
-strict(Post).with(unsafeName(request.query("include"))); // a name only known at run time
+export {};
 ```
 
-Checked: `with` (strings and the `{ relation: constraint }` form), `has`, `doesntHave`, `whereHas`, `orWhereHas`, `whereDoesntHave`, `withWhereHas`, and the column of `where`, `whereIn`, `whereNull`, `whereNotNull`, `orderBy`, `orderByDesc`. A nested path (`comments.replies`) and an alias (`comments as c`) are accepted when the first segment is a relation; a qualified `table.column` is accepted for columns. `id`, `created_at`, `updated_at` and `deleted_at` are always valid columns; other columns must be declared on the class (`declare title: string`, or merge the generated interface from `bunyad schema:types`). Any other query method keeps its normal types and returns a normal query, so strictness covers the calls listed above.
+Every model then checks its relation and column names:
+
+```ts
+Post.with("author", "comments.replies").where("title", "like", "%x%"); // ok
+Post.with("autor");        // error: "autor" is not a relation of Post
+Post.where("titel", "x");  // error: "titel" is not a column of Post
+```
+
+For a name that is only known at run time, wrap it in `unsafeName`:
+
+```ts
+import { unsafeName } from "@bunyad/orm";
+
+Post.with(unsafeName(request.query("include")));
+```
+
+Checked: `with` (strings and the `{ relation: constraint }` form), `has`, `doesntHave`, `whereHas`, `orWhereHas`, `whereDoesntHave`, `withWhereHas`, and the column of `where`, `orWhere`, `whereIn`, `whereNull`, `whereNotNull`, `orderBy`, `orderByDesc`. A nested path (`comments.replies`) and an alias (`comments as c`) are accepted when the first segment is a relation; a qualified `table.column` is accepted for columns. `id`, `created_at`, `updated_at` and `deleted_at` are always valid columns. Other columns must be declared on the class (`declare title: string;`) or merged in from the interface that `bunyad schema:types` generates. Other query methods keep their normal types.
+
+The switch only changes types, so it costs nothing at run time and is safe to turn on or off at any time. Turn it on after your models declare their columns, or the first build will list every undeclared column.
 
 ## Querying relations
 

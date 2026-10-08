@@ -80,12 +80,25 @@ export { LengthAwarePaginator } from "@bunyad/database";
 export { Collection, collect } from "@bunyad/common";
 export type { AggregateRelations } from "./model-query.ts";
 
+/**
+ * Type-level switch for the whole ORM, declared here (the package entry) so an app can augment it.
+ * By default relation and column names are suggestions and any string compiles. To make a typo
+ * a compile error everywhere, add this to a `.d.ts` file in your app:
+ *
+ * ```ts
+ * declare module "@bunyad/orm" {
+ *   interface OrmTypeOptions {
+ *     strictNames: true;
+ *   }
+ * }
+ * ```
+ */
+export interface OrmTypeOptions {}
 export type {
   ColumnHint,
   ColumnNames,
   RelationHint,
   RelationNames,
 } from "./typed-names.ts";
-export { strict, unsafeName } from "./typed-names.ts";
-export type { StrictColumn, StrictModel, StrictQuery, StrictRelation, StrictWithMap } from "./typed-names.ts";
+export { unsafeName } from "./typed-names.ts";
 export { checkModelSchema, generateModelTypes, modelColumnsInterface, tsTypeForColumn, type SchemaIssue } from "./schema-types.ts";

@@ -52,7 +52,7 @@ import {
   type RelationMeta,
 } from "./relations.ts";
 import { eagerLoadAggregates, eagerLoadModels } from "./eager.ts";
-import type { ColumnHint, RelationHint } from "./typed-names.ts";
+import type { ColumnHint, RelationHint, WithMap } from "./typed-names.ts";
 import { type CastDefinition } from "./casts.ts";
 import {
   Model,
@@ -96,8 +96,8 @@ function notGroupCallback<T extends Model>(
 ): (query: ModelQuery<T>) => void {
   if (typeof callbackOrColumn === "function") return callbackOrColumn;
   return (q) => {
-    if (value === undefined) q.where(callbackOrColumn, opOrValue);
-    else q.where(callbackOrColumn, String(opOrValue), value);
+    if (value === undefined) (q as ModelQuery<any>).where(callbackOrColumn, opOrValue);
+    else (q as ModelQuery<any>).where(callbackOrColumn, String(opOrValue), value);
   };
 }
 
@@ -398,7 +398,7 @@ export class ModelQuery<
     Object.assign(this.#pendingAttributes, attrs);
     if (applyAsConditions) {
       for (const [column, v] of Object.entries(attrs)) {
-        this.where(column, v);
+        (this as ModelQuery<any>).where(column, v);
       }
     }
     return this;
@@ -486,8 +486,8 @@ export class ModelQuery<
     if (meta?.kind === "belongsTo" && !this.#nestedWhereGroup) {
       const alias = this.#expandBelongsToHasJoin(meta, undefined, relation);
       const col = column.includes(".") ? column : `${alias}.${column}`;
-      if (value === undefined) this.where(col, opOrValue);
-      else this.where(col, String(opOrValue), value);
+      if (value === undefined) (this as ModelQuery<any>).where(col, opOrValue);
+      else (this as ModelQuery<any>).where(col, String(opOrValue), value);
       return this;
     }
     // HasMany / BelongsToMany: bake a single related where into EXISTS (no ModelQuery).
@@ -509,7 +509,7 @@ export class ModelQuery<
         },
       );
     }
-    return this.whereHas(relation, (q) => {
+    return (this as any).whereHas(relation, (q: ModelQuery<any>) => {
       if (value === undefined) q.where(column, opOrValue);
       else q.where(column, String(opOrValue), value);
     });
@@ -542,7 +542,7 @@ export class ModelQuery<
         },
       );
     }
-    return this.orWhereHas(relation, (q) => {
+    return (this as any).orWhereHas(relation, (q: ModelQuery<any>) => {
       if (value === undefined) q.where(column, opOrValue);
       else q.where(column, String(opOrValue), value);
     });
@@ -550,7 +550,7 @@ export class ModelQuery<
 
   /** `orHas`. */
   orHas(relation: string): this {
-    return this.orWhereHas(relation);
+    return (this as any).orWhereHas(relation);
   }
 
   /** `orDoesntHave`. */
@@ -585,8 +585,8 @@ export class ModelQuery<
         ? meta.foreignKey
         : `${singular(RelatedCtor.table)}_id`;
     const pk = (related as unknown as Record<string, unknown>)[pkName];
-    if (or) this.orWhere(fk, pk);
-    else this.where(fk, pk);
+    if (or) (this as ModelQuery<any>).orWhere(fk, pk);
+    else (this as ModelQuery<any>).where(fk, pk);
     return this;
   }
 
@@ -635,20 +635,20 @@ export class ModelQuery<
       // NOT (type = X AND id = Y) → type <> X OR id <> Y
       if (or) {
         // orWhereNot — approximate with orWhereNested not
-        this.orWhere(typeCol, "!=", type);
+        (this as ModelQuery<any>).orWhere(typeCol, "!=", type);
         return this;
       }
       return this.whereNot((q) => {
-        q.where(typeCol, type).where(idCol, id);
+        (q as ModelQuery<any>).where(typeCol, type).where(idCol, id);
       });
     }
     if (or) {
-      this.orWhere(typeCol, type);
-      this.where(idCol, id);
+      (this as ModelQuery<any>).orWhere(typeCol, type);
+      (this as ModelQuery<any>).where(idCol, id);
       return this;
     }
-    this.where(typeCol, type);
-    this.where(idCol, id);
+    (this as ModelQuery<any>).where(typeCol, type);
+    (this as ModelQuery<any>).where(idCol, id);
     return this;
   }
 
@@ -814,25 +814,25 @@ export class ModelQuery<
   /** `whereKey($id)` / `whereKey([$ids])`. */
   whereKey(id: string | number | Array<string | number>): this {
     const key = this.model.primaryKey;
-    if (Array.isArray(id)) return this.whereIn(key, id);
-    return this.where(key, id);
+    if (Array.isArray(id)) return (this as any).whereIn(key, id);
+    return (this as any).where(key, id);
   }
 
   /** `whereKeyNot`. */
   whereKeyNot(id: string | number | Array<string | number>): this {
     const key = this.model.primaryKey;
     if (Array.isArray(id)) return this.whereNotIn(key, id);
-    return this.where(key, "!=", id);
+    return (this as any).where(key, "!=", id);
   }
 
   /** `whereUuid($column, $uuid)`. */
   whereUuid(column: string, value: string): this {
-    return this.where(column, value);
+    return (this as any).where(column, value);
   }
 
   /** `whereUlid($column, $ulid)`. */
   whereUlid(column: string, value: string): this {
-    return this.where(column, value);
+    return (this as any).where(column, value);
   }
 
   /** `whereNot(closure)` nested group. */
@@ -882,14 +882,14 @@ export class ModelQuery<
     opOrValue: unknown,
     value?: unknown,
   ): T | null | Promise<T | null> {
-    if (value === undefined) this.where(column, opOrValue);
-    else this.where(column, String(opOrValue), value);
+    if (value === undefined) (this as ModelQuery<any>).where(column, opOrValue);
+    else (this as ModelQuery<any>).where(column, String(opOrValue), value);
     return this.first();
   }
 
   /** `findMany`. */
   findMany(ids: Array<string | number>): OrmCollection<T> | Promise<OrmCollection<T>> {
-    return this.whereIn(this.model.primaryKey, ids).#fetchModels();
+    return (this as ModelQuery<any>).whereIn(this.model.primaryKey, ids).#fetchModels();
   }
 
   /** `findOr($id, $callback)`. */
@@ -897,14 +897,14 @@ export class ModelQuery<
     id: string | number,
     callback: () => T | Promise<T>,
   ): Promise<T> {
-    const model = await this.where(this.model.primaryKey, id).first();
+    const model = await (this as ModelQuery<any>).where(this.model.primaryKey, id).first();
     if (model) return model;
     return callback();
   }
 
   /** `findOrNew`. */
   async findOrNew(id: string | number): Promise<T> {
-    const model = await this.where(this.model.primaryKey, id).first();
+    const model = await (this as ModelQuery<any>).where(this.model.primaryKey, id).first();
     if (model) return model;
     const fresh = new this.model() as T;
     (fresh as unknown as Record<string, unknown>)[this.model.primaryKey] = id;
@@ -1164,8 +1164,8 @@ export class ModelQuery<
   }
 
   orWhere(callback: (query: ModelQuery<T>) => void): this;
-  orWhere(column: string, value: unknown): this;
-  orWhere(column: string, op: string, value: unknown): this;
+  orWhere(column: ColumnHint<T>, value: unknown): this;
+  orWhere(column: ColumnHint<T>, op: string, value: unknown): this;
   orWhere(
     columnOrCallback: string | ((query: ModelQuery<T>) => void),
     opOrValue?: unknown,
@@ -1522,7 +1522,7 @@ export class ModelQuery<
 
   reorder(column?: string, direction: "asc" | "desc" = "asc"): this {
     this.#orders = [];
-    if (column !== undefined) this.orderBy(column, direction);
+    if (column !== undefined) (this as ModelQuery<any>).orderBy(column, direction);
     return this;
   }
 
@@ -1533,11 +1533,11 @@ export class ModelQuery<
   }
 
   latest(column = "created_at"): this {
-    return this.orderBy(column, "desc");
+    return (this as any).orderBy(column, "desc");
   }
 
   oldest(column = "created_at"): this {
-    return this.orderBy(column, "asc");
+    return (this as any).orderBy(column, "asc");
   }
 
   groupBy(...columns: string[]): this {
@@ -1629,8 +1629,8 @@ export class ModelQuery<
     return this.where((q) => {
       for (let i = 0; i < columns.length; i++) {
         const col = columns[i]!;
-        if (i === 0) q.where(col, "like", pattern);
-        else q.orWhere(col, "like", pattern);
+        if (i === 0) (q as ModelQuery<any>).where(col, "like", pattern);
+        else (q as ModelQuery<any>).orWhere(col, "like", pattern);
       }
     });
   }
@@ -1721,7 +1721,7 @@ export class ModelQuery<
   }
 
   with(
-    ...relations: Array<RelationHint<T> | RelationHint<T>[] | Record<string, unknown>>
+    ...relations: Array<RelationHint<T> | RelationHint<T>[] | WithMap<T>>
   ): this {
     (this.#eagerLoad = mqMut(this.#eagerLoad)).push(
       ...normalizeWithRelations(relations),
@@ -3595,7 +3595,7 @@ export class ModelQuery<
 
   /** SQLite-only synchronous `find($id)`. */
   findSync(id: string | number): T | null {
-    return this.clone().where(this.model.primaryKey, id).firstSync();
+    return (this.clone() as ModelQuery<any>).where(this.model.primaryKey, id).firstSync();
   }
 
   async #loadEager(models: T[]): Promise<void> {
@@ -3829,7 +3829,7 @@ export class ModelQuery<
     for (;;) {
       const q = this.clone().reorder(column, direction).limit(size);
       if (lastId !== null) {
-        q.where(column, direction === "asc" ? ">" : "<", lastId);
+        (q as ModelQuery<any>).where(column, direction === "asc" ? ">" : "<", lastId);
       }
       const models = await q.#fetchModels();
       if (models.isEmpty()) return true;
@@ -3863,7 +3863,7 @@ export class ModelQuery<
     for (;;) {
       const q = this.clone().reorder(column, direction).limit(size);
       if (lastId !== null) {
-        q.where(column, direction === "asc" ? ">" : "<", lastId);
+        (q as ModelQuery<any>).where(column, direction === "asc" ? ">" : "<", lastId);
       }
       const models = await q.#fetchModels();
       if (models.isEmpty()) return;
@@ -3946,7 +3946,7 @@ export class ModelQuery<
 
   /** Find by primary key within this query. */
   async find(id: string | number): Promise<T | null> {
-    return this.clone()
+    return (this.clone() as ModelQuery<any>)
       .where(this.model.primaryKey, id)
       .first();
   }
