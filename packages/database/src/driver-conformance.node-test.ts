@@ -428,6 +428,41 @@ describe("Node SQLite better-sqlite3 (in-memory)", () => {
     await connection.close();
   });
 
+  it("bind coercion: booleans are stored as 0/1 on every bind path", async () => {
+    const connection = connectSqlite({ path: ":memory:" });
+    const schema = schemaFor(connection);
+    await schema.create("n6_sqlite_bools", (table) => {
+      table.id();
+      table.boolean("flag").default(false);
+      table.string("label").nullable();
+    });
+    await connection.run("INSERT INTO n6_sqlite_bools (flag) VALUES (?)", [true]);
+    await connection.run(
+      "INSERT INTO n6_sqlite_bools (flag, label) VALUES (?, ?)",
+      [false, "off"],
+    );
+    const on = await connection.get<{ flag: number }>(
+      "SELECT flag FROM n6_sqlite_bools WHERE flag = ?",
+      [true],
+    );
+    assert.equal(on?.flag, 1);
+    const off = await connection.all<{ label: string | null }>(
+      "SELECT label FROM n6_sqlite_bools WHERE flag = ?",
+      [false],
+    );
+    assert.equal(off[0]?.label, "off");
+    await connection.close();
+  });
+
+  it("connectSqlite accepts an injected engine", async () => {
+    const connection = connectSqlite({
+      path: ":memory:",
+      engine: loadBetterSqlite3(),
+    });
+    assert.equal(connection.getDriverName(), "sqlite");
+    await connection.close();
+  });
+
   it("nested txn + afterCommit", async () => {
     const connection = connectSqlite({ path: ":memory:" });
     const schema = schemaFor(connection);
