@@ -1,3 +1,4 @@
+import { BROWSERS, DEVICES, IS_ALIASES, PLATFORMS, ROBOTS, WEBKIT, type Rule } from "./rules.ts";
 import {
   applyClientHints,
   parseUserAgent,
@@ -14,6 +15,7 @@ export interface HeaderReader {
 
 export interface AgentArray extends ParsedAgent {
   mobile: boolean;
+  phone: boolean;
   tablet: boolean;
   desktop: boolean;
 }
@@ -30,6 +32,11 @@ function escape(value: string): string {
  * Parsing is lazy and cached; Client Hints win over the UA string when present.
  */
 export class Agent {
+  /** `version(name, Agent.VERSION_TYPE_STRING)` (default). */
+  static readonly VERSION_TYPE_STRING = "text";
+  /** `version(name, Agent.VERSION_TYPE_FLOAT)`: `"17.4.1"` → `17.4`. */
+  static readonly VERSION_TYPE_FLOAT = "float";
+
   #userAgent: string;
   #headers: HeaderSource | undefined;
   #parsed: Readonly<ParsedAgent> | null = null;
@@ -66,8 +73,15 @@ export class Agent {
     return (this.#parsed ??= applyClientHints(parseUserAgent(this.#userAgent), this.#headers));
   }
 
+  /** Phone or tablet (jenssegers / Mobile_Detect semantics). */
   isMobile(): boolean {
-    return this.#info().deviceType === "mobile";
+    const t = this.#info().deviceType;
+    return t === "phone" || t === "tablet";
+  }
+
+  /** Mobile and not a tablet. */
+  isPhone(): boolean {
+    return this.#info().deviceType === "phone";
   }
 
   isTablet(): boolean {
@@ -107,8 +121,23 @@ export class Agent {
     return this.#info().deviceType;
   }
 
-  /** Version for a browser or platform name (`version("Chrome")`, `version(agent.platform())`). */
-  version(name: string): string | false {
+  /**
+   * Version for a browser or platform name (`version("Chrome")`, `version(agent.platform())`).
+   * Windows returns the marketing version ("10", "11"); use `version("Windows NT")` for "10.0".
+   * Pass `Agent.VERSION_TYPE_FLOAT` for a number (`major.minor`).
+   */
+  version(name: string): string | false;
+  version(name: string, type: "text"): string | false;
+  version(name: string, type: "float"): number | false;
+  version(name: string, type: "text" | "float" = "text"): string | number | false {
+    const v = this.#versionText(name);
+    if (v === false || type !== "float") return v;
+    const parts = v.split(".");
+    const n = parseFloat(parts.length > 1 ? `${parts[0]}.${parts[1]}` : parts[0]!);
+    return Number.isNaN(n) ? false : n;
+  }
+
+  #versionText(name: string): string | false {
     const info = this.#info();
     if (name === info.browser) return info.browserVersion;
     if (name === info.platform) return info.platformVersion;
@@ -141,14 +170,75 @@ export class Agent {
     return items.map((item) => item[0]);
   }
 
-  /** True when the browser, platform, device or robot name equals `name` (case-insensitive). */
+  /**
+   * True when the browser, platform, device or robot name equals `name` (case-insensitive).
+   * Accepts jenssegers names too: "OS X" → macOS, "AndroidOS" → Android, "iOS" also matches
+   * iPadOS, "Webkit" → AppleWebKit engine (Chrome-family and Safari).
+   */
   is(name: string): boolean {
     const info = this.#info();
-    const n = name.toLowerCase();
-    for (const v of [info.browser, info.platform, info.device, info.robot]) {
-      if (v !== false && v.toLowerCase() === n) return true;
-    }
-    return false;
+    let n = name.toLowerCase();
+    n = IS_ALIASES[n] ?? n;
+    if (n === "webkit") return WEBKIT.test(this.#userAgent);
+    if (n === "ios" && info.platform === "iPadOS") return true;
+    return (
+      (info.browser !== false && info.browser.toLowerCase() === n) ||
+      (info.platform !== false && info.platform.toLowerCase() === n) ||
+      (info.device !== false && info.device.toLowerCase() === n) ||
+      (info.robot !== false && info.robot.toLowerCase() === n)
+    );
+  }
+
+  isChrome(): boolean {
+    return this.#info().browser === "Chrome";
+  }
+
+  isFirefox(): boolean {
+    return this.#info().browser === "Firefox";
+  }
+
+  isSafari(): boolean {
+    return this.#info().browser === "Safari";
+  }
+
+  isEdge(): boolean {
+    return this.#info().browser === "Edge";
+  }
+
+  isOpera(): boolean {
+    const b = this.#info().browser;
+    return b === "Opera" || b === "Opera Mini";
+  }
+
+  isAndroidOS(): boolean {
+    return this.#info().platform === "Android";
+  }
+
+  /** iPhone, iPod or iPad (Mobile_Detect counts iPadOS as iOS). */
+  isiOS(): boolean {
+    const p = this.#info().platform;
+    return p === "iOS" || p === "iPadOS";
+  }
+
+  isWindows(): boolean {
+    return this.#info().platform === "Windows";
+  }
+
+  isMacOS(): boolean {
+    return this.#info().platform === "macOS";
+  }
+
+  getHttpHeaders(): HeaderSource {
+    return this.#headers ?? {};
+  }
+
+  /** The ordered detection tables (read-only). */
+  static getRules(): { robots: readonly Rule[]; browsers: readonly Rule[]; platforms: readonly Rule[]; devices: readonly Rule[] } {
+    return { robots: ROBOTS, browsers: BROWSERS, platforms: PLATFORMS, devices: DEVICES };
+  }
+
+  getRules(): ReturnType<typeof Agent.getRules> {
+    return Agent.getRules();
   }
 
   /** Test a regex (string patterns are case-insensitive and memoized) against the UA. */
@@ -167,7 +257,8 @@ export class Agent {
     const info = this.#info();
     return {
       ...info,
-      mobile: info.deviceType === "mobile",
+      mobile: info.deviceType === "phone" || info.deviceType === "tablet",
+      phone: info.deviceType === "phone",
       tablet: info.deviceType === "tablet",
       desktop: info.deviceType === "desktop",
     };

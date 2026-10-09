@@ -16,7 +16,8 @@ describe("fixtures", () => {
       expect(a.deviceType()).toBe(type as never);
       expect(a.robot()).toBe(robot);
       expect(a.isRobot()).toBe(robot !== false);
-      expect(a.isMobile()).toBe(type === "mobile");
+      expect(a.isMobile()).toBe(type === "phone" || type === "tablet");
+      expect(a.isPhone()).toBe(type === "phone");
       expect(a.isTablet()).toBe(type === "tablet");
       expect(a.isDesktop()).toBe(type === "desktop");
     });
@@ -29,7 +30,7 @@ describe("hostile input", () => {
       const a = new Agent(ua);
       expect(a.browser()).toBe(false);
       expect(a.platform()).toBe(false);
-      expect(a.deviceType()).toBe("unknown");
+      expect(a.deviceType()).toBe("other");
       expect(a.isDesktop()).toBe(false);
       expect(a.isRobot()).toBe(false);
     }
@@ -79,13 +80,16 @@ describe("client hints", () => {
       "sec-ch-ua-platform": '"Android"',
     });
     expect(a.isMobile()).toBe(true);
+    expect(a.isPhone()).toBe(true);
     expect(a.platform()).toBe("Android");
   });
 
-  test("hints never override a robot", () => {
-    const a = new Agent("curl/8.4.0", { "sec-ch-ua": '"Google Chrome";v="124"', "sec-ch-ua-mobile": "?1" });
+  test("bots ignore all hints, platform included", () => {
+    const a = new Agent("curl/8.4.0", { "sec-ch-ua": '"Google Chrome";v="124"', "sec-ch-ua-mobile": "?1", "sec-ch-ua-platform": '"Windows"' });
     expect(a.isRobot()).toBe(true);
     expect(a.browser()).toBe(false);
+    expect(a.platform()).toBe(false);
+    expect(a.deviceType()).toBe("robot");
   });
 });
 
@@ -141,11 +145,49 @@ describe("api", () => {
       device: "iPad",
       deviceType: "tablet",
       robot: false,
-      mobile: false,
+      mobile: true,
+      phone: false,
       tablet: true,
       desktop: false,
     });
     expect(JSON.parse(JSON.stringify(new Agent("curl/8.4.0"))).robot).toBe("curl");
+  });
+});
+
+describe("jenssegers parity", () => {
+  test("is() aliases and helpers", () => {
+    const mac = new Agent(FIXTURES["Safari / macOS"]![0]);
+    expect(mac.is("OS X")).toBe(true);
+    expect(mac.is("Webkit")).toBe(true);
+    expect(mac.isSafari() && mac.isMacOS()).toBe(true);
+    const android = new Agent(FIXTURES["Chrome / Android (Pixel)"]![0]);
+    expect(android.is("AndroidOS") && android.isAndroidOS() && android.isChrome()).toBe(true);
+    const ipad = new Agent(FIXTURES["Safari / iPad"]![0]);
+    expect(ipad.is("iOS") && ipad.isiOS() && ipad.isMobile() && !ipad.isPhone()).toBe(true);
+    const ff = new Agent(FIXTURES["Firefox / Linux"]![0]);
+    expect(ff.is("Webkit") || ff.isChrome()).toBe(false);
+    expect(ff.isFirefox()).toBe(true);
+    expect(new Agent(FIXTURES["Edge / Windows"]![0]).isEdge()).toBe(true);
+    expect(new Agent(FIXTURES["Opera Mini"]![0]).isOpera()).toBe(true);
+    expect(new Agent(CHROME_WIN).isWindows()).toBe(true);
+    expect(new Agent(FIXTURES["IE 11"]![0]).is("Internet Explorer")).toBe(true);
+  });
+
+  test("version float and Windows NT", () => {
+    const a = new Agent(FIXTURES["Safari / iPhone"]![0]);
+    expect(a.version("Safari", Agent.VERSION_TYPE_FLOAT)).toBe(17.4);
+    expect(a.version("iOS", "float")).toBe(17.4);
+    expect(a.version("Nope", "float")).toBe(false);
+    const w = new Agent(CHROME_WIN);
+    expect(w.version("Windows")).toBe("10");
+    expect(w.version("Windows NT")).toBe("10.0");
+  });
+
+  test("getHttpHeaders / getRules", () => {
+    const headers = { "sec-ch-ua-mobile": "?0" };
+    expect(new Agent(CHROME_WIN, headers).getHttpHeaders()).toBe(headers);
+    expect(new Agent(CHROME_WIN).getHttpHeaders()).toEqual({});
+    expect(Agent.getRules().browsers[0]![0]).toBe("Edge");
   });
 });
 

@@ -1,5 +1,6 @@
 import {
-  BOT_ANY,
+  BOT_TOKEN,
+  BOT_WORDS,
   BROWSERS,
   DEVICES,
   HINT_BRANDS,
@@ -12,7 +13,8 @@ import {
   type Rule,
 } from "./rules.ts";
 
-export type DeviceType = "desktop" | "mobile" | "tablet" | "robot" | "unknown";
+/** jenssegers/agent `deviceType()` vocabulary. */
+export type DeviceType = "desktop" | "phone" | "tablet" | "robot" | "other";
 
 export interface ParsedAgent {
   browser: string | false;
@@ -62,11 +64,11 @@ function firstMatch(table: readonly Rule[], ua: string): [string, string | false
 
 function parse(ua: string): ParsedAgent {
   if (ua === "") {
-    return { browser: false, browserVersion: false, platform: false, platformVersion: false, device: false, deviceType: "unknown", robot: false };
+    return { browser: false, browserVersion: false, platform: false, platformVersion: false, device: false, deviceType: "other", robot: false };
   }
 
   let robot: string | false = false;
-  if (BOT_ANY.test(ua)) {
+  if (BOT_TOKEN.test(ua) || BOT_WORDS.test(ua)) {
     const r = firstMatch(ROBOTS, ua);
     if (r !== null) robot = r[0];
   }
@@ -85,7 +87,7 @@ function parse(ua: string): ParsedAgent {
   let deviceType: DeviceType;
   if (robot !== false) deviceType = "robot";
   else if (TABLET.test(ua) || (platform === "Android" && !MOBILE.test(ua))) deviceType = "tablet";
-  else if (MOBILE.test(ua)) deviceType = "mobile";
+  else if (MOBILE.test(ua)) deviceType = "phone";
   else deviceType = "desktop";
 
   return {
@@ -144,11 +146,13 @@ export function applyClientHints(base: Readonly<ParsedAgent>, headers: HeaderSou
   const brands = readHeader(headers, "sec-ch-ua");
   const mobile = readHeader(headers, "sec-ch-ua-mobile");
   const platformHint = readHeader(headers, "sec-ch-ua-platform");
+  // Bots: ignore every hint (they are trivially spoofed and say nothing about the crawler).
+  if (base.robot !== false) return base;
   if (brands === null && mobile === null && platformHint === null) return base;
 
   const out: ParsedAgent = { ...base };
 
-  if (brands !== null && base.robot === false) {
+  if (brands !== null) {
     // Prefer a specific brand (Edge, Opera, Brave...), then Google Chrome, then Chromium; skip GREASE.
     let name: string | null = null;
     let version = "";
@@ -191,10 +195,10 @@ export function applyClientHints(base: Readonly<ParsedAgent>, headers: HeaderSou
   }
 
   // `?1` beats an inferred tablet (Android without "Mobile"), but not a known tablet device.
-  if (mobile !== null && out.deviceType !== "robot") {
+  if (mobile !== null) {
     const m = mobile.trim();
-    if (m === "?1" && out.device !== "iPad" && out.device !== "Kindle") out.deviceType = "mobile";
-    else if (m === "?0" && out.deviceType === "mobile") out.deviceType = "desktop";
+    if (m === "?1" && out.device !== "iPad" && out.device !== "Kindle") out.deviceType = "phone";
+    else if (m === "?0" && out.deviceType === "phone") out.deviceType = "desktop";
   }
 
   return Object.freeze(out);

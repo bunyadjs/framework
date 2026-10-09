@@ -6,9 +6,16 @@
 
 export type Rule = readonly [name: string, pattern: RegExp];
 
-/** Cheap pre-check: most real traffic pays only this one test. */
-export const BOT_ANY =
-  /bot|crawl|spider|slurp|curl\/|wget|python-requests|go-http-client|postmanruntime|headlesschrome|facebookexternalhit|whatsapp|bytespider|lighthouse/i;
+/**
+ * "bot"-shaped tokens, case-sensitive on purpose: `Googlebot`, `bingbot`,
+ * `GPTBot`, `Bot/`, standalone `bot` match; device names such as `CUBOT`,
+ * words like `Robotics` or `Abbott` do not.
+ */
+export const BOT_TOKEN = /[a-z]bot(?![a-z])|Bot\b|\bbot\b/;
+
+/** Other bot-shaped tokens (case-insensitive). */
+export const BOT_WORDS =
+  /crawl|spider|slurp|curl\/|wget|python-requests|go-http-client|postmanruntime|headlesschrome|facebookexternalhit|whatsapp|bytespider|lighthouse/i;
 
 export const ROBOTS: readonly Rule[] = [
   ["Googlebot", /googlebot|google-inspectiontool|adsbot-google|mediapartners-google/i],
@@ -38,7 +45,8 @@ export const ROBOTS: readonly Rule[] = [
   ["Python Requests", /python-requests/i],
   ["Go HTTP", /go-http-client/i],
   ["Postman", /postmanruntime/i],
-  ["Bot", /bot|crawl|spider/i],
+  ["Bot", BOT_TOKEN],
+  ["Bot", /crawl|spider/i],
 ];
 
 /** Browser rules: capture group 1 is the version. */
@@ -113,3 +121,21 @@ export const HINT_PLATFORMS: Readonly<Record<string, string>> = {
   linux: "Linux",
   ios: "iOS",
 };
+
+/** Aliases accepted by `is()` (jenssegers / Mobile_Detect names → canonical, lowercased). */
+export const IS_ALIASES: Readonly<Record<string, string>> = {
+  "os x": "macos",
+  osx: "macos",
+  "mac os": "macos",
+  androidos: "android",
+  "chrome os": "chromeos",
+  "microsoft edge": "edge",
+  msie: "ie",
+  "internet explorer": "ie",
+  samsung: "samsung internet",
+  samsungbrowser: "samsung internet",
+  ucbrowser: "uc browser",
+  opera: "opera",
+};
+
+export const WEBKIT = /AppleWebKit\//;
