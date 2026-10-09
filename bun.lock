@@ -260,6 +260,10 @@
         "@types/node": "^22.13.10",
       },
     },
+    "packages/agent": {
+      "name": "@bunyad/agent",
+      "version": "0.2.0-beta.2",
+    },
     "packages/auth": {
       "name": "@bunyad/auth",
       "version": "0.2.0-beta.2",
@@ -981,6 +985,8 @@
     "@bunyad-templates/views": ["@bunyad-templates/views@workspace:templates/views"],
 
     "@bunyad-templates/vue": ["@bunyad-templates/vue@workspace:templates/vue"],
+
+    "@bunyad/agent": ["@bunyad/agent@workspace:packages/agent"],
 
     "@bunyad/auth": ["@bunyad/auth@workspace:packages/auth"],
 
