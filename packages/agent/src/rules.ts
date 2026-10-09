@@ -18,7 +18,10 @@ export const BOT_WORDS =
   /crawl|spider|slurp|curl\/|wget|python-requests|go-http-client|postmanruntime|headlesschrome|facebookexternalhit|whatsapp|bytespider|lighthouse/i;
 
 export const ROBOTS: readonly Rule[] = [
-  ["Googlebot", /googlebot|google-inspectiontool|adsbot-google|mediapartners-google/i],
+  [
+    "Googlebot",
+    /googlebot|google-inspectiontool|adsbot-google|mediapartners-google/i,
+  ],
   ["Bingbot", /bingbot|bingpreview/i],
   ["Yahoo! Slurp", /slurp/i],
   ["DuckDuckBot", /duckduckbot/i],
@@ -53,7 +56,10 @@ export const ROBOTS: readonly Rule[] = [
 export const BROWSERS: readonly Rule[] = [
   ["Edge", /(?:Edg|EdgA|EdgiOS|Edge)\/([\d.]+)/],
   ["Opera Mini", /Opera Mini\/([\d.]+)/],
-  ["Opera", /(?:OPR|OPiOS|OPT)\/([\d.]+)|Opera\/.*Version\/([\d.]+)|Opera[ /]([\d.]+)/],
+  [
+    "Opera",
+    /(?:OPR|OPiOS|OPT)\/([\d.]+)|Opera\/.*Version\/([\d.]+)|Opera[ /]([\d.]+)/,
+  ],
   ["Samsung Internet", /SamsungBrowser\/([\d.]+)/],
   ["UC Browser", /UCBrowser\/([\d.]+)/],
   ["Yandex", /YaBrowser\/([\d.]+)/],
@@ -95,8 +101,10 @@ export const DEVICES: readonly Rule[] = [
   ["Macintosh", /Macintosh/],
 ];
 
-export const TABLET = /iPad|Tablet|Kindle|Silk\/|PlayBook|Nexus (?:7|9|10)|SM-T\d/i;
-export const MOBILE = /Mobi|iPhone|iPod|Opera Mini|Windows Phone|IEMobile|BlackBerry/i;
+export const TABLET =
+  /iPad|Tablet|Kindle|Silk\/|PlayBook|Nexus (?:7|9|10)|SM-T\d/i;
+export const MOBILE =
+  /Mobi|iPhone|iPod|Opera Mini|Windows Phone|IEMobile|BlackBerry/i;
 
 /** Client Hints brand → Bunyad browser name. */
 export const HINT_BRANDS: Readonly<Record<string, string>> = {

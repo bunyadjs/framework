@@ -4,7 +4,16 @@ import { test } from "node:test";
 import { Agent, agent, parseUserAgent } from "./index.ts";
 import { FIXTURES } from "./fixtures.ts";
 
-for (const [label, [ua, browser, bv, platform, pv, device, type, robot]] of Object.entries(FIXTURES)) {
+function ua(label: string): string {
+  const fixture = FIXTURES[label];
+  if (fixture === undefined) throw new Error(`missing fixture: ${label}`);
+  return fixture[0];
+}
+
+for (const [
+  label,
+  [ua, browser, bv, platform, pv, device, type, robot],
+] of Object.entries(FIXTURES)) {
   test(label, () => {
     const a = new Agent(ua);
     assert.equal(a.browser(), browser);
@@ -19,7 +28,12 @@ for (const [label, [ua, browser, bv, platform, pv, device, type, robot]] of Obje
 }
 
 test("client hints + agent(request) on Node", () => {
-  const headers = new Headers({ "user-agent": FIXTURES["Chrome / Windows 10"]![0], "sec-ch-ua": '"Microsoft Edge";v="124"', "sec-ch-ua-platform-version": '"15.0.0"', "sec-ch-ua-platform": '"Windows"' });
+  const headers = new Headers({
+    "user-agent": ua("Chrome / Windows 10"),
+    "sec-ch-ua": '"Microsoft Edge";v="124"',
+    "sec-ch-ua-platform-version": '"15.0.0"',
+    "sec-ch-ua-platform": '"Windows"',
+  });
   const a = agent({ header: (n: string) => headers.get(n) });
   assert.equal(a.browser(), "Edge");
   assert.equal(a.version("Windows"), "11");

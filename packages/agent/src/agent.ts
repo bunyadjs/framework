@@ -1,4 +1,12 @@
-import { BROWSERS, DEVICES, IS_ALIASES, PLATFORMS, ROBOTS, WEBKIT, type Rule } from "./rules.ts";
+import {
+  BROWSERS,
+  DEVICES,
+  IS_ALIASES,
+  PLATFORMS,
+  ROBOTS,
+  WEBKIT,
+  type Rule,
+} from "./rules.ts";
 import {
   applyClientHints,
   parseUserAgent,
@@ -48,7 +56,9 @@ export class Agent {
 
   /** Build from a request: reads `User-Agent`, Client Hints and `Accept-Language`. */
   static fromRequest(request: HeaderReader): Agent {
-    return new Agent(request.header("user-agent") ?? "", (name) => request.header(name));
+    return new Agent(request.header("user-agent") ?? "", (name) =>
+      request.header(name),
+    );
   }
 
   setUserAgent(userAgent: string | null): this {
@@ -70,7 +80,10 @@ export class Agent {
   }
 
   #info(): Readonly<ParsedAgent> {
-    return (this.#parsed ??= applyClientHints(parseUserAgent(this.#userAgent), this.#headers));
+    return (this.#parsed ??= applyClientHints(
+      parseUserAgent(this.#userAgent),
+      this.#headers,
+    ));
   }
 
   /** Phone or tablet (jenssegers / Mobile_Detect semantics). */
@@ -129,11 +142,16 @@ export class Agent {
   version(name: string): string | false;
   version(name: string, type: "text"): string | false;
   version(name: string, type: "float"): number | false;
-  version(name: string, type: "text" | "float" = "text"): string | number | false {
+  version(
+    name: string,
+    type: "text" | "float" = "text",
+  ): string | number | false {
     const v = this.#versionText(name);
     if (v === false || type !== "float") return v;
     const parts = v.split(".");
-    const n = parseFloat(parts.length > 1 ? `${parts[0]}.${parts[1]}` : parts[0]!);
+    const n = parseFloat(
+      parts.length > 1 ? `${parts[0]}.${parts[1]}` : parts[0]!,
+    );
     return Number.isNaN(n) ? false : n;
   }
 
@@ -152,7 +170,8 @@ export class Agent {
 
   /** Accept-Language codes, highest quality first, lowercased (jenssegers format). */
   languages(acceptLanguage?: string | null): string[] {
-    const header = acceptLanguage ?? readHeader(this.#headers, "accept-language");
+    const header =
+      acceptLanguage ?? readHeader(this.#headers, "accept-language");
     if (!header) return [];
     const items: Array<[string, number, number]> = [];
     const parts = header.split(",");
@@ -233,8 +252,18 @@ export class Agent {
   }
 
   /** The ordered detection tables (read-only). */
-  static getRules(): { robots: readonly Rule[]; browsers: readonly Rule[]; platforms: readonly Rule[]; devices: readonly Rule[] } {
-    return { robots: ROBOTS, browsers: BROWSERS, platforms: PLATFORMS, devices: DEVICES };
+  static getRules(): {
+    robots: readonly Rule[];
+    browsers: readonly Rule[];
+    platforms: readonly Rule[];
+    devices: readonly Rule[];
+  } {
+    return {
+      robots: ROBOTS,
+      browsers: BROWSERS,
+      platforms: PLATFORMS,
+      devices: DEVICES,
+    };
   }
 
   getRules(): ReturnType<typeof Agent.getRules> {

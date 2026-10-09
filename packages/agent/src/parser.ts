@@ -39,7 +39,8 @@ const cache = new Map<string, Readonly<ParsedAgent>>();
 /** Set the LRU cache size (default 1000). `0` disables caching. */
 export function setAgentCacheSize(size: number): void {
   cacheSize = Math.max(0, size | 0);
-  while (cache.size > cacheSize) cache.delete(cache.keys().next().value as string);
+  while (cache.size > cacheSize)
+    cache.delete(cache.keys().next().value as string);
 }
 
 /** Empty the parse cache. */
@@ -47,7 +48,10 @@ export function clearAgentCache(): void {
   cache.clear();
 }
 
-function firstMatch(table: readonly Rule[], ua: string): [string, string | false] | null {
+function firstMatch(
+  table: readonly Rule[],
+  ua: string,
+): [string, string | false] | null {
   for (let i = 0; i < table.length; i++) {
     const rule = table[i]!;
     const m = rule[1].exec(ua);
@@ -62,15 +66,40 @@ function firstMatch(table: readonly Rule[], ua: string): [string, string | false
   return null;
 }
 
+const DEVICE_COMMENT = /\((?=[^)]*\b(?:Android|iPhone|iPad|Linux; U)\b)[^)]*\)/;
+
+/**
+ * The generic "Bot" fallback can hit lowercase maker/model names inside the
+ * device comment of a real mobile browser (`Android 11; cubot note 7`).
+ * Ignore it when the bot-shaped token only appears in that comment and a
+ * real browser signature follows; named bots are matched before this.
+ */
+function genericBotOnlyInDeviceComment(ua: string): boolean {
+  const m = DEVICE_COMMENT.exec(ua);
+  if (m === null) return false;
+  const rest = ua.slice(0, m.index) + ua.slice(m.index + m[0].length);
+  if (!/AppleWebKit\/|Gecko\//.test(rest)) return false;
+  return !BOT_TOKEN.test(rest) && !BOT_WORDS.test(rest);
+}
+
 function parse(ua: string): ParsedAgent {
   if (ua === "") {
-    return { browser: false, browserVersion: false, platform: false, platformVersion: false, device: false, deviceType: "other", robot: false };
+    return {
+      browser: false,
+      browserVersion: false,
+      platform: false,
+      platformVersion: false,
+      device: false,
+      deviceType: "other",
+      robot: false,
+    };
   }
 
   let robot: string | false = false;
   if (BOT_TOKEN.test(ua) || BOT_WORDS.test(ua)) {
     const r = firstMatch(ROBOTS, ua);
     if (r !== null) robot = r[0];
+    if (robot === "Bot" && genericBotOnlyInDeviceComment(ua)) robot = false;
   }
 
   const b = firstMatch(BROWSERS, ua);
@@ -80,13 +109,15 @@ function parse(ua: string): ParsedAgent {
   const platform = p ? p[0] : false;
   let platformVersion: string | false = p ? p[1] : false;
   if (platformVersion !== false) {
-    if (platform === "Windows") platformVersion = WINDOWS_NT[platformVersion] ?? platformVersion;
+    if (platform === "Windows")
+      platformVersion = WINDOWS_NT[platformVersion] ?? platformVersion;
     else platformVersion = platformVersion.replaceAll("_", ".");
   }
 
   let deviceType: DeviceType;
   if (robot !== false) deviceType = "robot";
-  else if (TABLET.test(ua) || (platform === "Android" && !MOBILE.test(ua))) deviceType = "tablet";
+  else if (TABLET.test(ua) || (platform === "Android" && !MOBILE.test(ua)))
+    deviceType = "tablet";
   else if (MOBILE.test(ua)) deviceType = "phone";
   else deviceType = "desktop";
 
@@ -102,7 +133,9 @@ function parse(ua: string): ParsedAgent {
 }
 
 /** Parse a User-Agent string. Results are frozen and LRU-cached by UA. */
-export function parseUserAgent(userAgent: string | null | undefined): Readonly<ParsedAgent> {
+export function parseUserAgent(
+  userAgent: string | null | undefined,
+): Readonly<ParsedAgent> {
   let ua = userAgent ?? "";
   if (ua.length > MAX_LENGTH) ua = ua.slice(0, MAX_LENGTH);
   if (cacheSize === 0) return Object.freeze(parse(ua));
@@ -122,7 +155,10 @@ export function parseUserAgent(userAgent: string | null | undefined): Readonly<P
   return result;
 }
 
-export function readHeader(source: HeaderSource | undefined, name: string): string | null {
+export function readHeader(
+  source: HeaderSource | undefined,
+  name: string,
+): string | null {
   if (source === undefined) return null;
   if (typeof source === "function") return source(name) ?? null;
   const direct = source[name];
@@ -136,13 +172,18 @@ export function readHeader(source: HeaderSource | undefined, name: string): stri
 
 function unquote(value: string): string {
   const v = value.trim();
-  return v.length >= 2 && v[0] === '"' && v[v.length - 1] === '"' ? v.slice(1, -1) : v;
+  return v.length >= 2 && v[0] === '"' && v[v.length - 1] === '"'
+    ? v.slice(1, -1)
+    : v;
 }
 
 const BRAND = /"([^"]*)"\s*;\s*v\s*=\s*"([^"]*)"/g;
 
 /** Overlay Client Hints (preferred when present) on a parsed UA. */
-export function applyClientHints(base: Readonly<ParsedAgent>, headers: HeaderSource | undefined): Readonly<ParsedAgent> {
+export function applyClientHints(
+  base: Readonly<ParsedAgent>,
+  headers: HeaderSource | undefined,
+): Readonly<ParsedAgent> {
   const brands = readHeader(headers, "sec-ch-ua");
   const mobile = readHeader(headers, "sec-ch-ua-mobile");
   const platformHint = readHeader(headers, "sec-ch-ua-platform");
@@ -171,7 +212,10 @@ export function applyClientHints(base: Readonly<ParsedAgent>, headers: HeaderSou
       }
     }
     if (name !== null) {
-      const sameMajor = base.browser === name && base.browserVersion !== false && base.browserVersion.split(".")[0] === version.split(".")[0];
+      const sameMajor =
+        base.browser === name &&
+        base.browserVersion !== false &&
+        base.browserVersion.split(".")[0] === version.split(".")[0];
       out.browser = name;
       out.browserVersion = sameMajor ? base.browserVersion : version || false;
     }
@@ -197,8 +241,10 @@ export function applyClientHints(base: Readonly<ParsedAgent>, headers: HeaderSou
   // `?1` beats an inferred tablet (Android without "Mobile"), but not a known tablet device.
   if (mobile !== null) {
     const m = mobile.trim();
-    if (m === "?1" && out.device !== "iPad" && out.device !== "Kindle") out.deviceType = "phone";
-    else if (m === "?0" && out.deviceType === "phone") out.deviceType = "desktop";
+    if (m === "?1" && out.device !== "iPad" && out.device !== "Kindle")
+      out.deviceType = "phone";
+    else if (m === "?0" && out.deviceType === "phone")
+      out.deviceType = "desktop";
   }
 
   return Object.freeze(out);

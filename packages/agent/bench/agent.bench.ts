@@ -1,5 +1,10 @@
 /** bun packages/agent/bench/agent.bench.ts */
-import { Agent, clearAgentCache, parseUserAgent, setAgentCacheSize } from "../src/index.ts";
+import {
+  Agent,
+  clearAgentCache,
+  parseUserAgent,
+  setAgentCacheSize,
+} from "../src/index.ts";
 import { FIXTURES } from "../src/fixtures.ts";
 
 const uas = Object.values(FIXTURES).map((f) => f[0]);
@@ -19,11 +24,22 @@ bench("new Agent + browser/platform/isMobile (cached)", (i) => {
   const a = new Agent(uas[i % uas.length]);
   return a.browser() && a.platform() && a.isMobile();
 });
-const hints = { "sec-ch-ua": '"Chromium";v="124", "Microsoft Edge";v="124", "Not-A.Brand";v="99"', "sec-ch-ua-mobile": "?0", "sec-ch-ua-platform": '"Windows"' };
-bench("Agent with Client Hints (cached UA)", (i) => new Agent(uas[i % uas.length], hints).browser());
+const hints = {
+  "sec-ch-ua":
+    '"Chromium";v="124", "Microsoft Edge";v="124", "Not-A.Brand";v="99"',
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"Windows"',
+};
+bench("Agent with Client Hints (cached UA)", (i) =>
+  new Agent(uas[i % uas.length], hints).browser(),
+);
 
 setAgentCacheSize(0);
-bench("parseUserAgent (uncached, mixed fixtures)", (i) => parseUserAgent(uas[i % uas.length]));
-bench("parseUserAgent (uncached, Chrome desktop)", () => parseUserAgent(uas[0]));
+bench("parseUserAgent (uncached, mixed fixtures)", (i) =>
+  parseUserAgent(uas[i % uas.length]),
+);
+bench("parseUserAgent (uncached, Chrome desktop)", () =>
+  parseUserAgent(uas[0]),
+);
 setAgentCacheSize(1000);
 clearAgentCache();
