@@ -8,7 +8,7 @@ It is inspired by Laravel's developer experience. It does not copy Laravel's fol
 
 **Website and docs: [bunyadjs.com](https://bunyadjs.com)** · [Documentation](https://bunyadjs.com/docs/1.x) · [npm](https://www.npmjs.com/org/bunyad) · [GitHub](https://github.com/bunyadjs/framework)
 
-> **Beta.** The current release is `0.2.0-beta.1`, published under the `beta` npm tag. `latest` still points at the old `0.1.0-alpha.0` and will not move until 1.0, so install with `@beta`. Public APIs change only in minor releases, with a changelog entry and an upgrade note: see the [stability policy](docs/STABILITY.md), the [changelog](CHANGELOG.md) and the [upgrade guide](docs/UPGRADING.md).
+> **Beta.** The current release is `0.2.0-beta.2`, published under the `beta` npm tag. `latest` still points at the old `0.1.0-alpha.0` and will not move until 1.0, so install with `@beta`. Public APIs change only in minor releases, with a changelog entry and an upgrade note: see the [stability policy](docs/STABILITY.md), the [changelog](CHANGELOG.md) and the [upgrade guide](docs/UPGRADING.md).
 
 ## Get started
 
