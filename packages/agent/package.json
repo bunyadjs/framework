@@ -1,0 +1,55 @@
+{
+  "name": "@bunyad/agent",
+  "version": "0.2.0-beta.2",
+  "description": "Fast, zero-dependency user-agent parsing (browser, OS, device, bot) for Bunyad.",
+  "license": "MIT",
+  "author": "Shah Khalid",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunyadjs/framework.git",
+    "directory": "packages/agent"
+  },
+  "homepage": "https://github.com/bunyadjs/framework#readme",
+  "bugs": {
+    "url": "https://github.com/bunyadjs/framework/issues"
+  },
+  "keywords": [
+    "bunyad",
+    "bun",
+    "typescript",
+    "user-agent",
+    "client-hints"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.4.0",
+    "node": ">=22.6"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {},
+  "scripts": {
+    "test": "bun test",
+    "build": "bun ../../scripts/build-package.ts .",
+    "bench": "bun bench/agent.bench.ts",
+    "test:node": "node --experimental-transform-types --test src/agent.node-test.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  }
+}
