@@ -87,7 +87,12 @@ export const CLIENT_JS = String.raw`
     tab: pref("tab"),
     qfilter: "all",
     height: parseInt(pref("height") || "320", 10),
-    hidden: pref("hidden") === "1"
+    hidden: pref("hidden") === "1",
+    // The user chose an earlier request: new ones are added to the list but do not take over.
+    pinned: false,
+    // The request list is open: redrawing now would destroy it under the cursor.
+    choosing: false,
+    stale: false
   };
 
   function h(tag, props) {
@@ -272,7 +277,15 @@ export const CLIENT_JS = String.raw`
       item("logs", s.logs.length, { onclick: function () { toggle("logs"); }, on: state.tab === "logs" }),
       item("cache", s.cache.items.length, { onclick: function () { toggle("cache"); }, on: state.tab === "cache" }),
       h("span", { class: "spacer" }),
-      state.snaps.length > 1 ? h("select", { title: "Requests on this page", onchange: function (e) { state.index = parseInt(e.target.value, 10); render(); } },
+      state.snaps.length > 1 ? h("select", { title: "Requests on this page",
+        onfocus: function () { state.choosing = true; },
+        onblur: function () { state.choosing = false; if (state.stale) { state.stale = false; render(); } },
+        onchange: function (e) {
+          state.index = parseInt(e.target.value, 10);
+          state.pinned = state.index !== state.snaps.length - 1;
+          state.choosing = false; state.stale = false;
+          render();
+        } },
         state.snaps.map(function (x, i) {
           var opt = h("option", { value: i }, x.request.method + " " + x.request.path + " (" + x.request.status + ")");
           if (i === state.index) opt.setAttribute("selected", "selected");
@@ -308,8 +321,13 @@ export const CLIENT_JS = String.raw`
       .then(function (s) {
         if (!s) return;
         state.snaps.push(s);
-        if (state.snaps.length > 30) { state.snaps.splice(1, 1); }
-        state.index = state.snaps.length - 1;
+        if (state.snaps.length > 30) {
+          state.snaps.splice(1, 1);
+          if (state.index > 1) state.index -= 1;
+        }
+        if (!state.pinned) state.index = state.snaps.length - 1;
+        else if (state.index === state.snaps.length - 1) state.pinned = false;
+        if (state.choosing) { state.stale = true; return; }
         render();
       })["catch"](function () {});
   }
