@@ -143,7 +143,7 @@ This is pattern-based and best-effort. It cannot recognise a secret in a column 
 - **Possible N+1:** a `select`/`with` statement whose shape (values stripped) ran `nPlusOneThreshold` or more times with different bindings. Writes are never flagged. The Queries tab lists each pattern with its count, total time and origin.
 - **Origin:** the file and line of your code that issued each query, taken from the stack captured at the moment the query was issued (the database layer hands it over; by the time a query finishes, an async driver's stack no longer contains your code). Frames inside `node_modules`, the runtime and the framework's own `src/` are skipped. It is captured only while the bar is on; set `queryOrigin: false` to skip the capture. **Best-effort, with known gaps:**
   - Batched **eager-load** queries (`with('brand')`) are issued by the ORM after the parent query returns, so they have no origin. The parent query does.
-  - A function that ends with `return Model.query().get()` right after an earlier `await` loses its own frame (JavaScriptCore drops the caller of a tail call). Write `const rows = await ...; return rows;` to keep it.
+  - A function that ends with `return Model.query().get()` right after an earlier `await` can lose its own frame (some JavaScriptCore versions drop the caller of a tail call). Write `const rows = await ...; return rows;` to keep it.
 
 ## Notes
 
