@@ -35,7 +35,8 @@
       "default": "./src/index.node.ts"
     },
     "./bun": "./src/index.bun.ts",
-    "./node": "./src/index.node.ts"
+    "./node": "./src/index.node.ts",
+    "./better-sqlite3": "./src/drivers/node/sqlite.ts"
   },
   "dependencies": {
     "@bunyad/common": "workspace:^"
@@ -105,6 +106,10 @@
       "./node": {
         "types": "./dist/index.node.d.ts",
         "default": "./dist/index.node.js"
+      },
+      "./better-sqlite3": {
+        "types": "./dist/drivers/node/sqlite.d.ts",
+        "default": "./dist/drivers/node/sqlite.js"
       }
     }
   }

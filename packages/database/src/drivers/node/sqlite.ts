@@ -40,9 +40,10 @@ export function loadBetterSqlite3(): BetterSqlite3Ctor {
   }
 }
 
-/** better-sqlite3 rejects `undefined` and `Date`; store dates as SQL text. */
+/** better-sqlite3 rejects `undefined`, `Date` and booleans; store dates as SQL text and booleans as 0/1. */
 function sqliteBind(value: unknown): SqliteBindValue {
   if (value === undefined) return null;
+  if (typeof value === "boolean") return value ? 1 : 0;
   if (value instanceof Date) {
     return dateTimeForStorage(value, "sqlite") as string;
   }
@@ -53,7 +54,11 @@ function sqliteParams(params: unknown[]): SqliteBindValue[] {
   let coerce = false;
   for (let i = 0; i < params.length; i++) {
     const value = params[i];
-    if (value === undefined || value instanceof Date) {
+    if (
+      value === undefined ||
+      value instanceof Date ||
+      typeof value === "boolean"
+    ) {
       coerce = true;
       break;
     }
@@ -83,8 +88,7 @@ function sqliteGet1(stmt: SqliteStatement, value: unknown): unknown {
     value === null ||
     typeof value === "number" ||
     typeof value === "string" ||
-    typeof value === "bigint" ||
-    typeof value === "boolean"
+    typeof value === "bigint"
   ) {
     return stmt.get(value);
   }
@@ -99,8 +103,7 @@ function sqliteRun1(
     value === null ||
     typeof value === "number" ||
     typeof value === "string" ||
-    typeof value === "bigint" ||
-    typeof value === "boolean"
+    typeof value === "bigint"
   ) {
     return stmt.run(value);
   }
@@ -115,8 +118,7 @@ function sqliteAll(stmt: SqliteStatement, params: unknown[]): unknown {
       value === null ||
       typeof value === "number" ||
       typeof value === "string" ||
-      typeof value === "bigint" ||
-      typeof value === "boolean"
+      typeof value === "bigint"
     ) {
       return stmt.all(value);
     }
@@ -130,7 +132,8 @@ function sqliteAll(stmt: SqliteStatement, params: unknown[]): unknown {
  * matching the Bun `bun:sqlite` ORM hot path.
  */
 export function connectSqlite(options: SqliteOptions = {}): Connection {
-  const Database = loadBetterSqlite3();
+  const Database =
+    (options.engine as BetterSqlite3Ctor | undefined) ?? loadBetterSqlite3();
   const path = options.path ?? ":memory:";
   if (path !== ":memory:") {
     mkdirSync(dirname(path), { recursive: true });

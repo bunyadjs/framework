@@ -340,6 +340,12 @@ export type Connection = {
 
 export type SqliteOptions = {
   path?: string;
+  /**
+   * The `better-sqlite3` constructor, for the Node SQLite driver. Pass it when the app is bundled
+   * into a single executable, where the driver's own runtime `require` cannot find the package.
+   * Ignored by the `bun:sqlite` driver.
+   */
+  engine?: unknown;
 };
 
 export type PostgresOptions = {
