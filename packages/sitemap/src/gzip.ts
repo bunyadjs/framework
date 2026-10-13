@@ -67,7 +67,9 @@ async function collect(
 const encoder = new TextEncoder();
 
 /** gzip a whole buffer or string (small payloads, e.g. a single response). */
-export function gzip(data: Uint8Array | string): Promise<Uint8Array<ArrayBuffer>> {
+export function gzip(
+  data: Uint8Array | string,
+): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = typeof data === "string" ? encoder.encode(data) : data;
   return collect(gzipStream([bytes]));
 }
