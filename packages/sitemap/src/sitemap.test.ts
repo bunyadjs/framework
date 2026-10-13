@@ -9,6 +9,9 @@ import { SitemapTag } from "./sitemap-tag.ts";
 import { Url } from "./url.ts";
 import { SitemapLimitError } from "./writer.ts";
 
+const visible = (names: Iterable<string>) =>
+  [...names].filter((n) => !n.startsWith("."));
+
 const base = "https://example.com";
 const HEAD =
   '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -149,7 +152,7 @@ describe("writeToFile", () => {
       .add(["/a", "/b", "/c"])
       .writeToFile(join(dir, "public/sitemap.xml"), { gzip: true });
     expect(r.index).toBe("sitemap.xml");
-    expect((await readdir(join(dir, "public"))).sort()).toEqual([
+    expect(visible(await readdir(join(dir, "public"))).sort()).toEqual([
       "sitemap-1.xml.gz",
       "sitemap-2.xml.gz",
       "sitemap.xml",

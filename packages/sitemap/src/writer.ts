@@ -324,6 +324,27 @@ export class SitemapWriter {
     }
   }
 
+  async #readManifest(name: string): Promise<string[]> {
+    const sink = this.#o.sink;
+    if (!(await sink.list()).includes(name)) return [];
+    try {
+      let text = "";
+      const decoder = new TextDecoder();
+      for await (const chunk of sink.read(name))
+        text += decoder.decode(chunk, { stream: true });
+      const files = (JSON.parse(text) as { files?: unknown }).files;
+      if (!Array.isArray(files)) return [];
+      const own = new RegExp(
+        `^${this.#base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-\\d+\\.xml(?:\\.gz)?$`,
+      );
+      return files.filter(
+        (f): f is string => typeof f === "string" && own.test(f),
+      );
+    } catch {
+      return [];
+    }
+  }
+
   async #publish(): Promise<WriteResult> {
     const sink = this.#o.sink;
     const { filename } = this.#o;
@@ -375,17 +396,18 @@ export class SitemapWriter {
       await sink.move(temp, filename);
       result.index = filename;
     }
-    // Stale parts from a previous, bigger run (after the new root is in place).
-    const stale = new RegExp(
-      `^${escapeRegExp(this.#base)}-\\d+\\.xml(?:\\.gz)?$`,
-    );
-    for (const name of await sink.list()) {
-      if (stale.test(name) && !keep.has(name)) await sink.delete(name);
+    // F5: only delete parts this writer published before (manifest), never
+    // foreign `sitemap-N.xml` files that happen to share the directory.
+    const manifestName = `.${this.#base}.manifest.json`;
+    const previous = await this.#readManifest(manifestName);
+    for (const name of previous) {
+      if (!keep.has(name)) await sink.delete(name);
     }
+    const manifestTemp = `${manifestName}.${this.#token}.tmp`;
+    const mout = await sink.open(manifestTemp);
+    await mout.write(encoder.encode(JSON.stringify({ files: [...keep] })));
+    await mout.close();
+    await sink.move(manifestTemp, manifestName);
     return result;
   }
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

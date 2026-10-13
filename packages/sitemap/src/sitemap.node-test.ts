@@ -17,6 +17,9 @@ import {
 } from "./index.ts";
 import { robotsFor } from "./robots.ts";
 
+const visible = (names: Iterable<string>) =>
+  [...names].filter((n) => !n.startsWith("."));
+
 const base = "https://example.com";
 
 describe("sitemap core (node)", () => {
@@ -62,7 +65,7 @@ describe("sitemap core (node)", () => {
           ["sitemap-2.xml.gz", 1],
         ],
       );
-      assert.deepEqual((await readdir(dir)).sort(), [
+      assert.deepEqual(visible(await readdir(dir)).sort(), [
         "sitemap-1.xml.gz",
         "sitemap-2.xml.gz",
         "sitemap.xml",

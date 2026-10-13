@@ -12,6 +12,9 @@ import {
 } from "./writer.ts";
 import { InvalidSitemapUrlError } from "./escape.ts";
 
+const visible = (names: Iterable<string>) =>
+  [...names].filter((n) => !n.startsWith("."));
+
 const base = "https://example.com";
 const dec = new TextDecoder();
 const count = (xml: string, tag: string) => xml.split(`<${tag}>`).length - 1;
@@ -39,7 +42,7 @@ describe("SitemapWriter limits", () => {
       50_000,
     );
     expect(r1.index).toBeUndefined();
-    expect([...one.files.keys()]).toEqual(["sitemap.xml"]);
+    expect(visible(one.files.keys())).toEqual(["sitemap.xml"]);
     expect(count(one.text("sitemap.xml"), "url")).toBe(50_000);
 
     const two = memorySink();
@@ -48,7 +51,7 @@ describe("SitemapWriter limits", () => {
       50_001,
     );
     expect(r2.index).toBe("sitemap.xml");
-    expect([...two.files.keys()].sort()).toEqual([
+    expect(visible(two.files.keys()).sort()).toEqual([
       "sitemap-1.xml",
       "sitemap-2.xml",
       "sitemap.xml",
@@ -127,7 +130,7 @@ describe("gzip (D2)", () => {
   test("default writes plain .xml", async () => {
     const sink = memorySink();
     await writeN(new SitemapWriter({ sink, baseUrl: base, maxUrls: 2 }), 3);
-    expect([...sink.files.keys()].sort()).toEqual([
+    expect(visible(sink.files.keys()).sort()).toEqual([
       "sitemap-1.xml",
       "sitemap-2.xml",
       "sitemap.xml",
@@ -163,7 +166,7 @@ describe("gzip (D2)", () => {
   test("gzip:true with a single file keeps the root plain", async () => {
     const sink = memorySink();
     await writeN(new SitemapWriter({ sink, baseUrl: base, gzip: true }), 3);
-    expect([...sink.files.keys()]).toEqual(["sitemap.xml"]);
+    expect(visible(sink.files.keys())).toEqual(["sitemap.xml"]);
     expect(sink.text("sitemap.xml")).toStartWith("<?xml");
   });
 });
@@ -262,7 +265,7 @@ describe("atomic publish (file sink)", () => {
       new SitemapWriter({ sink: fileSink(dir), baseUrl: base, maxUrls: 2 }),
       7,
     );
-    expect((await readdir(dir)).sort()).toEqual([
+    expect(visible(await readdir(dir)).sort()).toEqual([
       "sitemap-1.xml",
       "sitemap-2.xml",
       "sitemap-3.xml",
@@ -273,13 +276,14 @@ describe("atomic publish (file sink)", () => {
       new SitemapWriter({ sink: fileSink(dir), baseUrl: base, maxUrls: 2 }),
       3,
     );
-    expect((await readdir(dir)).sort()).toEqual([
+    expect(visible(await readdir(dir)).sort()).toEqual([
       "sitemap-1.xml",
       "sitemap-2.xml",
       "sitemap.xml",
     ]);
     await writeN(new SitemapWriter({ sink: fileSink(dir), baseUrl: base }), 3);
-    expect(await readdir(dir)).toEqual(["sitemap.xml"]);
+    expect(visible(await readdir(dir))).toEqual(["sitemap.xml"]);
+    expect((await readdir(dir)).filter((n) => n.endsWith(".tmp"))).toEqual([]);
   });
 
   test("switching to gzip removes old plain parts", async () => {
@@ -296,7 +300,7 @@ describe("atomic publish (file sink)", () => {
       }),
       3,
     );
-    expect((await readdir(dir)).sort()).toEqual([
+    expect(visible(await readdir(dir)).sort()).toEqual([
       "sitemap-1.xml.gz",
       "sitemap-2.xml.gz",
       "sitemap.xml",
@@ -323,9 +327,47 @@ describe("atomic publish (file sink)", () => {
     await writeFile(join(dir, "robots.txt"), "x");
     await writeFile(join(dir, "sitemap-news.xml"), "x");
     await writeN(new SitemapWriter({ sink: fileSink(dir), baseUrl: base }), 1);
-    expect((await readdir(dir)).sort()).toEqual([
+    expect(visible(await readdir(dir)).sort()).toEqual([
       "robots.txt",
       "sitemap-news.xml",
+      "sitemap.xml",
+    ]);
+  });
+});
+
+describe("F5 manifest-based stale cleanup", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "bunyad-sitemap-"));
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  test("foreign sitemap-N.xml files (not in our manifest) are never deleted", async () => {
+    await writeFile(join(dir, "sitemap-9.xml"), "foreign");
+    await writeN(
+      new SitemapWriter({ sink: fileSink(dir), baseUrl: base, maxUrls: 2 }),
+      3,
+    );
+    await writeN(new SitemapWriter({ sink: fileSink(dir), baseUrl: base }), 1);
+    expect(visible(await readdir(dir)).sort()).toEqual([
+      "sitemap-9.xml",
+      "sitemap.xml",
+    ]);
+    expect(await readFile(join(dir, "sitemap-9.xml"), "utf8")).toBe("foreign");
+  });
+
+  test("a corrupt manifest deletes nothing", async () => {
+    await writeN(
+      new SitemapWriter({ sink: fileSink(dir), baseUrl: base, maxUrls: 2 }),
+      3,
+    );
+    await writeFile(join(dir, ".sitemap.manifest.json"), "{nope");
+    await writeN(new SitemapWriter({ sink: fileSink(dir), baseUrl: base }), 1);
+    expect(visible(await readdir(dir)).sort()).toEqual([
+      "sitemap-1.xml",
+      "sitemap-2.xml",
       "sitemap.xml",
     ]);
   });

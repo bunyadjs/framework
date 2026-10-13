@@ -11,6 +11,9 @@ import {
 import { fileSink, memorySink, type MemorySink } from "./sinks.ts";
 import { InvalidSitemapUrlError } from "./escape.ts";
 
+const visible = (names: Iterable<string>) =>
+  [...names].filter((n) => !n.startsWith("."));
+
 const two: SitemapConfig = {
   domains: {
     "example.com": {
@@ -109,7 +112,7 @@ describe("generateSitemaps", () => {
       sinkFor: (d) => fileSink(join(dir, d.directory)),
     });
     expect(results.map((r) => r.result.urls)).toEqual([2, 1]);
-    expect(await readdir(join(dir, "sitemaps"))).toEqual(
+    expect(visible(await readdir(join(dir, "sitemaps")))).toEqual(
       expect.arrayContaining(["example.com", "shop.example.com"]),
     );
     const shop = await readFile(
