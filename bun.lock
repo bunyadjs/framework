@@ -695,6 +695,38 @@
         "@bunyad/database": "workspace:*",
       },
     },
+    "packages/sitemap": {
+      "name": "@bunyad/sitemap",
+      "version": "0.2.0-beta.2",
+      "devDependencies": {
+        "@bunyad/cli": "workspace:^",
+        "@bunyad/contracts": "workspace:^",
+        "@bunyad/core": "workspace:^",
+        "@bunyad/database": "workspace:^",
+        "@bunyad/filesystem": "workspace:^",
+        "@bunyad/http": "workspace:^",
+        "@bunyad/orm": "workspace:^",
+        "@bunyad/router": "workspace:^",
+      },
+      "peerDependencies": {
+        "@bunyad/cli": "workspace:^",
+        "@bunyad/contracts": "workspace:^",
+        "@bunyad/core": "workspace:^",
+        "@bunyad/filesystem": "workspace:^",
+        "@bunyad/http": "workspace:^",
+        "@bunyad/orm": "workspace:^",
+        "@bunyad/router": "workspace:^",
+      },
+      "optionalPeers": [
+        "@bunyad/cli",
+        "@bunyad/contracts",
+        "@bunyad/core",
+        "@bunyad/filesystem",
+        "@bunyad/http",
+        "@bunyad/orm",
+        "@bunyad/router",
+      ],
+    },
     "packages/testing": {
       "name": "@bunyad/testing",
       "version": "0.2.0-beta.2",
@@ -1065,6 +1097,8 @@
     "@bunyad/search": ["@bunyad/search@workspace:packages/search"],
 
     "@bunyad/session": ["@bunyad/session@workspace:packages/session"],
+
+    "@bunyad/sitemap": ["@bunyad/sitemap@workspace:packages/sitemap"],
 
     "@bunyad/testing": ["@bunyad/testing@workspace:packages/testing"],
 

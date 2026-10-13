@@ -73,6 +73,7 @@ function isIterable(
 export function toUrls(item: unknown): Url[] {
   if (item === null || item === undefined) return [];
   if (item instanceof Url) return [item];
+  if (Array.isArray(item)) return item.flatMap(toUrls);
   if (typeof item === "string") return item === "" ? [] : [Url.create(item)];
   if (isSitemapable(item)) {
     const tag = item.toSitemapTag();

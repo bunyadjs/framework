@@ -24,6 +24,7 @@
   ],
   "files": [
     "dist",
+    "stubs",
     "README.md",
     "LICENSE"
   ],
@@ -36,6 +37,30 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./orm": {
+      "types": "./src/orm.ts",
+      "default": "./src/orm.ts"
+    },
+    "./router": {
+      "types": "./src/router.ts",
+      "default": "./src/router.ts"
+    },
+    "./disk": {
+      "types": "./src/disk.ts",
+      "default": "./src/disk.ts"
+    },
+    "./http": {
+      "types": "./src/http.ts",
+      "default": "./src/http.ts"
+    },
+    "./command": {
+      "types": "./src/command.ts",
+      "default": "./src/command.ts"
+    },
+    "./provider": {
+      "types": "./src/provider.ts",
+      "default": "./src/provider.ts"
+    },
     "./robots": {
       "types": "./src/robots.ts",
       "default": "./src/robots.ts"
@@ -47,7 +72,8 @@
     "build": "bun ../../scripts/build-package.ts .",
     "bench": "bun bench/memory-1m.ts",
     "bench:node": "node --experimental-transform-types --expose-gc --max-semi-space-size=2 bench/memory-1m.ts",
-    "test:node": "node --experimental-transform-types --test src/*.node-test.ts"
+    "test:node": "node --experimental-transform-types --test src/*.node-test.ts",
+    "bench:model": "bun bench/model-1m.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -56,10 +82,76 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       },
+      "./orm": {
+        "types": "./dist/orm.d.ts",
+        "default": "./dist/orm.js"
+      },
+      "./router": {
+        "types": "./dist/router.d.ts",
+        "default": "./dist/router.js"
+      },
+      "./disk": {
+        "types": "./dist/disk.d.ts",
+        "default": "./dist/disk.js"
+      },
+      "./http": {
+        "types": "./dist/http.d.ts",
+        "default": "./dist/http.js"
+      },
+      "./command": {
+        "types": "./dist/command.d.ts",
+        "default": "./dist/command.js"
+      },
+      "./provider": {
+        "types": "./dist/provider.d.ts",
+        "default": "./dist/provider.js"
+      },
       "./robots": {
         "types": "./dist/robots.d.ts",
         "default": "./dist/robots.js"
       }
     }
+  },
+  "peerDependencies": {
+    "@bunyad/orm": "workspace:^",
+    "@bunyad/router": "workspace:^",
+    "@bunyad/http": "workspace:^",
+    "@bunyad/filesystem": "workspace:^",
+    "@bunyad/cli": "workspace:^",
+    "@bunyad/core": "workspace:^",
+    "@bunyad/contracts": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@bunyad/orm": {
+      "optional": true
+    },
+    "@bunyad/router": {
+      "optional": true
+    },
+    "@bunyad/http": {
+      "optional": true
+    },
+    "@bunyad/filesystem": {
+      "optional": true
+    },
+    "@bunyad/cli": {
+      "optional": true
+    },
+    "@bunyad/core": {
+      "optional": true
+    },
+    "@bunyad/contracts": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@bunyad/orm": "workspace:^",
+    "@bunyad/router": "workspace:^",
+    "@bunyad/http": "workspace:^",
+    "@bunyad/filesystem": "workspace:^",
+    "@bunyad/cli": "workspace:^",
+    "@bunyad/core": "workspace:^",
+    "@bunyad/contracts": "workspace:^",
+    "@bunyad/database": "workspace:^"
   }
 }
