@@ -1,5 +1,15 @@
 import type { Filesystem } from "@bunyad/contracts";
-import { lstat, mkdir, readdir, realpath, rename, rm, stat, unlink } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import {
+  lstat,
+  mkdir,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  stat,
+  unlink,
+} from "node:fs/promises";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { Disk } from "./disk.ts";
 
@@ -46,7 +56,9 @@ export class LocalFilesystem extends Disk implements Filesystem {
     const root = this.#root;
     const full = resolve(root, path);
     if (full !== root && !full.startsWith(root + sep)) {
-      throw new Error(`Path traversal detected: [${path}] is outside disk root.`);
+      throw new Error(
+        `Path traversal detected: [${path}] is outside disk root.`,
+      );
     }
     return full;
   }
@@ -80,15 +92,24 @@ export class LocalFilesystem extends Disk implements Filesystem {
       try {
         const real = join(await realpath(current), ...missing.reverse());
         if (real !== realRoot && !real.startsWith(realRoot + sep)) {
-          throw new Error(`Path traversal detected: [${path}] resolves outside disk root.`);
+          throw new Error(
+            `Path traversal detected: [${path}] resolves outside disk root.`,
+          );
         }
         return full;
       } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (code === undefined) throw error;
         // A link that exists but cannot be resolved is dangling: never write through it.
-        if (await lstat(current).then(() => true, () => false)) {
-          throw new Error(`Path traversal detected: [${path}] is a dangling symlink.`);
+        if (
+          await lstat(current).then(
+            () => true,
+            () => false,
+          )
+        ) {
+          throw new Error(
+            `Path traversal detected: [${path}] is a dangling symlink.`,
+          );
         }
         const parent = dirname(current);
         if (parent === current) return full;
@@ -112,8 +133,75 @@ export class LocalFilesystem extends Disk implements Filesystem {
     await Bun.write(full, contents);
   }
 
+  /**
+   * Stream chunks straight to disk (no full-body buffering). Writes to a
+   * sibling temp file and renames into place, so readers never observe a
+   * partially written file; on failure the temp file is removed and any
+   * previous file at `path` is left intact.
+   */
+  override async writeStream(
+    path: string,
+    stream: ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>,
+  ): Promise<void> {
+    const full = await this.#resolve(path);
+    await mkdir(dirname(full), { recursive: true });
+    const temp = `${full}.${process.pid}.${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.tmp`;
+    const out = createWriteStream(temp);
+    const opened = new Promise<void>((resolveOpen, rejectOpen) => {
+      out.once("open", () => resolveOpen());
+      out.once("error", rejectOpen);
+    });
+    let failure: unknown = null;
+    out.on("error", (error) => {
+      failure ??= error;
+    });
+    const write = (chunk: Uint8Array): Promise<void> | undefined => {
+      if (failure) throw failure;
+      if (out.write(chunk)) return undefined;
+      return new Promise<void>((resolveDrain, rejectDrain) => {
+        const onDrain = () => {
+          out.off("error", onError);
+          resolveDrain();
+        };
+        const onError = (error: unknown) => {
+          out.off("drain", onDrain);
+          rejectDrain(error);
+        };
+        out.once("drain", onDrain);
+        out.once("error", onError);
+      });
+    };
+    try {
+      await opened;
+      if (Symbol.asyncIterator in stream) {
+        for await (const chunk of stream) await write(chunk);
+      } else {
+        const reader = (stream as ReadableStream<Uint8Array>).getReader();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) await write(value);
+        }
+      }
+      await new Promise<void>((resolveEnd, rejectEnd) => {
+        if (failure) {
+          rejectEnd(failure);
+          return;
+        }
+        out.end((error?: Error | null) =>
+          error ? rejectEnd(error) : resolveEnd(),
+        );
+      });
+      await rename(temp, full);
+    } catch (error) {
+      out.destroy();
+      await rm(temp, { force: true });
+      throw error;
+    }
+  }
+
   async get(path: string): Promise<Uint8Array> {
-    const file = Bun.file((await this.#resolve(path)));
+    const file = Bun.file(await this.#resolve(path));
     if (!(await file.exists())) {
       throw new Error(`File not found: [${path}]`);
     }
@@ -121,7 +209,7 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async exists(path: string): Promise<boolean> {
-    return Bun.file((await this.#resolve(path))).exists();
+    return Bun.file(await this.#resolve(path)).exists();
   }
 
   async delete(path: string): Promise<boolean> {
@@ -230,7 +318,7 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async makeDirectory(path: string): Promise<boolean> {
-    await mkdir((await this.#resolve(path)), { recursive: true });
+    await mkdir(await this.#resolve(path), { recursive: true });
     return true;
   }
 
@@ -246,7 +334,7 @@ export class LocalFilesystem extends Disk implements Filesystem {
 
   async directoryExists(path: string): Promise<boolean> {
     try {
-      const info = await stat((await this.#resolve(path)));
+      const info = await stat(await this.#resolve(path));
       return info.isDirectory();
     } catch {
       return false;
@@ -254,18 +342,20 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async size(path: string): Promise<number> {
-    return Bun.file((await this.#resolve(path))).size;
+    return Bun.file(await this.#resolve(path)).size;
   }
 
   async lastModified(path: string): Promise<number> {
-    const info = await stat((await this.#resolve(path)));
+    const info = await stat(await this.#resolve(path));
     return Math.floor(info.mtimeMs / 1000);
   }
 
   async mimeType(path: string): Promise<string> {
-    const type = Bun.file((await this.#resolve(path))).type;
+    const type = Bun.file(await this.#resolve(path)).type;
     if (type && type !== "application/octet-stream") return type;
-    return MIME_BY_EXT[extname(path).toLowerCase()] ?? "application/octet-stream";
+    return (
+      MIME_BY_EXT[extname(path).toLowerCase()] ?? "application/octet-stream"
+    );
   }
 
   url(path: string): string {

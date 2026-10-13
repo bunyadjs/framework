@@ -18,7 +18,9 @@ function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
   return out;
 }
 
-async function resolveContents(file: FilesystemFileSource): Promise<Uint8Array> {
+async function resolveContents(
+  file: FilesystemFileSource,
+): Promise<Uint8Array> {
   if (typeof file === "string") return encode(file);
   if (file instanceof Uint8Array) return file;
   if (typeof Blob !== "undefined" && file instanceof Blob) {
@@ -144,6 +146,15 @@ export abstract class Disk implements Filesystem {
     });
   }
 
+  /**
+   * Write a stream / async iterable to `path`.
+   *
+   * Base fallback buffers the body and calls `put()` once. `LocalFilesystem`
+   * overrides this to stream chunks to disk with flat memory. `MemoryFilesystem`
+   * / `StorageFake` keep this behaviour (they store bytes in memory anyway).
+   * `S3Filesystem` uses this buffered fallback in v1 (no multipart upload yet),
+   * so peak memory there equals the body size.
+   */
   async writeStream(
     path: string,
     stream: ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>,
@@ -277,6 +288,9 @@ function contentDisposition(disposition: string, filename: string): string {
   const plain = /^[\x20-\x7e]*$/.test(filename) && !/["\\]/.test(filename);
   if (plain) return `${disposition}; filename="${filename}"`;
   const fallback = filename.replace(/[^A-Za-z0-9 ._-]/g, "_");
-  const encoded = encodeURIComponent(filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  const encoded = encodeURIComponent(filename).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
   return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }
