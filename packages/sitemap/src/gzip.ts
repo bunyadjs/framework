@@ -45,7 +45,7 @@ export function gunzipStream(source: ByteSource): ReadableStream<Uint8Array> {
 
 async function collect(
   stream: ReadableStream<Uint8Array>,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const chunks: Uint8Array[] = [];
   let total = 0;
   const reader = stream.getReader();
@@ -67,13 +67,13 @@ async function collect(
 const encoder = new TextEncoder();
 
 /** gzip a whole buffer or string (small payloads, e.g. a single response). */
-export function gzip(data: Uint8Array | string): Promise<Uint8Array> {
+export function gzip(data: Uint8Array | string): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = typeof data === "string" ? encoder.encode(data) : data;
   return collect(gzipStream([bytes]));
 }
 
 /** gunzip a whole buffer. */
-export function gunzip(data: Uint8Array): Promise<Uint8Array> {
+export function gunzip(data: Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
   return collect(gunzipStream([data]));
 }
 
