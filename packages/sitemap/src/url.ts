@@ -230,7 +230,8 @@ export class Url {
       this.changeFrequency ?? options.defaults?.changefreq ?? null;
     if (changefreq !== null) xml += `<changefreq>${changefreq}</changefreq>`;
     const priority = this.priority ?? options.defaults?.priority ?? null;
-    if (priority !== null) xml += `<priority>${(Math.round(priority * 10) / 10).toFixed(1)}</priority>`;
+    if (priority !== null)
+      xml += `<priority>${(Math.round(priority * 10) / 10).toFixed(1)}</priority>`;
     for (const image of this.images) {
       xml += `<image:image><image:loc>${escapeXml(resolveLoc(image.url, base))}</image:loc></image:image>`;
     }
