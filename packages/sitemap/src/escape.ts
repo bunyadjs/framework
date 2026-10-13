@@ -19,8 +19,13 @@ export function stripInvalidXmlChars(value: string): string {
   return value.replace(INVALID_XML, "");
 }
 
+// Fast check: nothing to escape or strip (surrogates take the slow path).
+const PLAIN_SAFE =
+  /[&<>"'\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/;
+
 /** Escape text or attribute content (`& < > " '`) after stripping invalid chars. */
 export function escapeXml(value: string): string {
+  if (!PLAIN_SAFE.test(value)) return value;
   const clean = stripInvalidXmlChars(value);
   return NEEDS_ESCAPE.test(clean)
     ? clean.replace(/[&<>"']/g, (c) => ESCAPES[c] ?? c)
