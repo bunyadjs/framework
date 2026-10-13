@@ -1,0 +1,65 @@
+{
+  "name": "@bunyad/sitemap",
+  "version": "0.2.0-beta.2",
+  "description": "Streaming, zero-dependency XML sitemaps (split + index + gzip, multi-domain) for Bunyad, with spatie/laravel-sitemap names.",
+  "license": "MIT",
+  "author": "Shah Khalid",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunyadjs/framework.git",
+    "directory": "packages/sitemap"
+  },
+  "homepage": "https://github.com/bunyadjs/framework#readme",
+  "bugs": {
+    "url": "https://github.com/bunyadjs/framework/issues"
+  },
+  "keywords": [
+    "bunyad",
+    "bun",
+    "typescript",
+    "sitemap",
+    "seo",
+    "robots"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.4.0",
+    "node": ">=22.6"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./robots": {
+      "types": "./src/robots.ts",
+      "default": "./src/robots.ts"
+    }
+  },
+  "dependencies": {},
+  "scripts": {
+    "test": "bun test",
+    "build": "bun ../../scripts/build-package.ts .",
+    "bench": "bun bench/memory-1m.ts",
+    "bench:node": "node --experimental-transform-types --expose-gc bench/memory-1m.ts",
+    "test:node": "node --experimental-transform-types --test src/*.node-test.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./robots": {
+        "types": "./dist/robots.d.ts",
+        "default": "./dist/robots.js"
+      }
+    }
+  }
+}

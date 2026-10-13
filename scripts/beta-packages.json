@@ -27,6 +27,7 @@
   "cli",
   "head",
   "agent",
+  "sitemap",
   "inertia",
   "live",
   "log",
