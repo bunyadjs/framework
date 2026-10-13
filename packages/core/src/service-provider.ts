@@ -19,16 +19,12 @@ export abstract class ServiceProvider {
    * Publish package paths into the application (`bunyad publish`).
    * `paths` maps source → destination (relative to the app root unless absolute).
    */
-  protected publishes(
-    paths: Record<string, string>,
-    group = "default",
-  ): void {
+  protected publishes(paths: Record<string, string>, group = "default"): void {
     type PublishEntry = { group: string; from: string; to: string };
     const key = "bunyad.publishing";
     const existing =
-      (this.app.has(key)
-        ? this.app.make<PublishEntry[]>(key)
-        : undefined) ?? [];
+      (this.app.has(key) ? this.app.make<PublishEntry[]>(key) : undefined) ??
+      [];
     for (const [from, to] of Object.entries(paths)) {
       existing.push({ group, from, to });
     }
@@ -44,7 +40,7 @@ export abstract class ServiceProvider {
         bindInput(args: string[]): unknown;
         ensureRequiredArguments(): Promise<boolean>;
         handle(): Promise<number | void>;
-      }) & { signature?: string }
+      }) & { signature?: string; description?: string }
     >,
   ): void {
     for (const Ctor of ctors) {
@@ -62,11 +58,9 @@ export abstract class ServiceProvider {
           process.exitCode = code;
         }
       };
-      registerProviderCommand(name, handler);
+      registerProviderCommand(name, handler, Ctor.description);
     }
   }
 }
 
-export type ServiceProviderClass = new (
-  app: Application,
-) => ServiceProvider;
+export type ServiceProviderClass = new (app: Application) => ServiceProvider;

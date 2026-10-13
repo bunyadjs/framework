@@ -32,6 +32,7 @@ import {
   loadAppCommandHandlers,
 } from "./app-commands.ts";
 import {
+  describeProviderCommands,
   getClosureCommandHandlers,
   getProviderCommandHandlers,
 } from "./command-registry.ts";
@@ -198,6 +199,15 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     console.log("  new            Create an app from a starter kit (views|live|react|vue|svelte|api)");
     console.log("  migrate:report Scan PHP project for Bunyad compatibility");
     console.log("  migrate:convert Emit TS controller stub from a PHP file");
+    const packageCommands = await describeProviderCommandsAfterBoot();
+    if (packageCommands.length > 0) {
+      console.log("");
+      console.log("Package commands:");
+      for (const row of packageCommands) {
+        const desc = row.description ? `  ${row.description}` : "";
+        console.log(`  ${row.name.padEnd(16)}${desc}`.trimEnd());
+      }
+    }
     const appCommands = await describeAppCommands();
     if (appCommands.length > 0) {
       console.log("");
@@ -1400,6 +1410,24 @@ export async function run(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
   await handler(argv.slice(1));
+}
+
+/**
+ * Provider/package commands for `bunyad list`. Providers register while the
+ * app boots, so boot it (like `artisan list`) when inside an app. Boot
+ * failures are ignored: `list` must still print built-in and app commands.
+ */
+async function describeProviderCommandsAfterBoot(): Promise<
+  Array<{ name: string; description: string }>
+> {
+  if (existsSync(resolve(process.cwd(), "bootstrap/app.ts"))) {
+    try {
+      await bootApp();
+    } catch {
+      // ignore
+    }
+  }
+  return describeProviderCommands();
 }
 
 /**
