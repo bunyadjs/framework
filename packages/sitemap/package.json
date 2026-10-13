@@ -46,7 +46,7 @@
     "test": "bun test",
     "build": "bun ../../scripts/build-package.ts .",
     "bench": "bun bench/memory-1m.ts",
-    "bench:node": "node --experimental-transform-types --expose-gc bench/memory-1m.ts",
+    "bench:node": "node --experimental-transform-types --expose-gc --max-semi-space-size=2 bench/memory-1m.ts",
     "test:node": "node --experimental-transform-types --test src/*.node-test.ts"
   },
   "publishConfig": {

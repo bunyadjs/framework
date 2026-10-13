@@ -49,3 +49,11 @@ robotsFor({
 
 Writing to a local path (`writeToFile`, local disk) streams with flat memory. The S3 disk's
 `writeStream` still buffers each file (≤ 50 MB per part) until multipart upload lands.
+
+## Output layout and publishing
+
+- **Single domain** (`baseUrl` + `build`): files at the disk root, e.g. `public/sitemap.xml`, `public/sitemap-1.xml.gz`.
+- **Multi-domain** (`domains`): one set per host under `sitemaps/<host>/` (e.g. `sitemaps/shop.example.com/sitemap.xml`); the auto-route serves it at `https://<host>/sitemap.xml` by `Host`.
+- **Publish order**: every file is written to a temp name first. Parts are renamed into place, then the root/index is renamed last. Each rename is atomic, but the set is not: while parts are being swapped, an old index can point at a part that already has new content. Same URLs, fresh content, never a half-written file.
+- **gzip**: part 1 is written plain (the writer cannot know yet whether the set will split) and is gzipped once a second part starts. This re-reads ≤ 50 MB once per run; parts 2+ are compressed on the fly.
+- **Stale parts**: the writer keeps a `.sitemap.manifest.json` (per root file name) and only deletes parts it published before. Unrelated `sitemap-N.xml` files in the same directory are never touched.
