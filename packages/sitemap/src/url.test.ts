@@ -31,10 +31,10 @@ describe("Url (spatie Tags\\Url)", () => {
       .toXml();
     expect(xml).toBe(
       "<url><loc>https://example.com/p?a=1&amp;b=2</loc>" +
-        '<xhtml:link rel="alternate" hreflang="ur" href="https://example.com/ur/p"/>' +
-        '<xhtml:link rel="alternate" href="https://example.com/p"/>' +
         "<lastmod>2026-01-02T03:04:05+00:00</lastmod>" +
         "<changefreq>weekly</changefreq><priority>0.9</priority>" +
+        '<xhtml:link rel="alternate" hreflang="ur" href="https://example.com/ur/p"/>' +
+        '<xhtml:link rel="alternate" href="https://example.com/p"/>' +
         "<image:image><image:loc>https://example.com/i.png</image:loc></image:image></url>",
     );
   });
@@ -109,6 +109,34 @@ describe("Url (spatie Tags\\Url)", () => {
     const url = Url.create("https://e.com/");
     for (let i = 0; i < 1000; i++) url.addImage(`https://e.com/${i}.png`);
     expect(() => url.addImage("https://e.com/x.png")).toThrow(RangeError);
+  });
+
+  test("F6: video/news option keys must be XML NCNames", () => {
+    const u = Url.create("https://e.com/");
+    for (const bad of ["a b", "x><evil", "1st", "", "a:b"]) {
+      expect(() =>
+        u.addVideo("https://e.com/t", "t", "d", "https://e.com/v", null, {
+          [bad]: 1,
+        }),
+      ).toThrow(TypeError);
+      expect(() =>
+        u.addVideo(
+          "https://e.com/t",
+          "t",
+          "d",
+          "https://e.com/v",
+          null,
+          {},
+          { [bad]: "x" },
+        ),
+      ).toThrow(TypeError);
+      expect(() => u.addNews("n", "en", "t", 0, { [bad]: "x" })).toThrow(
+        TypeError,
+      );
+    }
+    expect(() =>
+      u.addNews("n", "en", "t", 0, { stock_tickers: "X", "a.b-c": "y" }),
+    ).not.toThrow();
   });
 
   test("news", () => {

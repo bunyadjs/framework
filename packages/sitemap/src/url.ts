@@ -20,6 +20,24 @@ const CHANGE_FREQUENCIES = new Set<string>([
 
 export const MAX_IMAGES_PER_URL = 1000;
 
+// XML NCName (ASCII subset): option keys become element names.
+const NCNAME = /^[A-Za-z_][A-Za-z0-9._-]*$/;
+
+function assertElementNames(
+  kind: string,
+  ...maps: Record<string, unknown>[]
+): void {
+  for (const map of maps) {
+    for (const key of Object.keys(map)) {
+      if (!NCNAME.test(key)) {
+        throw new TypeError(
+          `Invalid ${kind} option name [${key}]: must be an XML NCName.`,
+        );
+      }
+    }
+  }
+}
+
 export type Alternate = { url: string; locale: string };
 export type Image = { url: string };
 export type VideoOptions = Record<string, string | number | boolean>;
@@ -141,6 +159,7 @@ export class Url {
     deny: Record<string, string> = {},
     tags: string[] = [],
   ): this {
+    assertElementNames("video", options, allow, deny);
     if (contentLoc === null && playerLoc === null) {
       throw new TypeError("A video needs a contentLoc or a playerLoc.");
     }
@@ -165,6 +184,7 @@ export class Url {
     publicationDate: DateInput,
     options: NewsOptions = {},
   ): this {
+    assertElementNames("news", options);
     this.news.push({
       name,
       language,
@@ -217,12 +237,6 @@ export class Url {
   toXml(options: UrlEncodeOptions = {}): string {
     const base = options.baseUrl;
     let xml = `<url><loc>${escapeXml(resolveLoc(this.url, base))}</loc>`;
-    for (const alt of this.alternates) {
-      const href = escapeXml(resolveLoc(alt.url, base));
-      xml += alt.locale
-        ? `<xhtml:link rel="alternate" hreflang="${escapeXml(alt.locale)}" href="${href}"/>`
-        : `<xhtml:link rel="alternate" href="${href}"/>`;
-    }
     if (this.lastModificationDate) {
       xml += `<lastmod>${toW3cDate(this.lastModificationDate)}</lastmod>`;
     }
@@ -232,6 +246,13 @@ export class Url {
     const priority = this.priority ?? options.defaults?.priority ?? null;
     if (priority !== null)
       xml += `<priority>${(Math.round(priority * 10) / 10).toFixed(1)}</priority>`;
+    // XSD: loc, lastmod, changefreq, priority, then ##other (xhtml, image, video, news).
+    for (const alt of this.alternates) {
+      const href = escapeXml(resolveLoc(alt.url, base));
+      xml += alt.locale
+        ? `<xhtml:link rel="alternate" hreflang="${escapeXml(alt.locale)}" href="${href}"/>`
+        : `<xhtml:link rel="alternate" href="${href}"/>`;
+    }
     for (const image of this.images) {
       xml += `<image:image><image:loc>${escapeXml(resolveLoc(image.url, base))}</image:loc></image:image>`;
     }
@@ -251,6 +272,43 @@ function element(
   return `<${ns}:${name}>${escapeXml(text)}</${ns}:${name}>`;
 }
 
+// Element order required by Google's sitemap-video 1.1 / sitemap-news 0.9 XSDs.
+const VIDEO_ORDER = [
+  "duration",
+  "expiration_date",
+  "rating",
+  "content_segment_loc",
+  "view_count",
+  "publication_date",
+  "tag",
+  "category",
+  "family_friendly",
+  "restriction",
+  "gallery_loc",
+  "price",
+  "requires_subscription",
+  "uploader",
+  "tvshow",
+  "platform",
+  "live",
+  "id",
+];
+const NEWS_HEAD = ["access", "genres"];
+const NEWS_TAIL = ["keywords", "stock_tickers"];
+
+function rank(order: string[], name: string): number {
+  const i = order.indexOf(name);
+  return i === -1 ? order.length : i;
+}
+
+function ordered(order: string[], parts: [string, string][]): string {
+  return parts
+    .map((p, i) => ({ p, i, r: rank(order, p[0]) }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map((x) => x.p[1])
+    .join("");
+}
+
 function videoXml(video: Video, base: string | undefined): string {
   let xml = "<video:video>";
   xml += `<video:thumbnail_loc>${escapeXml(resolveLoc(video.thumbnailLoc, base))}</video:thumbnail_loc>`;
@@ -262,28 +320,41 @@ function videoXml(video: Video, base: string | undefined): string {
   if (video.playerLoc !== null) {
     xml += `<video:player_loc>${escapeXml(resolveLoc(video.playerLoc, base))}</video:player_loc>`;
   }
+  const parts: [string, string][] = [];
   for (const [key, value] of Object.entries(video.options))
-    xml += element("video", key, value);
+    parts.push([key, element("video", key, value)]);
+  for (const tag of video.tags)
+    parts.push(["tag", element("video", "tag", tag)]);
   for (const [rel, map] of [
     ["allow", video.allow],
     ["deny", video.deny],
   ] as const) {
     for (const [key, value] of Object.entries(map)) {
-      xml += `<video:${key} relationship="${rel}">${escapeXml(value)}</video:${key}>`;
+      parts.push([
+        key,
+        `<video:${key} relationship="${rel}">${escapeXml(value)}</video:${key}>`,
+      ]);
     }
   }
-  for (const tag of video.tags) xml += element("video", "tag", tag);
-  return `${xml}</video:video>`;
+  return `${xml}${ordered(VIDEO_ORDER, parts)}</video:video>`;
 }
 
 function newsXml(news: News): string {
+  const head: [string, string][] = [];
+  const tail: [string, string][] = [];
+  for (const [key, value] of Object.entries(news.options)) {
+    (NEWS_HEAD.includes(key) ? head : tail).push([
+      key,
+      element("news", key, value),
+    ]);
+  }
   let xml = "<news:news><news:publication>";
   xml += element("news", "name", news.name);
   xml += element("news", "language", news.language);
   xml += "</news:publication>";
+  xml += ordered(NEWS_HEAD, head);
   xml += `<news:publication_date>${toW3cDate(news.publicationDate)}</news:publication_date>`;
   xml += element("news", "title", news.title);
-  for (const [key, value] of Object.entries(news.options))
-    xml += element("news", key, value);
+  xml += ordered(NEWS_TAIL, tail);
   return `${xml}</news:news>`;
 }
