@@ -1,6 +1,6 @@
 /** Node mirror of integrations.test.ts: ORM (sqlite), router, memory disk, http. */
 import assert from "node:assert/strict";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -11,7 +11,13 @@ import {
   schemaFor,
   type Connection,
 } from "@bunyad/database";
-import { LocalFilesystem, MemoryFilesystem } from "@bunyad/filesystem";
+import {
+  LocalFilesystem,
+  MemoryFilesystem,
+  getStorage,
+  setStorage,
+  StorageManager,
+} from "@bunyad/filesystem";
 import { Request as BunyadRequest } from "@bunyad/http";
 import { Model } from "@bunyad/orm";
 import { Route, Router, setActiveRouter } from "@bunyad/router";
@@ -22,6 +28,7 @@ import { serveSitemapFile, toResponse } from "./http.ts";
 import { fromModel } from "./orm.ts";
 import { fromRoutes, routerScope, sitemapRoutes } from "./router.ts";
 import { Sitemap } from "./sitemap.ts";
+import { setSitemapConfig } from "./state.ts";
 import { Url } from "./url.ts";
 
 const dec = new TextDecoder();
@@ -241,6 +248,72 @@ describe("local disk + provider/command (node)", () => {
       );
       assert.equal(miss.status, 404);
     } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("disk by name + command handle (node)", () => {
+  it('writeToDisk(s, "public") resolves the disk through setStorage', async () => {
+    const root = await mkdtemp(join(tmpdir(), "bunyad-sitemap-node-"));
+    const previous = getStorage();
+    try {
+      setStorage(
+        new StorageManager({
+          default: "public",
+          disks: { public: new LocalFilesystem({ root }) },
+        }),
+      );
+      await writeToDisk(
+        Sitemap.create({ baseUrl: "https://e.com" }).add(["/a"]),
+        "public",
+      );
+      assert.deepEqual(
+        (await readdir(root)).filter((f) => !f.startsWith(".")),
+        ["sitemap.xml"],
+      );
+
+      setSitemapConfig({
+        disk: "public",
+        domains: {
+          "a.com": {
+            baseUrl: "https://a.com",
+            build: (s: Sitemap) => void s.add(["/x", "/y"]),
+          },
+        },
+      });
+      const lines: string[] = [];
+      const capture = (cmd: SitemapGenerateCommand) => {
+        cmd.info = (m: string) => void lines.push(m);
+        cmd.warn = (m: string) => void lines.push(`warn: ${m}`);
+        cmd.error = (m: string) => void lines.push(`error: ${m}`);
+        return cmd;
+      };
+      assert.equal(
+        await capture(new SitemapGenerateCommand())
+          .bindInput(["--dry-run"])
+          .handle(),
+        0,
+      );
+      assert.deepEqual(lines, ["a.com: 2 URLs (dry run)"]);
+      assert.equal(
+        await capture(new SitemapGenerateCommand()).bindInput([]).handle(),
+        0,
+      );
+      assert.match(
+        dec.decode(await readFile(join(root, "sitemaps/a.com/sitemap.xml"))),
+        /https:\/\/a\.com\/y/,
+      );
+      assert.equal(
+        await capture(new SitemapGenerateCommand())
+          .bindInput(["--domain=nope.com"])
+          .handle(),
+        1,
+      );
+      assert.match(lines.at(-1) ?? "", /^error: .*nope\.com/);
+    } finally {
+      setSitemapConfig(null);
+      if (previous) setStorage(previous);
       await rm(root, { recursive: true, force: true });
     }
   });
