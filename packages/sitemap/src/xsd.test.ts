@@ -1,4 +1,4 @@
-/** F1: generated XML validates against sitemaps.org + Google XSDs (skips without xmllint). */
+/** F1: generated XML validates against sitemaps.org + Google XSDs (skips without xmllint unless BUNYAD_REQUIRE_XMLLINT=1). */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,6 +9,12 @@ import { Url } from "./url.ts";
 import { SitemapWriter } from "./writer.ts";
 
 const xmllint = Bun.which("xmllint");
+// CI sets this so a missing xmllint fails instead of silently skipping.
+if (!xmllint && process.env.BUNYAD_REQUIRE_XMLLINT === "1") {
+  throw new Error(
+    "xmllint is required (BUNYAD_REQUIRE_XMLLINT=1) but not on PATH.",
+  );
+}
 const xsd = (name: string) => join(import.meta.dir, "fixtures/xsd", name);
 let dir = "";
 
