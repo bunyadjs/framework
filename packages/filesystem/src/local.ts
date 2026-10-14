@@ -5,13 +5,27 @@ import {
   mkdir,
   readdir,
   realpath,
+  readFile,
   rename,
   rm,
   stat,
   unlink,
+  writeFile,
 } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { Disk } from "./disk.ts";
+
+/** Bun fast paths when available; node:fs fallbacks otherwise (Node). */
+const bun = (globalThis as { Bun?: typeof Bun }).Bun;
+
+async function fileExists(full: string): Promise<boolean> {
+  if (bun) return bun.file(full).exists();
+  try {
+    return (await stat(full)).isFile();
+  } catch {
+    return false;
+  }
+}
 
 export type LocalFilesystemOptions = {
   root: string;
@@ -130,7 +144,8 @@ export class LocalFilesystem extends Disk implements Filesystem {
   async put(path: string, contents: string | Uint8Array): Promise<void> {
     const full = await this.#resolve(path);
     await mkdir(dirname(full), { recursive: true });
-    await Bun.write(full, contents);
+    if (bun) await bun.write(full, contents);
+    else await writeFile(full, contents);
   }
 
   /**
@@ -201,20 +216,22 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async get(path: string): Promise<Uint8Array> {
-    const file = Bun.file(await this.#resolve(path));
-    if (!(await file.exists())) {
+    const full = await this.#resolve(path);
+    if (!(await fileExists(full))) {
       throw new Error(`File not found: [${path}]`);
     }
-    return new Uint8Array(await file.arrayBuffer());
+    if (bun) return new Uint8Array(await bun.file(full).arrayBuffer());
+    const buf = await readFile(full);
+    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
   }
 
   async exists(path: string): Promise<boolean> {
-    return Bun.file(await this.#resolve(path)).exists();
+    return fileExists(await this.#resolve(path));
   }
 
   async delete(path: string): Promise<boolean> {
     const full = await this.#resolve(path);
-    if (!(await Bun.file(full).exists())) return false;
+    if (!(await fileExists(full))) return false;
     await unlink(full);
     return true;
   }
@@ -342,7 +359,9 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async size(path: string): Promise<number> {
-    return Bun.file(await this.#resolve(path)).size;
+    const full = await this.#resolve(path);
+    if (bun) return bun.file(full).size;
+    return (await stat(full)).size;
   }
 
   async lastModified(path: string): Promise<number> {
@@ -351,7 +370,7 @@ export class LocalFilesystem extends Disk implements Filesystem {
   }
 
   async mimeType(path: string): Promise<string> {
-    const type = Bun.file(await this.#resolve(path)).type;
+    const type = bun ? bun.file(await this.#resolve(path)).type : "";
     if (type && type !== "application/octet-stream") return type;
     return (
       MIME_BY_EXT[extname(path).toLowerCase()] ?? "application/octet-stream"

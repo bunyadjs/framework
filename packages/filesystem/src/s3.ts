@@ -1,4 +1,7 @@
-import { S3Client } from "bun";
+// Type-only: a runtime `import "bun"` would stop this package (and anything
+// importing its entry) from loading on Node. The client is read from the Bun
+// global when an S3 disk is actually constructed.
+import type { S3Client } from "bun";
 import type { Filesystem } from "@bunyad/contracts";
 import { extname } from "node:path";
 import { Disk } from "./disk.ts";
@@ -25,10 +28,7 @@ type S3FileHandle = {
   size?: number;
   type?: string;
   lastModified?: number;
-  presign(options?: {
-    expiresIn?: number;
-    method?: string;
-  }): string;
+  presign(options?: { expiresIn?: number; method?: string }): string;
 };
 
 type S3Like = {
@@ -50,6 +50,17 @@ const MIME_BY_EXT: Record<string, string> = {
   ".pdf": "application/pdf",
 };
 
+function s3ClientConstructor(): typeof S3Client {
+  const ctor = (globalThis as { Bun?: { S3Client?: typeof S3Client } }).Bun
+    ?.S3Client;
+  if (!ctor) {
+    throw new Error(
+      "S3Filesystem needs Bun's S3Client; pass `client` to use it on another runtime.",
+    );
+  }
+  return ctor;
+}
+
 /**
  * S3-compatible disk (AWS S3, Cloudflare R2, MinIO) via Bun's `S3Client`.
  */
@@ -63,7 +74,7 @@ export class S3Filesystem extends Disk implements Filesystem {
     this.#url = options.url;
     this.#client =
       (options.client as S3Like | undefined) ??
-      (new S3Client({
+      (new (s3ClientConstructor())({
         accessKeyId: options.accessKeyId,
         secretAccessKey: options.secretAccessKey,
         bucket: options.bucket,
@@ -129,7 +140,8 @@ export class S3Filesystem extends Disk implements Filesystem {
       : (result.contents ?? result.Contents ?? []);
     const keys: string[] = [];
     for (const row of rows) {
-      const key = (row as { key?: string; Key?: string }).key ??
+      const key =
+        (row as { key?: string; Key?: string }).key ??
         (row as { Key?: string }).Key;
       if (key) keys.push(key);
     }
@@ -169,7 +181,10 @@ export class S3Filesystem extends Disk implements Filesystem {
     for (const key of keys) {
       const rest = dir ? key.slice(prefix.length) : key;
       const slash = rest.indexOf("/");
-      if (slash > 0) found.add(dir ? `${dir}/${rest.slice(0, slash)}` : rest.slice(0, slash));
+      if (slash > 0)
+        found.add(
+          dir ? `${dir}/${rest.slice(0, slash)}` : rest.slice(0, slash),
+        );
     }
     for (const path of this.#directories) {
       if (dir) {
@@ -256,7 +271,9 @@ export class S3Filesystem extends Disk implements Filesystem {
   async mimeType(path: string): Promise<string> {
     const type = this.#client.file(path).type;
     if (type && type !== "application/octet-stream") return type;
-    return MIME_BY_EXT[extname(path).toLowerCase()] ?? "application/octet-stream";
+    return (
+      MIME_BY_EXT[extname(path).toLowerCase()] ?? "application/octet-stream"
+    );
   }
 
   url(path: string): string {
@@ -275,7 +292,10 @@ export class S3Filesystem extends Disk implements Filesystem {
     return true;
   }
 
-  async temporaryUrl(path: string, expiration = new Date(Date.now() + 3600_000)): Promise<string> {
+  async temporaryUrl(
+    path: string,
+    expiration = new Date(Date.now() + 3600_000),
+  ): Promise<string> {
     const expiresIn = Math.max(
       1,
       Math.floor((expiration.getTime() - Date.now()) / 1000),
