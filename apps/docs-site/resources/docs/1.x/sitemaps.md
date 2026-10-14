@@ -71,6 +71,8 @@ bunyad sitemap:generate
 curl https://example.com/sitemap.xml
 ```
 
+If neither `baseUrl` nor `domains` is set, the provider registers no routes and logs a warning at boot (`[sitemap] Neither \`baseUrl\` nor \`domains\` is set…`), and `sitemap:generate` has nothing to write.
+
 The provider registers `GET /sitemap.xml` (named `sitemap`) and a route for split parts (`sitemap.part`). Both read the generated files from the disk; requests never rebuild the sitemap.
 
 ## Building a sitemap by hand
@@ -253,7 +255,7 @@ Or run `bunyad sitemap:generate` from cron or your deploy script.
 
 ## Memory and S3
 
-Writing to a local path (`writeToFile`, or `writeToDisk` on a local disk) streams with flat memory: 1,000,000 SQLite rows through `fromModel` grow RSS by about 30 MB on Bun.
+Writing to a local path (`writeToFile`, or `writeToDisk` on a local disk) streams with flat memory. In the `bench:model` run, 1,000,000 SQLite rows through `fromModel` grew the retained heap by 7.7 MB on Bun and 2.4 MB on Node, and RSS by 32.6 MB and 10.7 MB. The heap figures are **retained** memory, measured right after a forced GC every 50,000 rows; RSS is sampled at the same points. Neither is a true peak: memory between samples (garbage awaiting collection) can be higher and depends on the GC.
 
 The S3 disk's `writeStream` still **buffers each file in memory** before uploading, up to about 50 MB per part (the sitemaps.org limit), until multipart upload lands in `@bunyad/filesystem`. Memory stays bounded by one part, not by the whole set, but it is not flat. For very large sets on S3, generate to a local disk and sync, or budget for one part in memory per run.
 
@@ -267,6 +269,7 @@ The S3 disk's `writeStream` still **buffers each file in memory** before uploadi
 6. `Tags\Sitemap` is exported as `SitemapTag`.
 7. Dates accept `Date | string | number` and are written in W3C format with `+00:00`.
 8. Multi-domain output and `robots.txt` are built in. `APP_URL` is never read; every set uses its configured `baseUrl`.
-9. The crawler (`SitemapGenerator::create($url)`) is not part of v1.
+9. `writeToDisk(sitemap, disk = "public", path = "sitemap.xml", options)` takes a disk name **or** a `Filesystem` instance and an options object (`{ gzip, publicUrl, … }`). spatie's `writeToDisk($disk, $path, $public = false)` has a `$public` visibility flag; there is none here, because Bunyad disks have no per-file visibility. Serve the files through the auto-route, or put them on a disk whose root is public.
+10. The crawler (`SitemapGenerator::create($url)`) is not part of v1.
 
 See `docs/examples/sitemap` in the repository for a runnable two-domain example with 100,000 seeded rows.

@@ -50,6 +50,11 @@ robotsFor({
 Writing to a local path (`writeToFile`, local disk) streams with flat memory. The S3 disk's
 `writeStream` still buffers each file (≤ 50 MB per part) until multipart upload lands.
 
+Benchmarks (`bun run bench`, `bench:node`, `bench:model`, `bench:model:node`) report
+**retained** heap growth, measured right after a forced GC every 50,000 URLs, plus RSS
+sampled at the same points. Neither is a true peak: memory between samples can be higher.
+The gate is retained heap ≤ 50 MB on both runtimes (RSS also gated on Bun).
+
 ## Output layout and publishing
 
 - **Single domain** (`baseUrl` + `build`): files at the disk root, e.g. `public/sitemap.xml`, `public/sitemap-1.xml.gz`.

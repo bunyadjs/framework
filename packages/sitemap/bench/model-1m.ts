@@ -5,6 +5,9 @@
  *     (writeToFile: @bunyad/filesystem's LocalFilesystem is Bun-only)
  * Asserts parts = ceil(n / 50,000) + index and retained heap growth ≤ 50 MB
  * (RSS also gated on Bun, reported on Node). Seeding time is excluded.
+ *
+ * Reported numbers are retained heap after a forced gc every 50,000 items and
+ * RSS sampled at the same points, not true peaks between samples.
  */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";

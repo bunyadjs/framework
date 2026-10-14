@@ -6,6 +6,9 @@
  * ≤ 52,428,800 bytes, and median (of --runs=3) memory growth ≤ 50 MB: retained
  * heap sampled after gc on both runtimes, RSS also gated on Bun (reported on
  * Node), for gzip off and on. Not part of CI (the 100k test is).
+ *
+ * Reported numbers are retained heap after a forced gc every 50,000 items and
+ * RSS sampled at the same points, not true peaks between samples.
  */
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
