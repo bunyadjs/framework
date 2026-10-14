@@ -1,5 +1,8 @@
 /** Node mirror of integrations.test.ts: ORM (sqlite), router, memory disk, http. */
 import assert from "node:assert/strict";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
 import { gunzipSync } from "node:zlib";
 import {
@@ -8,11 +11,13 @@ import {
   schemaFor,
   type Connection,
 } from "@bunyad/database";
-// The package root imports Bun's S3 client; the memory disk itself is portable.
-import { MemoryFilesystem } from "../../filesystem/src/memory-filesystem.ts";
+import { LocalFilesystem, MemoryFilesystem } from "@bunyad/filesystem";
+import { Request as BunyadRequest } from "@bunyad/http";
 import { Model } from "@bunyad/orm";
 import { Route, Router, setActiveRouter } from "@bunyad/router";
+import { generateToDisk, SitemapGenerateCommand } from "./command.ts";
 import { safeDiskPath, writeToDisk } from "./disk.ts";
+import { SitemapServiceProvider, sitemapRootHandler } from "./provider.ts";
 import { serveSitemapFile, toResponse } from "./http.ts";
 import { fromModel } from "./orm.ts";
 import { fromRoutes, routerScope, sitemapRoutes } from "./router.ts";
@@ -169,5 +174,74 @@ describe("disk + http (node)", () => {
       new Request("https://e.com", { headers: { "if-none-match": etag } }),
     );
     assert.equal(again.status, 304);
+  });
+});
+
+describe("local disk + provider/command (node)", () => {
+  it("writeToDisk on LocalFilesystem streams, gzips parts, leaves no temp files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "bunyad-sitemap-node-"));
+    try {
+      const disk = new LocalFilesystem({ root });
+      const r = await writeToDisk(
+        Sitemap.create({ baseUrl: "https://e.com" })
+          .maxTagsPerSitemap(2)
+          .add(["/a", "/b", "/c"]),
+        disk,
+        "sitemap.xml",
+        { gzip: true },
+      );
+      assert.equal(r.files.length, 2);
+      assert.deepEqual(
+        (await readdir(root)).filter((f) => !f.startsWith(".")).sort(),
+        ["sitemap-1.xml.gz", "sitemap-2.xml.gz", "sitemap.xml"],
+      );
+      assert.match(
+        dec.decode(gunzipSync(await disk.get("sitemap-2.xml.gz"))),
+        /https:\/\/e\.com\/c/,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("provider and command import; generateToDisk + root handler by Host", async () => {
+    assert.equal(typeof SitemapServiceProvider, "function");
+    assert.equal(
+      SitemapGenerateCommand.signature.startsWith("sitemap:generate"),
+      true,
+    );
+    const root = await mkdtemp(join(tmpdir(), "bunyad-sitemap-node-"));
+    try {
+      const disk = new LocalFilesystem({ root });
+      const config = {
+        domains: {
+          "a.com": {
+            baseUrl: "https://a.com",
+            build: (s: Sitemap) => void s.add(["/x"]),
+          },
+        },
+      };
+      await generateToDisk(config, { disk });
+      const handler = sitemapRootHandler(config, () => disk);
+      const ok = await handler(
+        new BunyadRequest(
+          new Request("https://a.com/sitemap.xml", {
+            headers: { host: "a.com" },
+          }),
+        ),
+      );
+      assert.equal(ok.status, 200);
+      assert.match(await ok.text(), /https:\/\/a\.com\/x/);
+      const miss = await handler(
+        new BunyadRequest(
+          new Request("https://b.com/sitemap.xml", {
+            headers: { host: "b.com" },
+          }),
+        ),
+      );
+      assert.equal(miss.status, 404);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

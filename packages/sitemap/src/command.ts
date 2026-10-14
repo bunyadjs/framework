@@ -5,7 +5,7 @@
  *
  * Exit codes: 0 success, 1 failure (unknown domain, invalid option, write error).
  */
-import { Command } from "@bunyad/cli";
+import { Command } from "@bunyad/cli/command";
 import type { Filesystem } from "@bunyad/contracts";
 import { Storage } from "@bunyad/filesystem";
 import { diskSink, safeDiskPath } from "./disk.ts";
