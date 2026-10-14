@@ -260,6 +260,15 @@
         "@types/node": "^22.13.10",
       },
     },
+    "docs/examples/sitemap": {
+      "name": "@bunyad/example-sitemap",
+      "dependencies": {
+        "@bunyad/database": "workspace:*",
+        "@bunyad/filesystem": "workspace:*",
+        "@bunyad/orm": "workspace:*",
+        "@bunyad/sitemap": "workspace:*",
+      },
+    },
     "packages/agent": {
       "name": "@bunyad/agent",
       "version": "0.2.0-beta.2",
@@ -1051,6 +1060,8 @@
     "@bunyad/events": ["@bunyad/events@workspace:packages/events"],
 
     "@bunyad/example-orm-node-express": ["@bunyad/example-orm-node-express@workspace:docs/examples/orm-node-express"],
+
+    "@bunyad/example-sitemap": ["@bunyad/example-sitemap@workspace:docs/examples/sitemap"],
 
     "@bunyad/features": ["@bunyad/features@workspace:packages/features"],
 
