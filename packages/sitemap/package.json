@@ -73,7 +73,8 @@
     "bench": "bun bench/memory-1m.ts",
     "bench:node": "node --experimental-transform-types --expose-gc --max-semi-space-size=2 bench/memory-1m.ts",
     "test:node": "node --experimental-transform-types --test src/*.node-test.ts",
-    "bench:model": "bun bench/model-1m.ts"
+    "bench:model": "bun bench/model-1m.ts",
+    "bench:model:node": "node --experimental-transform-types --expose-gc --max-semi-space-size=2 bench/model-1m.ts"
   },
   "publishConfig": {
     "access": "public",
