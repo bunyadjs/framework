@@ -116,6 +116,9 @@ export const SITEMAP_CONFIG_STUB = fileURLToPath(
   new URL("../stubs/config/sitemap.ts", import.meta.url),
 );
 
+export const SITEMAP_NOT_CONFIGURED =
+  "[sitemap] Neither `baseUrl` nor `domains` is set in config/sitemap.ts: no sitemap routes were registered and `sitemap:generate` has nothing to write.";
+
 /** `app.register(SitemapServiceProvider)`; configure under `sitemap` config. */
 export class SitemapServiceProvider extends ServiceProvider {
   override register(): void {
@@ -132,6 +135,8 @@ export class SitemapServiceProvider extends ServiceProvider {
     const config = (this.app.config.get("sitemap") ?? {}) as SitemapConfig;
     if (config.baseUrl || config.domains) {
       registerSitemapRoutes(config, { router: this.app.router });
+      return;
     }
+    console.warn(SITEMAP_NOT_CONFIGURED);
   }
 }

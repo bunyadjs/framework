@@ -30,7 +30,7 @@ import { diskSink, safeDiskPath, writeToDisk } from "./disk.ts";
 import { gunzip } from "./gzip.ts";
 import { serveSitemapFile, toResponse } from "./http.ts";
 import { fromModel } from "./orm.ts";
-import { SitemapServiceProvider } from "./provider.ts";
+import { SITEMAP_NOT_CONFIGURED, SitemapServiceProvider } from "./provider.ts";
 import { fromRoutes, routerScope, sitemapRoutes } from "./router.ts";
 import { Sitemap } from "./sitemap.ts";
 import { setSitemapConfig } from "./state.ts";
@@ -370,6 +370,22 @@ describe("responses (T2.4)", () => {
 });
 
 describe("provider auto-route (T2.5) + command (T2.6)", () => {
+  test("warns when neither baseUrl nor domains is configured (I2)", async () => {
+    const warnings: unknown[] = [];
+    const original = console.warn;
+    console.warn = (...args: unknown[]) => void warnings.push(args[0]);
+    try {
+      const router = new Router();
+      const app = new Application({ router, config: { app: { port: 0 } } });
+      app.register(SitemapServiceProvider);
+      await app.boot();
+      expect(warnings).toEqual([SITEMAP_NOT_CONFIGURED]);
+      expect(router.has("sitemap")).toBe(false);
+    } finally {
+      console.warn = original;
+    }
+  });
+
   const twoDomains = (disk: string) => ({
     disk,
     domains: {
