@@ -4,7 +4,6 @@
  * S3 still buffers each file, ≤ 50 MB per part).
  */
 import type { Filesystem } from "@bunyad/contracts";
-import { Storage } from "@bunyad/filesystem";
 import {
   assertSafeName,
   type SinkWritable,
@@ -144,13 +143,18 @@ export function diskSink(disk: Filesystem, directory = ""): SitemapSink {
 }
 
 /** spatie `writeToDisk($disk, $path)`: defaults to the `public` disk and `sitemap.xml` (D2). */
-export function writeToDisk(
+export async function writeToDisk(
   sitemap: Sitemap,
   disk: string | Filesystem = "public",
   path = "sitemap.xml",
   options: WriteOptions = {},
 ): Promise<WriteResult> {
-  const fs = typeof disk === "string" ? Storage.disk(disk) : disk;
+  // Loaded lazily: @bunyad/filesystem pulls in Bun's S3 client, so a static
+  // import would keep this module off Node even with an explicit disk.
+  const fs =
+    typeof disk === "string"
+      ? (await import("@bunyad/filesystem")).Storage.disk(disk)
+      : disk;
   const { directory, filename } = splitDiskPath(path);
   return sitemap.writeTo(diskSink(fs, directory), filename, options);
 }
