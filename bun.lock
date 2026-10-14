@@ -263,9 +263,11 @@
     "docs/examples/sitemap": {
       "name": "@bunyad/example-sitemap",
       "dependencies": {
+        "@bunyad/core": "workspace:*",
         "@bunyad/database": "workspace:*",
         "@bunyad/filesystem": "workspace:*",
         "@bunyad/orm": "workspace:*",
+        "@bunyad/router": "workspace:*",
         "@bunyad/sitemap": "workspace:*",
       },
     },
