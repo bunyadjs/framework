@@ -112,9 +112,12 @@ export async function newProject(rawArgs: string[]): Promise<void> {
     return;
   }
   const templates = await listTemplates();
-  // With --kit the lone positional is the directory (`bun create bunyad my-app --kit=react`).
-  let template = options.kit ?? args[0];
-  let targetArg = options.dir ?? (options.kit ? args[0] : args[1]);
+  // A lone positional is the directory (`bunyad new my-app`, `bun create bunyad my-app --kit=react`),
+  // unless it names a starter kit (`bunyad new react`). With two, they are `<kit> <dir>`.
+  const loneIsKit = args.length === 1 && !options.kit && !options.dir && templates.includes(args[0]!);
+  const loneIsDir = args.length === 1 && !loneIsKit;
+  let template = options.kit ?? (loneIsDir ? undefined : args[0]);
+  let targetArg = options.dir ?? (options.kit || loneIsDir ? args[0] : args[1]);
 
   if (!template || !targetArg) {
     intro("Create a new Bunyad app");

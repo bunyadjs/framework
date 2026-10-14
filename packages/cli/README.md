@@ -18,7 +18,7 @@ Inside an app you normally do not need the global copy. Every app has a `./bunya
 ## Usage
 
 ```bash
-bunyad new views my-app      # scaffold from a starter kit (views, live, react, vue, svelte, api)
+bunyad new my-app            # asks which starter kit; or: bunyad new views my-app
 cd my-app
 bunyad migrate               # run database migrations
 bunyad serve --hot           # start the dev server with soft reload
