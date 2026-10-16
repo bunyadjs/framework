@@ -60,14 +60,20 @@ test("an unknown command still fails clearly, with or without an app", async () 
     });
 
     await mkdir(join(root, "bootstrap"), { recursive: true });
-    await writeFile(join(root, "bootstrap/app.ts"), `export async function createApplication() {}\n`);
+    await writeFile(
+      join(root, "bootstrap/app.ts"),
+      `export async function createApplication() {}\n`,
+    );
     await withCwd(root, async () => {
       process.exitCode = 0;
       await run(["nope:nothing"]);
       expect(process.exitCode).toBe(1);
     });
 
-    await writeFile(join(root, "bootstrap/app.ts"), `throw new Error("boot failed");\n`);
+    await writeFile(
+      join(root, "bootstrap/app.ts"),
+      `throw new Error("boot failed");\n`,
+    );
     await withCwd(root, async () => {
       process.exitCode = 0;
       await run(["nope:nothing"]);
@@ -77,5 +83,77 @@ test("an unknown command still fails clearly, with or without an app", async () 
     console.error = original;
     process.exitCode = 0;
   }
-  expect(errors.filter((line) => line.includes('Command "nope:nothing" is not defined.'))).toHaveLength(3);
+  expect(
+    errors.filter((line) =>
+      line.includes('Command "nope:nothing" is not defined.'),
+    ),
+  ).toHaveLength(3);
+});
+
+test("a package provider's Command class appears in `bunyad list` and runs (T0.4)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "bunyad-provider-cmd-"));
+  const pkg = join(root, "node_modules/fixture-sitemap");
+  await mkdir(pkg, { recursive: true });
+  await mkdir(join(root, "bootstrap"), { recursive: true });
+  await writeFile(
+    join(pkg, "package.json"),
+    JSON.stringify({
+      name: "fixture-sitemap",
+      type: "module",
+      exports: "./index.ts",
+    }),
+  );
+  await writeFile(
+    join(pkg, "index.ts"),
+    `import { ServiceProvider } from ${JSON.stringify(import.meta.resolve("@bunyad/core"))};
+import { Command } from ${JSON.stringify(import.meta.resolve("./command.ts"))};
+
+export class FixtureGenerateCommand extends Command {
+  static signature = "fixture-sitemap:generate {--dry-run}";
+  static description = "Generate the fixture sitemap";
+  async handle() {
+    console.log("generated dry=" + String(this.option("dry-run")));
+    return 3;
+  }
+}
+
+export class FixtureSitemapServiceProvider extends ServiceProvider {
+  register() {
+    this.commands([FixtureGenerateCommand]);
+  }
+}
+`,
+  );
+  await writeFile(
+    join(root, "bootstrap/app.ts"),
+    `import { FixtureSitemapServiceProvider } from "fixture-sitemap";
+export async function createApplication() {
+  new FixtureSitemapServiceProvider({} as never).register();
+}
+`,
+  );
+
+  const logs: string[] = [];
+  const original = console.log;
+  console.log = (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "));
+  };
+  let exitCode: number | string | undefined;
+  try {
+    await withCwd(root, async () => {
+      process.exitCode = 0;
+      await run(["list"]);
+      expect(process.exitCode).toBe(0);
+      await run(["fixture-sitemap:generate", "--dry-run"]);
+      exitCode = process.exitCode;
+    });
+  } finally {
+    console.log = original;
+    process.exitCode = 0;
+  }
+  expect(logs).toContain("Package commands:");
+  const row = logs.find((line) => line.includes("fixture-sitemap:generate"));
+  expect(row).toContain("Generate the fixture sitemap");
+  expect(logs).toContain("generated dry=true");
+  expect(exitCode).toBe(3);
 });

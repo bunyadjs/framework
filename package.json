@@ -12,7 +12,8 @@
     "templates/vue",
     "templates/svelte",
     "templates/saas",
-    "docs/examples/orm-node-express"
+    "docs/examples/orm-node-express",
+    "docs/examples/sitemap"
   ],
   "bin": {
     "bunyad": "./packages/cli/src/bunyad.ts"

@@ -55,6 +55,41 @@ export function setUrlDefaults(defaults: UrlDefaults): void {
   Object.assign(getUrlContext().defaults, defaults);
 }
 
+const rootStorage = new AsyncLocalStorage<string>();
+
+/** Root set via `Url.setRoot()` / `forceRootUrl()`; `null` → `APP_URL`. */
+let configuredRoot: string | null = null;
+
+function trimRoot(url: string): string {
+  return url.replace(/\/$/, "");
+}
+
+export function setConfiguredRoot(url: string): void {
+  configuredRoot = trimRoot(url);
+}
+
+/** Root from the innermost `Url.withRoot()` scope, if any. */
+export function getScopedRoot(): string | undefined {
+  return rootStorage.getStore();
+}
+
+/** Run `fn` with an async-scoped absolute URL root (`Url.withRoot`). */
+export function runWithRoot<T>(root: string, fn: () => T): T {
+  return rootStorage.run(trimRoot(root), fn);
+}
+
+/**
+ * Root used for absolute URLs when no request origin applies:
+ * `withRoot` scope → `Url.setRoot()` → `APP_URL` → `http://localhost`.
+ */
+export function resolveRootUrl(): string {
+  return (
+    rootStorage.getStore() ??
+    configuredRoot ??
+    trimRoot(process.env.APP_URL ?? "http://localhost")
+  );
+}
+
 export function flushUrlContext(): void {
   fallback = emptyContext();
 }

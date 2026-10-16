@@ -1,0 +1,158 @@
+{
+  "name": "@bunyad/sitemap",
+  "version": "0.2.0-beta.2",
+  "description": "Streaming, zero-dependency XML sitemaps (split + index + gzip, multi-domain) for Bunyad, with spatie/laravel-sitemap names.",
+  "license": "MIT",
+  "author": "Shah Khalid",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunyadjs/framework.git",
+    "directory": "packages/sitemap"
+  },
+  "homepage": "https://github.com/bunyadjs/framework#readme",
+  "bugs": {
+    "url": "https://github.com/bunyadjs/framework/issues"
+  },
+  "keywords": [
+    "bunyad",
+    "bun",
+    "typescript",
+    "sitemap",
+    "seo",
+    "robots"
+  ],
+  "files": [
+    "dist",
+    "stubs",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.4.0",
+    "node": ">=22.6"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./orm": {
+      "types": "./src/orm.ts",
+      "default": "./src/orm.ts"
+    },
+    "./router": {
+      "types": "./src/router.ts",
+      "default": "./src/router.ts"
+    },
+    "./disk": {
+      "types": "./src/disk.ts",
+      "default": "./src/disk.ts"
+    },
+    "./http": {
+      "types": "./src/http.ts",
+      "default": "./src/http.ts"
+    },
+    "./command": {
+      "types": "./src/command.ts",
+      "default": "./src/command.ts"
+    },
+    "./provider": {
+      "types": "./src/provider.ts",
+      "default": "./src/provider.ts"
+    },
+    "./robots": {
+      "types": "./src/robots.ts",
+      "default": "./src/robots.ts"
+    }
+  },
+  "dependencies": {},
+  "scripts": {
+    "test": "bun test",
+    "build": "bun ../../scripts/build-package.ts .",
+    "bench": "bun bench/memory-1m.ts",
+    "bench:node": "node --experimental-transform-types --expose-gc --max-semi-space-size=2 bench/memory-1m.ts",
+    "test:node": "node --experimental-transform-types --test src/*.node-test.ts",
+    "bench:model": "bun bench/model-1m.ts",
+    "bench:model:node": "node --experimental-transform-types --expose-gc --max-semi-space-size=2 bench/model-1m.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./orm": {
+        "types": "./dist/orm.d.ts",
+        "default": "./dist/orm.js"
+      },
+      "./router": {
+        "types": "./dist/router.d.ts",
+        "default": "./dist/router.js"
+      },
+      "./disk": {
+        "types": "./dist/disk.d.ts",
+        "default": "./dist/disk.js"
+      },
+      "./http": {
+        "types": "./dist/http.d.ts",
+        "default": "./dist/http.js"
+      },
+      "./command": {
+        "types": "./dist/command.d.ts",
+        "default": "./dist/command.js"
+      },
+      "./provider": {
+        "types": "./dist/provider.d.ts",
+        "default": "./dist/provider.js"
+      },
+      "./robots": {
+        "types": "./dist/robots.d.ts",
+        "default": "./dist/robots.js"
+      }
+    }
+  },
+  "peerDependencies": {
+    "@bunyad/orm": "workspace:^",
+    "@bunyad/router": "workspace:^",
+    "@bunyad/http": "workspace:^",
+    "@bunyad/filesystem": "workspace:^",
+    "@bunyad/cli": "workspace:^",
+    "@bunyad/core": "workspace:^",
+    "@bunyad/contracts": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@bunyad/orm": {
+      "optional": true
+    },
+    "@bunyad/router": {
+      "optional": true
+    },
+    "@bunyad/http": {
+      "optional": true
+    },
+    "@bunyad/filesystem": {
+      "optional": true
+    },
+    "@bunyad/cli": {
+      "optional": true
+    },
+    "@bunyad/core": {
+      "optional": true
+    },
+    "@bunyad/contracts": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@bunyad/orm": "workspace:^",
+    "@bunyad/router": "workspace:^",
+    "@bunyad/http": "workspace:^",
+    "@bunyad/filesystem": "workspace:^",
+    "@bunyad/cli": "workspace:^",
+    "@bunyad/core": "workspace:^",
+    "@bunyad/contracts": "workspace:^",
+    "@bunyad/database": "workspace:^"
+  }
+}

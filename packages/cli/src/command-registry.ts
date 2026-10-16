@@ -1,4 +1,5 @@
 import {
+  describeProviderCommands as describeCoreProviderCommands,
   getProviderCommandHandlers as getCoreProviderHandlers,
   registerProviderCommand as registerCoreProviderCommand,
   type CommandHandler,
@@ -19,8 +20,17 @@ export function registerClosureCommand(
 export function registerProviderCommand(
   name: string,
   handler: CommandHandler,
+  description?: string,
 ): void {
-  registerCoreProviderCommand(name, handler);
+  registerCoreProviderCommand(name, handler, description);
+}
+
+/** Provider/package commands with descriptions (for `bunyad list`). */
+export function describeProviderCommands(): Array<{
+  name: string;
+  description: string;
+}> {
+  return describeCoreProviderCommands();
 }
 
 export function getClosureCommandHandlers(): Record<string, CommandHandler> {

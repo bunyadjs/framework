@@ -8,12 +8,20 @@ import {
   setSignatureChecker,
   taggedMiddleware,
 } from "@bunyad/http";
-import { resolveControllerAction, Route, route as namedRoute } from "./router.ts";
+import {
+  resolveControllerAction,
+  Route,
+  route as namedRoute,
+} from "./router.ts";
 import {
   flushUrlContext,
   getUrlContext,
+  getScopedRoot,
   getUrlDefaults,
   normalizeRouteParams,
+  resolveRootUrl,
+  runWithRoot,
+  setConfiguredRoot,
   runWithUrlContext,
   setUrlDefaults,
   setUrlRequest,
@@ -41,12 +49,11 @@ function resolveUrlKey(): string {
   // Dev/test only — never used when APP_ENV/NODE_ENV is production.
   return "bunyad-insecure-dev-key-do-not-use-in-production";
 }
-let rootUrl = (process.env.APP_URL ?? "http://localhost").replace(/\/$/, "");
-let assetRoot =
-  (process.env.ASSET_URL ?? process.env.APP_URL ?? "http://localhost").replace(
-    /\/$/,
-    "",
-  );
+let assetRoot = (
+  process.env.ASSET_URL ??
+  process.env.APP_URL ??
+  "http://localhost"
+).replace(/\/$/, "");
 let forcedScheme: string | null = null;
 
 function hmac(payload: string): string {
@@ -95,6 +102,12 @@ function originOf(requestUrl: string): string {
 export type UrlFacade = {
   setKey(key: string): void;
   setRoot(url: string): void;
+  /**
+   * Run `fn` with `root` as the absolute URL root (async-scoped; concurrent
+   * scopes are isolated). Overrides the request origin, `setRoot()` and
+   * `APP_URL` for `Url.to/format/route(…, true)` and `route(…, true)`.
+   */
+  withRoot<T>(root: string, fn: () => T): T;
   forceRootUrl(url: string): void;
   forceScheme(scheme: string | null): void;
   forceHttps(): void;
@@ -148,7 +161,11 @@ export const Url: UrlFacade = {
   },
 
   setRoot(url) {
-    rootUrl = url.replace(/\/$/, "");
+    setConfiguredRoot(url);
+  },
+
+  withRoot(root, fn) {
+    return runWithRoot(root, fn);
   },
 
   forceRootUrl(url) {
@@ -183,7 +200,7 @@ export const Url: UrlFacade = {
   /** Absolute URL with merged query parameters. */
   query(path, parameters = {}) {
     const absolutePath = /^https?:\/\//i.test(path) ? path : Url.to(path);
-    return mergeQuery(absolutePath, parameters, rootUrl);
+    return mergeQuery(absolutePath, parameters, resolveRootUrl());
   },
 
   asset(path, secure = null) {
@@ -221,7 +238,7 @@ export const Url: UrlFacade = {
   /** Current URL without query string. */
   current() {
     const request = requestFromContext();
-    if (!request) return rootUrl;
+    if (!request) return resolveRootUrl();
     const u = new URL(request.url);
     return `${u.origin}${u.pathname}`;
   },
@@ -229,7 +246,7 @@ export const Url: UrlFacade = {
   /** Current URL including query string. */
   full() {
     const request = requestFromContext();
-    if (!request) return rootUrl;
+    if (!request) return resolveRootUrl();
     return request.url;
   },
 
@@ -331,9 +348,11 @@ function applyForcedScheme(url: string): string {
 }
 
 function rootForAbsolute(): string {
+  const scoped = getScopedRoot();
+  if (scoped !== undefined) return scoped;
   const request = requestFromContext();
   if (request) return originOf(request.url);
-  return rootUrl;
+  return resolveRootUrl();
 }
 
 /**
@@ -392,21 +411,24 @@ export function handleUrl() {
       request: Request,
       next: () => Promise<Response> | Response,
     ): Promise<Response> {
-      return runWithUrlContext(async () => {
-        setUrlRequest(request);
-        const response = await next();
-        if (request.session && request.method === "GET") {
-          const accept = request.header("accept") ?? "";
-          // Only HTML navigations — skip JSON clients and load generators (`*/*`).
-          if (accept.includes("text/html")) {
-            const previous = request.session.get<string>("_previous.url");
-            if (previous !== request.url) {
-              request.session.put("_previous.url", request.url);
+      return runWithUrlContext(
+        async () => {
+          setUrlRequest(request);
+          const response = await next();
+          if (request.session && request.method === "GET") {
+            const accept = request.header("accept") ?? "";
+            // Only HTML navigations — skip JSON clients and load generators (`*/*`).
+            if (accept.includes("text/html")) {
+              const previous = request.session.get<string>("_previous.url");
+              if (previous !== request.url) {
+                request.session.put("_previous.url", request.url);
+              }
             }
           }
-        }
-        return response;
-      }, { request });
+          return response;
+        },
+        { request },
+      );
     },
   };
 }
@@ -416,17 +438,14 @@ export function handleUrl() {
  */
 export function signed(options: { absolute?: boolean } = {}) {
   const absolute = options.absolute ?? false;
-  return taggedMiddleware(
-    absolute ? "signed:absolute" : "signed",
-    {
-      async handle(request: Request, next: () => Promise<Response> | Response) {
-        if (!Url.hasValidSignature(request, absolute)) {
-          abort(403, "Invalid signature.");
-        }
-        return next();
-      },
+  return taggedMiddleware(absolute ? "signed:absolute" : "signed", {
+    async handle(request: Request, next: () => Promise<Response> | Response) {
+      if (!Url.hasValidSignature(request, absolute)) {
+        abort(403, "Invalid signature.");
+      }
+      return next();
     },
-  );
+  });
 }
 
 aliasMiddleware("signed", (...params: string[]) => {

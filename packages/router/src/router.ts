@@ -7,6 +7,7 @@ import { buildRadixTrees, matchRadix, type RadixNode } from "./radix.ts";
 import {
   getUrlDefaults,
   normalizeRouteParams,
+  resolveRootUrl,
   type RouteParamValue,
 } from "./context.ts";
 import { formatPathWithParams } from "./query.ts";
@@ -54,8 +55,12 @@ function isControllerClass(action: RouteAction): action is ControllerClass {
 export function resolveControllerAction(
   action: ControllerClass,
 ): [ControllerClass, string];
-export function resolveControllerAction(action: RouteAction): ResolvedRouteAction;
-export function resolveControllerAction(action: RouteAction): ResolvedRouteAction {
+export function resolveControllerAction(
+  action: RouteAction,
+): ResolvedRouteAction;
+export function resolveControllerAction(
+  action: RouteAction,
+): ResolvedRouteAction {
   if (!isControllerClass(action)) return action;
   const invoke = (action.prototype as Record<string, unknown>).__invoke;
   if (typeof invoke !== "function") {
@@ -117,7 +122,12 @@ export type RouteDefinition = {
  * `export(...args)` imported from `module`.
  */
 export type RouteDeclaration =
-  | { kind: "view"; view: string; data: Record<string, unknown>; status: number }
+  | {
+      kind: "view";
+      view: string;
+      data: Record<string, unknown>;
+      status: number;
+    }
   | { kind: "redirect"; to: string; status: number }
   | { kind: "handler"; module: string; export: string; args: unknown[] };
 
@@ -252,10 +262,11 @@ function rejectIfMissing(
 export type StringEnumLike = Record<string, string>;
 
 /** True when `value` looks like a TS string enum or `{ Key: "value" }` map. */
-export function looksLikeStringEnum(
-  value: unknown,
-): value is StringEnumLike {
-  if (value == null || (typeof value !== "object" && typeof value !== "function")) {
+export function looksLikeStringEnum(value: unknown): value is StringEnumLike {
+  if (
+    value == null ||
+    (typeof value !== "object" && typeof value !== "function")
+  ) {
     return false;
   }
   if (typeof (value as { find?: unknown }).find === "function") return false;
@@ -288,22 +299,11 @@ type GroupAttrs = {
 
 /** Resource / apiResource action names. */
 export type ResourceAction =
-  | "index"
-  | "create"
-  | "store"
-  | "show"
-  | "edit"
-  | "update"
-  | "destroy";
+  "index" | "create" | "store" | "show" | "edit" | "update" | "destroy";
 
 /** Singleton / apiSingleton action names. */
 export type SingletonAction =
-  | "create"
-  | "store"
-  | "show"
-  | "edit"
-  | "update"
-  | "destroy";
+  "create" | "store" | "show" | "edit" | "update" | "destroy";
 
 /** Options for `resource()` / `apiResource()`. */
 export type ResourceOptions = {
@@ -675,14 +675,12 @@ export class Router {
   /** Per-method radix trees when `optimize()` has been called. */
   #radix: Map<string, RadixNode> | undefined;
   #current:
-    | { route: RouteDefinition; params: Record<string, string> }
-    | undefined;
+    { route: RouteDefinition; params: Record<string, string> } | undefined;
   #hotMethod = "";
   #hotPath = "";
   #hotHost: string | undefined;
   #hotHit:
-    | { route: RouteDefinition; params: Record<string, string> }
-    | undefined;
+    { route: RouteDefinition; params: Record<string, string> } | undefined;
   #hotHas = false;
 
   get(uri: string, action: RouteAction): RouteRegistrar {
@@ -749,7 +747,11 @@ export class Router {
   /** Register a redirect response for the given URI. */
   redirect(uri: string, destination: string, status = 302): RouteRegistrar {
     const registrar = this.any(uri, () => redirect(destination, status));
-    this.routes.at(-1)!.declaration = { kind: "redirect", to: destination, status };
+    this.routes.at(-1)!.declaration = {
+      kind: "redirect",
+      to: destination,
+      status,
+    };
     return registrar;
   }
 
@@ -772,9 +774,7 @@ export class Router {
   ): RouteRegistrar;
   view(
     uri: string,
-    renderOrName:
-      | string
-      | ((request: Request) => string | Promise<string>),
+    renderOrName: string | ((request: Request) => string | Promise<string>),
     dataOrStatus: Record<string, unknown> | number = 200,
     status = 200,
   ): RouteRegistrar {
@@ -794,7 +794,12 @@ export class Router {
         }
         return routeViewRenderer(name, data, code);
       });
-      this.routes.at(-1)!.declaration = { kind: "view", view: name, data, status: code };
+      this.routes.at(-1)!.declaration = {
+        kind: "view",
+        view: name,
+        data,
+        status: code,
+      };
       return registrar;
     }
     const render = renderOrName;
@@ -1133,7 +1138,9 @@ export class Router {
             allowTrashed &&
             typeof childModel.resolveSoftDeletableChildRouteBinding ===
               "function"
-              ? childModel.resolveSoftDeletableChildRouteBinding.bind(childModel)
+              ? childModel.resolveSoftDeletableChildRouteBinding.bind(
+                  childModel,
+                )
               : typeof childModel.resolveChildRouteBinding === "function"
                 ? childModel.resolveChildRouteBinding.bind(childModel)
                 : null;
@@ -1369,8 +1376,7 @@ export class Router {
     });
     const path = formatPathWithParams(route.uri, merged);
     if (!absolute) return path;
-    const root = (process.env.APP_URL ?? "http://localhost").replace(/\/$/, "");
-    return `${root}${path}`;
+    return `${resolveRootUrl()}${path}`;
   }
 
   #invalidateHot(): void {
@@ -1506,7 +1512,10 @@ export class Router {
         if (route.uri === normalized) {
           return {
             route,
-            params: mergeMatchParams(domainParams, EMPTY_PARAMS as Record<string, string>),
+            params: mergeMatchParams(
+              domainParams,
+              EMPTY_PARAMS as Record<string, string>,
+            ),
           };
         }
         continue;
@@ -1566,7 +1575,6 @@ export class Router {
       withTrashed,
     };
   }
-
 }
 
 /** Pending registration for `singleton` / `apiSingleton` (supports creatable/destroyable). */
@@ -1632,9 +1640,7 @@ class SingletonRegistrar {
           break;
         }
         case "destroy":
-          this.router
-            .delete(uri, [this.controller, "destroy"])
-            .name(routeName);
+          this.router.delete(uri, [this.controller, "destroy"]).name(routeName);
           break;
       }
     }

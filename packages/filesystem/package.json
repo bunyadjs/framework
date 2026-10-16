@@ -38,7 +38,8 @@
   },
   "scripts": {
     "test": "bun test",
-    "build": "bun ../../scripts/build-package.ts ."
+    "build": "bun ../../scripts/build-package.ts .",
+    "test:node": "node --experimental-transform-types --test src/*.node-test.ts"
   },
   "publishConfig": {
     "access": "public",

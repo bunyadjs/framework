@@ -18,6 +18,7 @@ export {
 export {
   registerProviderCommand,
   getProviderCommandHandlers,
+  describeProviderCommands,
   clearProviderCommands,
   commandNameFromCtor,
   type CommandHandler,
@@ -76,10 +77,7 @@ export {
   resolveWorkerLaunch,
   type StartWorkersOptions,
 } from "./workers.ts";
-export {
-  resolveAppBasePath,
-  isBunEmbeddedPath,
-} from "./paths.ts";
+export { resolveAppBasePath, isBunEmbeddedPath } from "./paths.ts";
 export {
   injectReloadScript,
   isHtmlResponse,

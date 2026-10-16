@@ -82,6 +82,7 @@ export const nav: DocGroup[] = [
       { slug: "notifications", title: "Notifications", file: "notifications.md" },
       { slug: "queues", title: "Queues", file: "queues.md" },
       { slug: "rate-limiting", title: "Rate Limiting", file: "rate-limiting.md" },
+      { slug: "sitemaps", title: "Sitemaps", file: "sitemaps.md" },
       { slug: "scheduling", title: "Task Scheduling", file: "scheduling.md" },
       { slug: "packages", title: "Package Development", file: "packages.md" },
     ],

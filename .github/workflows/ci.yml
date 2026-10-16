@@ -44,9 +44,14 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ matrix.bun }}
+      # xmllint validates sitemap output against the vendored XSDs (packages/sitemap/src/xsd.test.ts).
+      - name: Install xmllint
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun test packages scripts
+        env:
+          BUNYAD_REQUIRE_XMLLINT: "1"
       - run: bun scripts/release.ts build
 
   macos:
@@ -61,7 +66,7 @@ jobs:
       - run: bun test packages
 
   node:
-    name: Node ${{ matrix.node }} (database + orm)
+    name: Node ${{ matrix.node }} (database + orm, filesystem + sitemap on 22+)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -109,6 +114,12 @@ jobs:
       # Node 20 cannot strip types itself (needs 22.7+), so it loads the TypeScript tests through tsx.
       - run: bun run ${{ matrix.node == 20 && 'test:node:tsx' || 'test:node' }}
         working-directory: packages/database
+      - run: bun run test:node
+        if: matrix.node != 20
+        working-directory: packages/filesystem
+      - run: bun run test:node
+        if: matrix.node != 20
+        working-directory: packages/sitemap
 
   smoke:
     name: Scaffold and run (${{ matrix.kit }})

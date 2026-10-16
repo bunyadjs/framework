@@ -7,6 +7,7 @@ Keep examples synchronized with SPEC — do not show APIs that are not implement
 | NestJS ORM glue | [`../packages` via `@bunyad/nestjs`](../../packages/nestjs/README.md) | — |
 | Next.js ORM (server-only) | [`orm-node-next`](./orm-node-next/) | — |
 | Express ORM (Node + SQLite) | [`orm-node-express`](./orm-node-express/) | — |
+| Sitemaps: two domains, 100k rows (Bun) | [`sitemap`](./sitemap/) | — |
 
 Planned snippets (not written yet):
 

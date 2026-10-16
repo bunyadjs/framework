@@ -19,6 +19,7 @@ export {
   clearRegisteredCommands,
   getClosureCommandHandlers,
   getProviderCommandHandlers,
+  describeProviderCommands,
 } from "./command-registry.ts";
 export {
   Prompt,
