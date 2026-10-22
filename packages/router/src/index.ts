@@ -64,6 +64,8 @@ export {
   scanRoutes,
   collectFileRoutes,
   registerFileRoutes,
+  routeScanFiles,
+  relocateRouteScan,
   controllerSourceFile,
   routeEntries,
   fullMiddleware,

@@ -3,7 +3,7 @@ import { Get, Method, Name, Post, View } from "@bunyad/http";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Router, collectFileRoutes, registerFileRoutes, scanRoutes } from "../src/index.ts";
+import { Router, collectFileRoutes, registerFileRoutes, relocateRouteScan, routeScanFiles, scanRoutes } from "../src/index.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -791,4 +791,22 @@ test("an area on a domain answers on that host only; {root} is the app's domain"
   expect(router.match("GET", "/home", "acme.example.test")?.params.tenant).toBe("acme");
   expect(router.match("GET", "/home", "shop.example.net")?.route.uri).toBe("/home");
   expect(router.match("GET", "/home", "nope.test")).toBeUndefined();
+});
+
+test("a stored scan can be moved to another root and registered without the source tree", async () => {
+  class ThingController {
+    index() {}
+  }
+  const root = tree({ "things/ThingController.ts": "" });
+  const scan = scanRoutes(root);
+  expect(routeScanFiles(scan).map((f) => f.slice(root.length))).toEqual(["/things/ThingController.ts"]);
+
+  const moved = relocateRouteScan(JSON.parse(JSON.stringify(scan)), root, "/virtual/routes");
+  rmSync(root, { recursive: true, force: true });
+  use({ "ThingController.ts": { default: ThingController } });
+
+  const router = new Router();
+  const routes = await registerFileRoutes(moved, router, { load });
+  expect(routes.map((r) => r.uri)).toEqual(["/things"]);
+  expect(router.match("GET", "/things")).toBeDefined();
 });

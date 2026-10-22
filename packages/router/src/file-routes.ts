@@ -718,11 +718,11 @@ async function registerRouteFiles(scan: RouteScan, router: Router, options: Regi
 
 /** Register the routes of a route tree on a router. Returns what was registered. */
 export async function registerFileRoutes(
-  root: string,
+  root: string | RouteScan,
   router: Router = getActiveRouter(),
   options: RegisterFileRoutesOptions = {},
 ): Promise<FileRoute[]> {
-  const scan = scanRoutes(root);
+  const scan = typeof root === "string" ? scanRoutes(root) : root;
   const routes = await collectFileRoutes(scan, options);
   await registerRouteFiles(scan, router, options);
   // The update endpoint and client script the components talk to.
@@ -760,6 +760,43 @@ export async function registerFileRoutes(
     }
   }
   return routes;
+}
+
+/** Every code file `registerFileRoutes` imports for a scan: controllers, `*.routes.ts`, `middleware.ts`, `route.ts` and Live components. */
+export function routeScanFiles(scan: RouteScan): string[] {
+  const files = new Set<string>();
+  for (const folder of scan.folders) {
+    for (const file of [...folder.controllers, folder.routesConfig, folder.middleware, folder.routeFile, folder.live]) if (file) files.add(file);
+  }
+  return [...files].sort();
+}
+
+/**
+ * The same scan under another root. A scan taken at build time (paths relative to `from`) can be stored, then
+ * placed at any `to` when the app runs without the source tree, for example inside a single-file binary.
+ */
+export function relocateRouteScan(scan: RouteScan, from: string, to: string): RouteScan {
+  const move = (path: string): string => (path === from ? to : path.startsWith(from + sep) || path.startsWith(`${from}/`) ? to + path.slice(from.length) : path);
+  const optional = (path: string | undefined) => (path === undefined ? undefined : move(path));
+  return {
+    root: move(scan.root),
+    stray: scan.stray.map(move),
+    folders: scan.folders.map((folder) => ({
+      ...folder,
+      dir: move(folder.dir),
+      controller: optional(folder.controller),
+      controllers: folder.controllers.map(move),
+      pages: Object.fromEntries(Object.entries(folder.pages).map(([key, file]) => [key, move(file)])),
+      views: Object.fromEntries(Object.entries(folder.views).map(([key, file]) => [key, move(file)])),
+      requests: optional(folder.requests),
+      policy: optional(folder.policy),
+      layout: optional(folder.layout),
+      middleware: optional(folder.middleware),
+      routesConfig: optional(folder.routesConfig),
+      routeFile: optional(folder.routeFile),
+      live: optional(folder.live),
+    })),
+  };
 }
 
 /** Route entries of an app: the route tree in `routes/` (when it holds route folders). */
