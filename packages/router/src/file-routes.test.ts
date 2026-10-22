@@ -810,3 +810,15 @@ test("a stored scan can be moved to another root and registered without the sour
   expect(routes.map((r) => r.uri)).toEqual(["/things"]);
   expect(router.match("GET", "/things")).toBeDefined();
 });
+
+test("a route decorator can limit a parameter with where", async () => {
+  class FilesController {
+    @Get("/{key}", { name: "files.show", where: { key: ".+" } })
+    show() {}
+  }
+  const root = tree({ "files/FilesController.ts": "" });
+  use({ "FilesController.ts": { default: FilesController } });
+  const router = new Router();
+  await registerFileRoutes(root, router, { load });
+  expect(router.match("GET", "/files/a/b/c.png")?.params.key).toBe("a/b/c.png");
+});

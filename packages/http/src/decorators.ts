@@ -269,10 +269,10 @@ export function routeMethodOf(Controller: Function): string[] | undefined {
 const ROUTE_SPECS = Symbol.for("bunyad.controller.routeSpecs");
 
 /** A route declared on a controller method: a verb and a path relative to the controller's folder. */
-export type DeclaredRoute = { method: string; path: string; name?: string; access?: string };
+export type DeclaredRoute = { method: string; path: string; name?: string; access?: string; where?: Record<string, string> };
 
 /** Options of `@Get("/x", { … })`: the route's name and its extra middleware. */
-export type DeclaredRouteOptions = { name?: string; middleware?: Middleware[]; /** Who may open it: `guest` or `auth`. Replaces the access its area sets. */ access?: string };
+export type DeclaredRouteOptions = { name?: string; middleware?: Middleware[]; /** Who may open it: `guest` or `auth`. Replaces the access its area sets. */ access?: string; /** Patterns for parameters, such as `{ key: ".+" }` for a path with slashes. */ where?: Record<string, string> };
 
 type SpecMeta = Function & { [ROUTE_SPECS]?: Map<string, DeclaredRoute[]> };
 
@@ -283,7 +283,7 @@ function routeDecorator(method: string) {
         if (member === undefined) return;
         const meta = ctor as SpecMeta;
         const map = meta[ROUTE_SPECS] ?? new Map<string, DeclaredRoute[]>();
-        map.set(member, [...(map.get(member) ?? []), { method, path, name: options.name, access: options.access }]);
+        map.set(member, [...(map.get(member) ?? []), { method, path, name: options.name, access: options.access, where: options.where }]);
         meta[ROUTE_SPECS] = map;
         if (options.middleware?.length) pushMethodList(ctor as unknown as Ctor, METHOD_MIDDLEWARE, member, options.middleware);
       })) as MethodDecorator;

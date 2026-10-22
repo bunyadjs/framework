@@ -253,6 +253,8 @@ export type FileRoute = {
   folder: RouteFolder;
   /** Absent for a page with no controller. */
   controller?: ControllerClass;
+  /** Patterns for its parameters (`where` on a route decorator). */
+  where?: Record<string, string>;
   /** Hosts this route answers on (`admin.example.com`, `{tenant}.example.com`); one route is added per host. */
   domains?: string[];
   /** A Live component answers this route: its file and registered name. */
@@ -440,6 +442,7 @@ export async function collectFileRoutes(scan: RouteScan, options: RegisterFileRo
               view: spec.method === "GET" ? (override ? resolve(folder.dir, override) : folder.pages[pascal(method)]) : undefined,
               middleware,
               access: spec.access,
+              where: spec.where,
             });
           });
         }
@@ -476,6 +479,7 @@ export async function collectFileRoutes(scan: RouteScan, options: RegisterFileRo
           view: viewOf(folder, memberFolder, method, single, spec.method === "GET", controller),
           middleware,
           access: spec.access,
+          where: spec.where,
         });
       });
     }
@@ -756,6 +760,7 @@ export async function registerFileRoutes(
       }
       if (name) registrar.name(name);
       if (domain) registrar.domain(domain);
+      if (r.where) registrar.where(r.where);
       if (r.middleware.length > 0) registrar.middleware(...r.middleware);
     }
   }
