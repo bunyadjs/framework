@@ -836,3 +836,19 @@ test("excluded folders are not registered", async () => {
   const routes = await registerFileRoutes(root, router, { load, exclude: ["(central)"] });
   expect(routes.map((r) => r.uri)).toEqual(["/a"]);
 });
+
+test("the views below a spa.routes.ts are routed in the browser, not by the server", async () => {
+  class OrderController {
+    index() {}
+  }
+  const root = tree({
+    "app/spa.routes.ts": "",
+    "app/sales/SalesPage.tsx": "",
+    "app/sales/[orderId]/OrderPage.tsx": "",
+    "orders/OrderController.ts": "",
+    "orders/OrdersPage.tsx": "",
+  });
+  use({ "OrderController.ts": { default: OrderController }, "spa.routes.ts": { default: {} } });
+  const routes = await collectFileRoutes(scanRoutes(root), { load });
+  expect(routes.map((r) => r.uri)).toEqual(["/orders"]);
+});

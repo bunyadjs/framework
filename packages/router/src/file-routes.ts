@@ -158,8 +158,11 @@ export function scanRoutes(root: string): RouteScan {
   const folders: RouteFolder[] = [];
   const stray: string[] = [];
 
-  const walk = (dir: string, uriParts: string[], nameParts: string[]) => {
+  const walk = (dir: string, uriParts: string[], nameParts: string[], clientOnly = false) => {
     const entries = readdirSync(dir).sort();
+    // A `spa.routes.ts` marks a folder whose pages are routed in the browser (a React Router table, say): the
+    // server does not make routes of the views below it.
+    const spa = clientOnly || entries.includes("spa.routes.ts") || entries.includes("spa.routes.js");
     const rel = relative(root, dir);
     const own = rel === "" ? undefined : parseSegment(basename(dir));
     const folder: RouteFolder = {
@@ -176,6 +179,7 @@ export function scanRoutes(root: string): RouteScan {
     // Classify one file of the folder; files in a `pages/` subfolder count as the folder's own.
     const classify = (entry: string, full: string): void => {
       if (isTestFile(entry)) return;
+      if (spa && VIEW_EXTENSIONS.has(extname(entry))) return;
       // `NotFoundPage`, `ErrorPage`, … at the root answer errors; they are not routes.
       if (rel === "" && ERROR_PAGES.has(stem(entry))) return;
         const ext = extname(entry);
@@ -231,6 +235,7 @@ export function scanRoutes(root: string): RouteScan {
           full,
           seg ? [...uriParts, seg.uri] : uriParts,
           seg?.name ? [...nameParts, seg.name] : nameParts,
+          spa,
         );
         continue;
       }
