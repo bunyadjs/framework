@@ -5,9 +5,11 @@ import {
   setActiveRouter,
   type Router,
 } from "./router.ts";
+import { statSync } from "node:fs";
 import { applyRouteFileBindings } from "./route-bindings.ts";
+import { registerFileRoutes } from "./file-routes.ts";
 
-export type LoadedRouteStyle = "default" | "registerRoutes" | "side-effect";
+export type LoadedRouteStyle = "default" | "registerRoutes" | "side-effect" | "folder";
 
 export type RouteModule = {
   default?: ((router: Router) => void | Promise<void>) | unknown;
@@ -60,6 +62,7 @@ export async function loadRouteModule(
   options: LoadRouteModuleOptions = {},
 ): Promise<LoadedRouteStyle> {
   setActiveRouter(router);
+  if (isDirectory(toFilePath(entry))) return loadRouteFolder(toFilePath(entry), router);
   // Bust module cache so side-effect Route.* files re-register after Route.clear()
   // (compile / route:list / tests in the same process).
   const base = toImportUrl(entry);
@@ -109,6 +112,21 @@ export async function loadRouteModule(
 
   await applyRouteFileBindings(router, toFilePath(entry));
   return style;
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** A route folder (`src/`): the folder is the route tree; middleware and prefixes come from its `middleware.ts` files. */
+async function loadRouteFolder(dir: string, router: Router): Promise<LoadedRouteStyle> {
+  // A route tree is the web interface unless its root `middleware.ts` says otherwise.
+  await registerFileRoutes(dir, router, { defaultMiddleware: ["web"] });
+  return "folder";
 }
 
 /**

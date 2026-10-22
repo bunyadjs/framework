@@ -23,7 +23,7 @@ test("newProject scaffolds api template", async () => {
   try {
     await newProject(["api", "scaffold-api"]);
     expect(existsSync(resolve(target, "server.ts"))).toBe(true);
-    expect(existsSync(resolve(target, "routes/api.ts"))).toBe(true);
+    expect(existsSync(resolve(target, "routes/(api)/register/RegisterController.ts"))).toBe(true);
     const pkg = (await Bun.file(resolve(target, "package.json")).json()) as {
       name: string;
     };
@@ -101,13 +101,13 @@ test("the prompt offers the starter kits by name and copies no runtime leftovers
     expect(menu).not.toContain("saas");
 
     const target = resolve(parent, "shop");
-    expect(existsSync(resolve(target, "routes/auth.ts"))).toBe(true);
+    expect(existsSync(resolve(target, "routes/(auth)/login/LoginController.ts"))).toBe(true);
     // The template has node_modules and a test database from being run.
     expect(existsSync(resolve(target, "node_modules"))).toBe(false);
     expect(existsSync(resolve(target, "database/testing.sqlite"))).toBe(false);
     expect(existsSync(resolve(target, "database/migrations"))).toBe(true);
     expect(existsSync(resolve(target, ".env"))).toBe(true);
-    expect(menu).toContain("bun ./bunyad migrate");
+    expect(menu).toContain("bunx bunyad migrate");
     expect(menu).toContain("bun run dev");
   } finally {
     if (prevHome === undefined) delete process.env.FLOCK_HOME;
@@ -192,8 +192,8 @@ test("--kit and --dir name the starter kit and directory without prompts", async
   try {
     await newProject(["--kit=api", "--dir=from-flags"]);
     await newProject(["--kit=api", "positional-dir"]);
-    expect(existsSync(resolve(parent, "from-flags/routes/api.ts"))).toBe(true);
-    expect(existsSync(resolve(parent, "positional-dir/routes/api.ts"))).toBe(true);
+    expect(existsSync(resolve(parent, "from-flags/routes/(api)/register/RegisterController.ts"))).toBe(true);
+    expect(existsSync(resolve(parent, "positional-dir/routes/(api)/register/RegisterController.ts"))).toBe(true);
   } finally {
     process.chdir(cwd);
     await rm(parent, { recursive: true, force: true });

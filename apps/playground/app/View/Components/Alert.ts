@@ -4,6 +4,6 @@ export default class Alert extends Component {
   type = "info";
 
   render(): string {
-    return "components.alert";
+    return "_components.alert";
   }
 }

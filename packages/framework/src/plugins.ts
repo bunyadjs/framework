@@ -1,8 +1,6 @@
 import {
   createRouterPlugin,
   createServerPlugin,
-  createMiddlewarePlugin,
-  createProvidersPlugin,
   createDiscoveryPlugin,
   createConfigPlugin,
   type CompilerPlugin,
@@ -20,8 +18,6 @@ export function defaultCompilerPlugins(options: {
       routesEntries: options.routesEntries,
       optimize: options.optimize,
     }),
-    createMiddlewarePlugin(),
-    createProvidersPlugin(),
     createDiscoveryPlugin(),
     createConfigPlugin(),
     createServerPlugin({ applicationModule: options.applicationModule }),

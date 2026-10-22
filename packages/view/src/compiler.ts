@@ -788,6 +788,16 @@ function compileBody(source: string, locals: Set<string>): string {
         continue;
       }
 
+      if (rest.startsWith("@meta")) {
+        // What the layouts around a page show (its title and text); read back by the page renderer.
+        const open = rest.indexOf("(");
+        const close = requireMatchingParen(rest, open, "@meta");
+        const meta = new Function(`return (${rest.slice(open + 1, close).trim()});`)() as Record<string, unknown>;
+        out += `__d.__meta=${JSON.stringify(meta)};\n`;
+        i += close + 1;
+        continue;
+      }
+
       if (rest.startsWith("@aware")) {
         const open = rest.indexOf("(");
         const close = requireMatchingParen(rest, open, "@aware");

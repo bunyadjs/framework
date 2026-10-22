@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 const app = resolve(import.meta.dir, "../../../apps/my-api");
 
 function run(args: string[], env: Record<string, string>) {
-  const proc = Bun.spawnSync([process.execPath, "./bunyad", ...args], { cwd: app, env: { ...process.env, ...env }, stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawnSync([process.execPath, resolve(import.meta.dir, "bunyad.ts"), ...args], { cwd: app, env: { ...process.env, ...env }, stdout: "pipe", stderr: "pipe" });
   return { code: proc.exitCode, out: proc.stdout.toString() + proc.stderr.toString() };
 }
 

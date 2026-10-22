@@ -352,7 +352,7 @@ export function asset(path: string, secure?: boolean | null): string {
 }
 
 /**
- * URL for `[Controller, 'method']` or an invokable controller (`__invoke`).
+ * URL for `[Controller, 'method']` or an invokable controller (`handle`).
  */
 export function action(
   target: [new () => object, string] | (new () => object),

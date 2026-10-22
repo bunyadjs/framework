@@ -205,10 +205,9 @@ test("another process (`bunyad mcp`) reads history this one wrote to disk", asyn
 
   const root = await mkdtemp(join(tmpdir(), "debugbar-mcp-app-"));
   try {
-    await mkdir(join(root, "bootstrap"), { recursive: true });
-    const u = (name: string) => JSON.stringify(import.meta.resolve(name));
+      const u = (name: string) => JSON.stringify(import.meta.resolve(name));
     await writeFile(
-      join(root, "bootstrap/app.ts"),
+      join(root, "server.ts"),
       `import { Application } from ${u("@bunyad/core")};
 import { Router } from ${u("@bunyad/router")};
 import { DebugbarServiceProvider } from ${u("@bunyad/debugbar")};

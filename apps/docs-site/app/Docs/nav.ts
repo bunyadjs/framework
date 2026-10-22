@@ -45,6 +45,7 @@ export const nav: DocGroup[] = [
   {
     title: "The Basics",
     pages: [
+      { slug: "file-routing", title: "Route Folders", file: "file-routing.md" },
       { slug: "routing", title: "Routing", file: "routing.md" },
       { slug: "middleware", title: "Middleware", file: "middleware.md" },
       { slug: "csrf", title: "CSRF Protection", file: "csrf.md" },

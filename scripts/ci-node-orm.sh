@@ -11,7 +11,5 @@ cd "$ROOT"
 echo "==> @bunyad/database Node conformance + ORM whereHas smoke (node:test)"
 ( cd packages/database && bun run test:node )
 
-echo "==> @bunyad/nestjs unit smoke (bun:test; module shape + sqlite factory)"
-( cd packages/nestjs && bun test )
 
 echo "OK ci-node-orm"

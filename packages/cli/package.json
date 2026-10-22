@@ -44,19 +44,21 @@
     "./bin": {
       "types": "./src/bunyad.ts",
       "default": "./src/bunyad.ts"
+    },
+    "./frontend": {
+      "types": "./src/frontend.ts",
+      "default": "./src/frontend.ts"
     }
   },
   "dependencies": {
     "@bunyad/cache": "workspace:^",
     "@bunyad/common": "workspace:^",
     "@bunyad/compiler": "workspace:^",
-    "@bunyad/console": "workspace:^",
     "@bunyad/core": "workspace:^",
     "@bunyad/database": "workspace:^",
     "@bunyad/events": "workspace:^",
     "@bunyad/features": "workspace:^",
     "@bunyad/mcp": "workspace:^",
-    "@bunyad/migrate": "workspace:^",
     "@bunyad/orm": "workspace:^",
     "@bunyad/queue": "workspace:^",
     "@bunyad/router": "workspace:^",
@@ -86,6 +88,10 @@
       "./bin": {
         "types": "./dist/bunyad.d.ts",
         "default": "./dist/bunyad.js"
+      },
+      "./frontend": {
+        "types": "./dist/frontend.d.ts",
+        "default": "./dist/frontend.js"
       }
     },
     "bin": {

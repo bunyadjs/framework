@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun scripts/dev.ts",
-    "build": "tailwindcss -i resources/css/app.css -o public/build/app.css --minify",
-    "serve": "bun ./bunyad serve",
+    "dev": "bunyad dev",
+    "build": "bunyad build",
+    "serve": "bunyad serve",
     "test": "bun test"
   },
   "dependencies": {

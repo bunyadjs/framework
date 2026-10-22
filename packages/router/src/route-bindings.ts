@@ -372,7 +372,7 @@ function paramNeedsModelBinder(router: Router, param: string): boolean {
 }
 
 /**
- * Boot-time convention: for unbound route params, load `app/Models/{Studly}`.
+ * Boot-time convention: for unbound route params, load `src/Models/{Studly}`.
  * Never call on the request path.
  */
 export async function registerConventionModels(

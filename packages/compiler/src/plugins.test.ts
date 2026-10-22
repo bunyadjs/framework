@@ -6,9 +6,7 @@ import { join, resolve } from "node:path";
 import {
   compile,
   createConfigPlugin,
-  createMiddlewarePlugin,
   createMigrationsPlugin,
-  createProvidersPlugin,
   createServerPlugin,
   createWorkersPlugin,
   type AnalyzeContext,
@@ -89,8 +87,6 @@ describe("compile()", () => {
 
     expect(manifest.plugins).toEqual([
       "router",
-      "middleware",
-      "providers",
       "migrations",
       "discovery",
       "config",
@@ -189,9 +185,6 @@ describe("compile()", () => {
       console.warn = original;
     }
     expect(seen).toContain("W_001: careful");
-    // missing optional bootstrap files are warnings, not failures
-    expect(seen.some((m) => m.startsWith("BUNYAD_MW_001"))).toBe(true);
-    expect(seen.some((m) => m.startsWith("BUNYAD_PROV_001"))).toBe(true);
   });
 
   test("manifest defaults: app name, version, ISO timestamp, and outDir default", async () => {
@@ -251,7 +244,7 @@ Route.get("/closure", () => new Response("hi"));
     expect(routes).not.toContain("/closure");
   });
 
-  test("a controller outside app/Http/Controllers fails with BUNYAD_ROUTE_011", async () => {
+  test("a controller outside src/Http/Controllers fails with BUNYAD_ROUTE_011", async () => {
     await write("elsewhere/Orphan.ts", "export default class Orphan { index() { return 'x'; } }\n");
     const entry = await write(
       "routes/web.ts",
@@ -294,64 +287,6 @@ Route.get("/ping", [PingController, "index"]).name("ping");
     expect(routes).toContain("PingController");
     expect(routes).toContain('name("ping")');
     expect(routes).toContain(".inject([])");
-  });
-});
-
-describe("middleware and providers plugins", () => {
-  test("missing entry is a warning and generates nothing", async () => {
-    const ctx = analyzeCtx();
-    const plugin = createMiddlewarePlugin();
-    await plugin.analyze!(ctx);
-    expect(ctx.diagnostics).toHaveLength(1);
-    expect(ctx.diagnostics[0]).toMatchObject({ code: "BUNYAD_MW_001", severity: "warning" });
-    const gen = generateCtx(ctx);
-    await plugin.generate!(gen.ctx);
-    expect(gen.files).toEqual({});
-    expect(gen.modules).toEqual({});
-  });
-
-  test("an entry without registerMiddleware is an error (BUNYAD_MW_002)", async () => {
-    const entry = await write("bootstrap/middleware.ts", "export const nope = 1;\n");
-    const ctx = analyzeCtx();
-    await createMiddlewarePlugin({ middlewareEntry: entry }).analyze!(ctx);
-    expect(ctx.diagnostics).toEqual([
-      expect.objectContaining({ code: "BUNYAD_MW_002", file: entry }),
-    ]);
-    // severity defaults to error
-    expect(ctx.diagnostics[0]!.severity).toBeUndefined();
-  });
-
-  test("a valid entry re-exports with a relative import path", async () => {
-    const entry = await write(
-      "bootstrap/middleware.ts",
-      "export function registerMiddleware() {}\n",
-    );
-    const ctx = analyzeCtx();
-    const plugin = createMiddlewarePlugin();
-    await plugin.analyze!(ctx);
-    expect(ctx.diagnostics).toEqual([]);
-    const gen = generateCtx(ctx);
-    await plugin.generate!(gen.ctx);
-    expect(gen.files["middleware.ts"]).toContain(
-      'export { registerMiddleware } from "../bootstrap/middleware.ts";',
-    );
-    expect(gen.meta.middleware).toEqual({ entry, present: true });
-  });
-
-  test("providers: missing registerProviders is an error, valid entry is re-exported", async () => {
-    const bad = await write("bootstrap/providers.ts", "export default 1;\n");
-    const badCtx = analyzeCtx();
-    await createProvidersPlugin({ providersEntry: bad }).analyze!(badCtx);
-    expect(badCtx.diagnostics[0]).toMatchObject({ code: "BUNYAD_PROV_002", file: bad });
-
-    // a different file: the bad entry above is already in the module cache
-    const goodEntry = await write("bootstrap/providers-ok.ts", "export function registerProviders() {}\n");
-    const ctx = analyzeCtx();
-    const plugin = createProvidersPlugin({ providersEntry: goodEntry });
-    await plugin.analyze!(ctx);
-    const gen = generateCtx(ctx);
-    plugin.generate!(gen.ctx);
-    expect(gen.files["providers.ts"]).toContain('from "../bootstrap/providers-ok.ts"');
   });
 });
 

@@ -83,7 +83,7 @@ function printAppCommandList(
   console.log("Available commands:");
   const names = Object.keys(handlers).sort();
   if (names.length === 0) {
-    console.log(`  (none in ${cwd}/app/Console/Commands)`);
+    console.log(`  (none in ${cwd}/src/Console/Commands)`);
     return;
   }
   for (const name of names) {

@@ -1,11 +1,18 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { compile } from "../src/index.ts";
+import { routeEntries } from "@bunyad/router";
 
 const root = resolve(import.meta.dir, "../../../apps/playground");
 
-test("compile playground emits middleware, models, and routes", async () => {
+// Compiled output left in the app would be picked up by its own tests.
+afterAll(async () => {
+  for (const dir of [".build", ".build-optimize-test"]) await rm(resolve(root, dir), { recursive: true, force: true });
+});
+
+test("compile playground emits models, views, and routes", async () => {
   const outDir = resolve(root, ".build");
   await rm(outDir, { recursive: true, force: true });
 
@@ -13,10 +20,10 @@ test("compile playground emits middleware, models, and routes", async () => {
     root,
     outDir,
     appName: "playground",
-    routesEntries: [resolve(root, "routes/web.ts")],
+    routesEntries: routeEntries(root),
     plugins: [(await import("@bunyad/view")).createViewPlugin()],
     bootstrap: {
-      applicationModule: resolve(root, "bootstrap/app.ts"),
+      applicationModule: resolve(root, "server.ts"),
     },
   });
 
@@ -29,27 +36,17 @@ test("compile playground emits middleware, models, and routes", async () => {
   expect((manifest.meta.router as { models: number }).models).toBeGreaterThanOrEqual(2);
   expect((manifest.meta.view as { count: number }).count).toBeGreaterThan(0);
   expect(manifest.modules.views).toBe("./views/index.js");
-  expect(manifest.modules.middleware).toBe("./middleware.ts");
-  expect((manifest.meta.middleware as { present: boolean }).present).toBe(true);
-  expect(manifest.modules.providers).toBe("./providers.ts");
-  expect((manifest.meta.providers as { present: boolean }).present).toBe(true);
   expect(manifest.modules.discovery).toBe("./discovery.ts");
   expect(manifest.modules.config).toBe("./config.ts");
   expect(manifest.modules.migrations).toBe("./migrations.js");
   expect((manifest.meta.migrations as { count: number }).count).toBeGreaterThan(0);
   expect((manifest.meta.discovery as { live: number }).live).toBeGreaterThan(0);
 
-  const middleware = await Bun.file(`${outDir}/middleware.ts`).text();
-  expect(middleware).toContain("registerMiddleware");
-
-  const providers = await Bun.file(`${outDir}/providers.ts`).text();
-  expect(providers).toContain("registerProviders");
-
   const viewsIndex = await Bun.file(`${outDir}/views/index.js`).text();
-  expect(viewsIndex).toContain("welcome");
-  expect(viewsIndex).toContain("auth.login");
+  expect(viewsIndex).toContain("(web).welcome.WelcomePage");
+  expect(viewsIndex).toContain("MainLayout");
 
-  const welcomeMod = await import(`${outDir}/views/welcome.js`);
+  const welcomeMod = await import(`${outDir}/views/(web)/welcome/WelcomePage.js`);
   expect(typeof welcomeMod.render).toBe("function");
   expect(welcomeMod.render({ title: "Hi", users: [] })).toContain("Hi");
 
@@ -59,8 +56,7 @@ test("compile playground emits middleware, models, and routes", async () => {
   expect(routes).toContain('name("home")');
   expect(routes).toContain('"auth"');
   expect(routes).toContain('"guest"');
-  expect(routes).toContain('"throttle:auth"');
-  expect(routes).toContain('"can:delete,post"');
+  // Middleware declared on a controller (`@Middleware("throttle:auth")`, `@Middleware("auth", "can:delete,post")`) is read from the class, not written into the route.
   expect(routes).toContain('"auth"');
   expect(routes).toContain('router.model("user", User)');
   expect(routes).toContain('router.model("post", Post)');
@@ -104,10 +100,10 @@ test("compile --optimize emits router.optimize()", async () => {
     outDir,
     appName: "playground",
     optimize: true,
-    routesEntries: [resolve(root, "routes/web.ts")],
+    routesEntries: routeEntries(root),
     plugins: [],
     bootstrap: {
-      applicationModule: resolve(root, "bootstrap/app.ts"),
+      applicationModule: resolve(root, "server.ts"),
     },
   });
 
@@ -130,10 +126,10 @@ test("compile emits inject plans on controller routes", async () => {
     root,
     outDir,
     appName: "playground",
-    routesEntries: [resolve(root, "routes/web.ts")],
+    routesEntries: routeEntries(root),
     plugins: [],
     bootstrap: {
-      applicationModule: resolve(root, "bootstrap/app.ts"),
+      applicationModule: resolve(root, "server.ts"),
     },
   });
 
@@ -161,7 +157,7 @@ test("compile merges web + api route entries", async () => {
     root: apiRoot,
     outDir,
     appName: "my-api",
-    routesEntries: [resolve(apiRoot, "routes/api.ts")],
+    routesEntries: [resolve(apiRoot, "routes")],
     plugins: [],
     bootstrap: {
       applicationModule: resolve(apiRoot, "bootstrap/app.ts"),
@@ -171,14 +167,16 @@ test("compile merges web + api route entries", async () => {
   expect((manifest.meta.router as { count: number }).count).toBeGreaterThan(0);
   const routes = await Bun.file(`${outDir}/routes.ts`).text();
   expect(routes).toContain("TokenController");
-  expect(routes).toContain('"throttle:tokens"');
-  expect(routes).toContain('"auth"');
+  // Route-level middleware is compiled in; `@Middleware` on a controller stays on the class.
+  // The `api` group is route-level; `auth` and `throttle:api` are `@Middleware` on the controller.
+  expect(routes).toContain('"api"');
+  expect(routes).toContain("UserController");
 
   await rm(outDir, { recursive: true, force: true });
 });
 
 /** Compile a starter kit and return its generated routes and entry. */
-async function compileKit(kit: string, routeFile = "routes/web.ts") {
+async function compileKit(kit: string, routeFile = "src") {
   const kitRoot = resolve(import.meta.dir, `../../../templates/${kit}`);
   const outDir = resolve(kitRoot, ".build");
   await rm(outDir, { recursive: true, force: true });
@@ -188,7 +186,7 @@ async function compileKit(kit: string, routeFile = "routes/web.ts") {
     appName: kit,
     routesEntries: [resolve(kitRoot, routeFile)],
     plugins: [(await import("@bunyad/view")).createViewPlugin()],
-    bootstrap: { applicationModule: resolve(kitRoot, "bootstrap/app.ts") },
+    bootstrap: { applicationModule: resolve(kitRoot, existsSync(resolve(kitRoot, "bootstrap/app.ts")) ? "bootstrap/app.ts" : "server.ts") },
   });
   const routes = await Bun.file(resolve(outDir, "routes.ts")).text();
   const server = await Bun.file(resolve(outDir, "server.ts")).text();
@@ -197,23 +195,29 @@ async function compileKit(kit: string, routeFile = "routes/web.ts") {
 }
 
 test("helper routes (Route.view, Route.redirect, Inertia.route, Live.route) survive compile", async () => {
-  const react = await compileKit("react");
-  expect(react.routes).toContain('import { inertiaPage } from "@bunyad/inertia";');
-  expect(react.routes).toContain('router.get("/", inertiaPage("welcome", {}))');
-  expect(react.routes).toContain('router.redirect("/settings", "/settings/profile", 302)');
-  // A controller action without parameters is still stamped: production never looks plans up.
-  expect(react.routes).toContain('[AuthenticatedSessionController, "create"]).middleware("web", "guest").name("login").inject([])');
+  const react = await compileKit("react", "routes");
+  // A page whose folder has no method for it is a route of its own; the form post stays on the controller.
+  expect(react.routes).toContain('router.get("/settings/password", () => null).middleware("web", "auth").name("settings.password").page("routes/(app)/settings/password/PasswordPage.tsx")');
+  expect(react.routes).toContain('router.get("/login", () => null).middleware("web", "guest").name("login").page("routes/(auth)/login/LoginPage.tsx")');
+  // A controller action is still stamped with its arguments: production never looks plans up on disk.
+  expect(react.routes).toContain('[ProfileController, "edit"]).middleware("web", "auth").name("settings.profile").page("routes/(app)/settings/profile/ProfilePage.tsx").inject([{ kind: "request" }])');
 
-  const views = await compileKit("views");
-  expect(views.routes).toContain('router.view("/", "welcome", {"title":"Welcome"}, 200)');
+  const views = await compileKit("views", "routes");
+  expect(views.routes).toContain('router.get("/", () => null).middleware("web").name("home").page("routes/WelcomePage.view")');
 
-  const live = await compileKit("live");
-  expect(live.routes).toContain('import { livePage } from "@bunyad/live";');
-  expect(live.routes).toMatch(/router\.get\("\/settings\/profile", livePage\("settings\.profile"\)\)/);
+  const live = await compileKit("live", "routes");
+  expect(live.routes).toContain('import { livePage } from "@bunyad/live-components";');
+  expect(live.routes).toContain(`router.get("/settings/profile", livePage("(app).settings.profile.ProfileLive"))`);
 }, 60_000);
 
 test("an app without views compiles, and its entry does not load the view package", async () => {
-  const api = await compileKit("api", "routes/api.ts");
+  const api = await compileKit("api", "routes");
   expect(api.server).not.toContain("@bunyad/view");
   expect(api.routes).toContain('"/api/me"');
+}, 60_000);
+
+test("a route's view file and a page with no controller are compiled in", async () => {
+  const kit = await compileKit("react", "routes");
+  expect(kit.routes).toMatch(/\.name\("login"\)\.page\("routes\/\(auth\)\/login\/LoginPage\.tsx"\)/);
+  expect(kit.routes).toMatch(/router\.get\("\/dashboard", \(\) => null\)\.middleware\("web", "auth", "verified"\)\.name\("dashboard"\)\.page\("routes\/\(app\)\/dashboard\/DashboardPage\.tsx"\)/);
 }, 60_000);

@@ -87,9 +87,9 @@ test("group prefix and name", () => {
   expect(r.route("admin.dashboard")).toBe("/admin/dashboard");
 });
 
-test("a controller class calls __invoke", () => {
+test("a controller class calls handle", () => {
   class ShowPurchasePdf {
-    __invoke() {
+    handle() {
       return json({ pdf: true });
     }
   }
@@ -98,12 +98,12 @@ test("a controller class calls __invoke", () => {
   r.get("/purchases/{id}/purchase-pdf", ShowPurchasePdf).name("purchases.pdf");
 
   const hit = r.match("GET", "/purchases/4/purchase-pdf");
-  expect(hit?.route.action).toEqual([ShowPurchasePdf, "__invoke"]);
+  expect(hit?.route.action).toEqual([ShowPurchasePdf, "handle"]);
 });
 
-test("a controller class without __invoke must name the action", () => {
+test("a controller class without handle must name the action", () => {
   const r = new Router();
-  expect(() => r.get("/posts", PostsController)).toThrow(/missing __invoke/);
+  expect(() => r.get("/posts", PostsController)).toThrow(/missing handle/);
 });
 
 test("resource registers rest routes", () => {

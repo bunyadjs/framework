@@ -30,7 +30,7 @@ r.match("GET", "/nope");               // undefined
 
 - Bun-only runtime.
 - The package also exports a default `Route` facade, `url()`/`asset()`/`signed()` URL helpers, `resource()` routes and route-model binding hooks.
-- Actions can be closures, `[Controller, "method"]` tuples or invokable classes (`__invoke`).
+- Actions can be closures, `[Controller, "method"]` tuples or invokable classes (`handle`).
 - Depends on `@bunyad/http`; use `@bunyad/core` to serve a router.
 
 ## License

@@ -10,7 +10,7 @@ import { join } from "node:path";
 const root = join(import.meta.dir, "..");
 /** One lock-step version: set it with `bun scripts/release.ts version <x.y.z>`; this script follows it. */
 const VERSION: string = JSON.parse(readFileSync(join(root, "packages/contracts/package.json"), "utf8")).version;
-const SKIP = new Set(["nestjs", "create-bunyad"]);
+const SKIP = new Set(["create-bunyad"]);
 /** Packages that also run on plain Node (everything else needs Bun). */
 const NODE_OK = new Set(["contracts", "common", "database", "orm"]);
 
@@ -23,7 +23,6 @@ const DESCRIPTIONS: Record<string, string> = {
   common: "Collections, string/array helpers and errors shared across Bunyad packages.",
   compiler: "Build-time compiler for Bunyad: turns routes, views and the container into optimized JavaScript.",
   config: "Configuration loading for Bunyad.",
-  console: "Console output and command helpers for Bunyad.",
   container: "Dependency-injection container for Bunyad.",
   contracts: "Shared TypeScript interfaces for Bunyad packages.",
   core: "Application kernel for Bunyad: bootstrapping, providers and the HTTP lifecycle.",
@@ -36,11 +35,10 @@ const DESCRIPTIONS: Record<string, string> = {
   http: "HTTP requests, responses and middleware for Bunyad.",
   image: "Image processing for Bunyad.",
   inertia: "Inertia.js server adapter for Bunyad.",
-  live: "Server-driven reactive components for Bunyad views.",
+  "live-components": "Server-driven reactive components for Bunyad views.",
   log: "Logging for Bunyad.",
   mail: "Mail for Bunyad: SMTP and other drivers.",
   metrics: "Application metrics for Bunyad.",
-  migrate: "Database migration runner for Bunyad.",
   notifications: "Notifications for Bunyad: mail, database, Slack, SMS and broadcast channels.",
   oauth: "OAuth social login for Bunyad.",
   permissions: "Roles, permissions, teams and tenants for Bunyad, checked with a bit test and a version-validated cache.",

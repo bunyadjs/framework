@@ -19,6 +19,7 @@
   "handleInertiaRequests",
   "inertia",
   "inertiaPage",
+  "registerInertiaPages",
   "resetInertiaState",
   "resetSsrOptions",
   "resolveInertiaResponse",

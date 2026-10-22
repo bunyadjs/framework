@@ -183,7 +183,7 @@ test("boot stamps inject for non-web route files (e.g. central.ts)", async () =>
   );
   await writeFile(
     join(dir, "routes", "central.ts"),
-    `import type User from "../app/Models/User.ts";
+    `import type User from "../src/Models/User.ts";
 // Typed closure for scanner:
 Route.get("/users1/{user}", (user: User) => user);
 `,

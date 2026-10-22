@@ -9,7 +9,9 @@ import {
   Middleware,
   encodePageJson,
   handleInertiaRequests,
+  InertiaResponse,
   inertia,
+  registerInertiaPages,
   resetInertiaState,
   resolveInertiaResponse,
 } from "./index.ts";
@@ -420,4 +422,15 @@ test("encodePageJson escapes HTML-sensitive characters", () => {
   });
   expect(json).not.toContain("<");
   expect(json).toContain("\\u003c");
+});
+
+test("registerInertiaPages renders an action's data with the page named after its view file", async () => {
+  const { pageResponderFor } = await import("@bunyad/router");
+  registerInertiaPages();
+  const responder = pageResponderFor("src/web/login/LoginPage.tsx")!;
+  expect(responder).toBeDefined();
+  const response = responder({ file: "src/web/login/LoginPage.tsx", name: "web/login/LoginPage" }, { a: 1 }, undefined) as InertiaResponse;
+  expect(response).toBeInstanceOf(InertiaResponse);
+  expect(pageResponderFor("src/web/x/XPage.vue")).toBeDefined();
+  expect(pageResponderFor("src/web/x/XPage.svelte")).toBeDefined();
 });

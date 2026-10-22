@@ -26,7 +26,7 @@ console.log(res.status, await res.json()); // 200 { hello: "world" }
 
 // Plugins the compiler needs for a production build.
 console.log(
-  defaultCompilerPlugins({ routesEntry: "./routes/web.ts", applicationModule: "./bootstrap/app.ts" }).map((p) => p.name),
+  defaultCompilerPlugins({ routesEntry: "./routes/web.ts", applicationModule: "./server.ts" }).map((p) => p.name),
 ); // [ "router", "middleware", "providers", "discovery", "config", "server" ]
 ```
 

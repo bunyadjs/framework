@@ -6,16 +6,14 @@ test("framework re-exports http and auth", () => {
   expect(Gate).toBeDefined();
 });
 
-test("defaultCompilerPlugins returns router middleware providers discovery config server", () => {
+test("defaultCompilerPlugins returns router discovery config server", () => {
   const plugins = defaultCompilerPlugins({
     routesEntry: "./routes/web.ts",
     applicationModule: "./bootstrap/app.ts",
   });
-  expect(plugins).toHaveLength(6);
+  expect(plugins).toHaveLength(4);
   expect(plugins.map((p) => p.name)).toEqual([
     "router",
-    "middleware",
-    "providers",
     "discovery",
     "config",
     "server",
@@ -203,4 +201,32 @@ test("registerFrameworkProviders rejects an unknown except name", async () => {
       except: ["not-a-provider"] as never,
     }),
   ).toThrow(/Unknown framework provider/);
+});
+
+test("translations: dotted keys, folder namespaces, :name replacements and the fallback locale", async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const t = await import("./translator.ts");
+  const root = mkdtempSync(join(tmpdir(), "bunyad-lang-"));
+  mkdirSync(join(root, "lang"), { recursive: true });
+  mkdirSync(join(root, "routes/(auth)/login"), { recursive: true });
+  mkdirSync(join(root, "routes/settings/[tab]/_parts"), { recursive: true });
+  writeFileSync(join(root, "lang/en.json"), JSON.stringify({ app: { greeting: "Hello, :name" } }));
+  writeFileSync(join(root, "lang/fr.json"), JSON.stringify({ app: { greeting: "Bonjour, :name" } }));
+  writeFileSync(join(root, "routes/(auth)/login/lang.en.json"), JSON.stringify({ title: "Log in", errors: { bad: "Wrong password" } }));
+  writeFileSync(join(root, "routes/(auth)/login/lang.fr.json"), JSON.stringify({ title: "Connexion" }));
+  writeFileSync(join(root, "routes/settings/[tab]/lang.en.json"), JSON.stringify({ save: "Save" }));
+
+  t.clearTranslations();
+  t.loadTranslations(root, { locale: "fr", fallback: "en" });
+  expect(t.trans("app.greeting", { name: "Ada" })).toBe("Bonjour, Ada");
+  expect(t.trans("login.title")).toBe("Connexion");
+  expect(t.trans("login.errors.bad")).toBe("Wrong password");
+  expect(t.trans("settings.save")).toBe("Save");
+  expect(t.trans("missing.key")).toBe("missing.key");
+  expect(t.translations("fr", "login")).toEqual({ "login.title": "Connexion", "login.errors.bad": "Wrong password" });
+  t.setLocale("en");
+  expect(t.trans("login.title")).toBe("Log in");
+  t.clearTranslations();
 });

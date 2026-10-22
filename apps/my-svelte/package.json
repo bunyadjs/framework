@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun scripts/dev.ts",
-    "build": "bun scripts/build.ts",
-    "types": "bun ./bunyad types:generate",
-    "serve": "bun ./bunyad serve",
+    "dev": "bunyad dev",
+    "build": "bunyad build",
+    "types": "bunyad types:generate",
+    "serve": "bunyad serve",
     "test": "bun test"
   },
   "dependencies": {

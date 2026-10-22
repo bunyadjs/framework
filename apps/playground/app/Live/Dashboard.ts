@@ -1,4 +1,4 @@
-import { LiveComponent } from "@bunyad/live";
+import { LiveComponent } from "@bunyad/live-components";
 import { render } from "@bunyad/view";
 
 /**
@@ -8,7 +8,7 @@ export default class Dashboard extends LiveComponent {
   title = "Nested counter";
 
   async html(): Promise<string> {
-    return render("livewire.dashboard", {
+    return render("_components.live.dashboard", {
       title: this.title,
       counter: await this.live("counter", {}, { key: "main" }),
     });

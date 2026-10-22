@@ -1,8 +1,0 @@
-[
-  "Agent",
-  "agent",
-  "applyClientHints",
-  "clearAgentCache",
-  "parseUserAgent",
-  "setAgentCacheSize"
-]

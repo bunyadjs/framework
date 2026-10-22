@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { basename } from "node:path";
 import { userProviderModel, type AuthConfig } from "@bunyad/auth";
+import { liveComponentName, routeEntries } from "@bunyad/router";
 import type { CompilerPlugin } from "../types.ts";
 
 type DiscoveryFile = {
@@ -18,6 +19,18 @@ type DiscoveryIR = {
   token?: DiscoveryFile;
   channels?: DiscoveryFile;
 };
+
+/** `*Live.ts` files of a route tree, skipping `_` and capitalised folders. */
+async function liveFilesIn(tree: string): Promise<string[]> {
+  const found: string[] = [];
+  for await (const file of new Bun.Glob("**/*Live.{ts,tsx}").scan({ cwd: tree, absolute: true })) {
+    const parts = file.slice(tree.length + 1).split(/[\\/]/);
+    if (parts.slice(0, -1).some((part) => part.startsWith("_") || part.startsWith(".") || /^[A-Z]/.test(part))) continue;
+    if (!/^[A-Z]\w*Live\.tsx?$/.test(parts.at(-1)!)) continue;
+    found.push(file);
+  }
+  return found.sort();
+}
 
 function pascalToKebab(name: string): string {
   return name
@@ -74,15 +87,20 @@ async function listFiles(cwd: string, pattern: string): Promise<string[]> {
  * Emit `.build/discovery.ts` with static imports so compiled binaries include
  * Live components / mail / view / policy / auth classes.
  */
+/** The app's code folder. */
+function appDir(root: string): string {
+  return `${root}/app`;
+}
+
 export function createDiscoveryPlugin(): CompilerPlugin {
   return {
     name: "discovery",
 
     async analyze(ctx) {
-      const liveRoot = `${ctx.root}/app/Live`;
-      const mailRoot = `${ctx.root}/app/Mail`;
-      const viewRoot = `${ctx.root}/app/View/Components`;
-      const policyRoot = `${ctx.root}/app/Policies`;
+      const liveRoot = `${appDir(ctx.root)}/Live`;
+      const mailRoot = `${appDir(ctx.root)}/Mail`;
+      const viewRoot = `${appDir(ctx.root)}/View/Components`;
+      const policyRoot = `${appDir(ctx.root)}/Policies`;
 
       const liveFiles = await listFiles(liveRoot, "**/*.{ts,tsx}");
       const mailFiles = await listFiles(mailRoot, "**/*.{ts,tsx}");
@@ -94,6 +112,12 @@ export function createDiscoveryPlugin(): CompilerPlugin {
         ident: ident("live", dottedKebabName(file, liveRoot)),
         name: dottedKebabName(file, liveRoot),
       }));
+      // Components beside their templates in a route folder (`routes/(auth)/login/LoginLive.ts`).
+      const tree = routeEntries(ctx.root)[0];
+      for (const file of tree ? await liveFilesIn(tree) : []) {
+        const name = liveComponentName(tree!, file);
+        live.push({ file, ident: ident("live", name), name });
+      }
 
       const mailables: DiscoveryFile[] = mailFiles.map((file) => ({
         file,
@@ -112,7 +136,7 @@ export function createDiscoveryPlugin(): CompilerPlugin {
         const base = basename(file).replace(/\.(ts|tsx)$/, "");
         if (!base.endsWith("Policy") || base === "Policy") continue;
         const modelName = base.slice(0, -"Policy".length);
-        const modelFile = `${ctx.root}/app/Models/${modelName}.ts`;
+        const modelFile = `${appDir(ctx.root)}/Models/${modelName}.ts`;
         if (!existsSync(modelFile)) continue;
         policies.push({
           file,
@@ -128,8 +152,8 @@ export function createDiscoveryPlugin(): CompilerPlugin {
         ? ((await import(authConfigFile)) as { default?: AuthConfig }).default
         : undefined;
       const userModel = userProviderModel(authConfig);
-      const userFile = `${ctx.root}/app/Models/${userModel}.ts`;
-      const tokenFile = `${ctx.root}/app/Models/PersonalAccessToken.ts`;
+      const userFile = `${appDir(ctx.root)}/Models/${userModel}.ts`;
+      const tokenFile = `${appDir(ctx.root)}/Models/PersonalAccessToken.ts`;
       const channelsFile = `${ctx.root}/routes/channels.ts`;
       const user = existsSync(userFile)
         ? { file: userFile, ident: `model_${userModel}`, name: userModel }

@@ -9,6 +9,7 @@ import { cache } from "@bunyad/cache";
 import { event } from "@bunyad/events";
 import { dispatch } from "@bunyad/queue";
 import { getUrlContext } from "@bunyad/router";
+import { trans } from "./translator.ts";
 
 /** Current-request CSRF token (falls back to URL context request). */
 function csrf_token(request?: Request): string {
@@ -52,6 +53,8 @@ export type BunyadFrameworkGlobalHelpers = {
   event: typeof event;
   dispatch: typeof dispatch;
   cache: typeof cache;
+  trans: typeof trans;
+  __: typeof trans;
 };
 
 let installed = false;
@@ -69,6 +72,8 @@ export function installGlobals(): void {
   g.event = event;
   g.dispatch = dispatch;
   g.cache = cache;
+  g.trans = trans;
+  g.__ = trans;
 }
 
 declare global {
@@ -83,6 +88,9 @@ declare global {
     job: import("@bunyad/queue").Job,
   ): import("@bunyad/queue").PendingDispatch;
   function cache(): import("@bunyad/cache").CacheRepository;
+  /** A translated message by key (`lang/en.json`, or `lang.en.json` beside a page); `:name` is replaced from `replace`. */
+  function trans(key: string, replace?: Record<string, unknown>, locale?: string): string;
+  function __(key: string, replace?: Record<string, unknown>, locale?: string): string;
 }
 
 installGlobals();

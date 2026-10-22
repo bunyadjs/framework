@@ -24,10 +24,12 @@ bun run dev
 | Method | Path | Handler | Auth |
 |--------|------|---------|------|
 | GET | `/` | banner (`{ "name": … }`) | — |
-| POST | `/api/register` | `Auth/RegisterController` — create user, return token (201) | — |
-| POST | `/api/token` | `Auth/TokenController.store` — credentials → token | — |
-| GET | `/api/me` | `UserController.show` | Bearer |
-| DELETE | `/api/token` | `Auth/TokenController.destroy` — revoke (204) | Bearer |
+| POST | `/api/register` | `routes/(api)/register/RegisterController` — create user, return token (201) | — |
+| POST | `/api/token` | `routes/(api)/token/TokenController.store` — credentials → token | — |
+| GET | `/api/me` | `routes/(api)/me/UserController.show` | Bearer |
+| DELETE | `/api/token` | `routes/(api)/token/TokenController.destroy` — revoke (204) | Bearer |
+
+The folders are the URLs. `routes/(api)/` adds the `/api` prefix and the `api` middleware through `api.routes.ts`; models, providers and resources are in `app/`, and `server.ts` boots the app in one call.
 
 Validation and bad credentials answer `422` with `{ message, errors }`. A missing or bad token answers `401` JSON, with or without an `Accept` header.
 

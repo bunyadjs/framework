@@ -40,6 +40,7 @@ export {
   type UrlFacade,
 } from "./url.ts";
 export { Uri } from "./uri.ts";
+export { Domain } from "./domain.ts";
 export type { RouteParamValue, UrlDefaults } from "./context.ts";
 export { getUrlContext } from "./context.ts";
 export {
@@ -59,3 +60,22 @@ export {
   type ActionParamInfo,
   type TypeImportInfo,
 } from "./route-bindings.ts";
+export {
+  scanRoutes,
+  collectFileRoutes,
+  registerFileRoutes,
+  controllerSourceFile,
+  routeEntries,
+  fullMiddleware,
+  setPageResponder,
+  setLivePageHandler,
+  liveComponentName,
+  pageResponderFor,
+  pageName,
+  type PageRef,
+  type PageResponder,
+  type RouteFolder,
+  type RouteScan,
+  type FileRoute,
+  type RegisterFileRoutesOptions,
+} from "./file-routes.ts";

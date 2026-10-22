@@ -45,6 +45,11 @@ type AppCallback = (app: Application) => void;
 /**
  * Application container with paths, environment helpers, and provider bootstrap.
  */
+/** The folder of the app's code (models, middleware, providers); the route tree is `routes/`. */
+function appDirName(_basePath: string): string {
+  return "app";
+}
+
 export class Application extends Container {
   #basePath: string;
   #appPath: string;
@@ -100,7 +105,7 @@ export class Application extends Container {
   constructor(options: ApplicationOptions = {}) {
     super();
     this.#basePath = options.basePath ?? process.cwd();
-    this.#appPath = join(this.#basePath, "app");
+    this.#appPath = join(this.#basePath, appDirName(this.#basePath));
     this.#bootstrapPath = join(this.#basePath, "bootstrap");
     this.#configPath = join(this.#basePath, "config");
     this.#databasePath = join(this.#basePath, "database");
@@ -144,7 +149,7 @@ export class Application extends Container {
 
   setBasePath(basePath: string): this {
     this.#basePath = basePath;
-    this.#appPath = join(basePath, "app");
+    this.#appPath = join(basePath, appDirName(basePath));
     this.#bootstrapPath = join(basePath, "bootstrap");
     this.#configPath = join(basePath, "config");
     this.#databasePath = join(basePath, "database");

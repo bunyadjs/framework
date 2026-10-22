@@ -109,7 +109,7 @@ export function middlewareAliasOf(
   if (typeof middleware === "string") return middleware;
   if (
     middleware &&
-    typeof middleware === "object" &&
+    (typeof middleware === "object" || typeof middleware === "function") &&
     "alias" in middleware &&
     typeof (middleware as { alias?: unknown }).alias === "string"
   ) {

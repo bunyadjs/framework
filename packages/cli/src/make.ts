@@ -79,14 +79,40 @@ function tableNameFromModel(cls: string): string {
     .replace(/([^s])$/, "$1s");
 }
 
+/**
+ * Register a provider with the app: in the `providers` option of `bunyad()` in `server.ts`, or in
+ * `bootstrap/providers.ts` for an app that still has one.
+ */
 async function appendProviderRegistration(
   className: string,
   relativeImport: string,
-): Promise<boolean> {
-  const providersPath = resolve(process.cwd(), "bootstrap/providers.ts");
-  if (!(await exists(providersPath))) {
-    return false;
+): Promise<string | false> {
+  const legacy = resolve(process.cwd(), "bootstrap/providers.ts");
+  if (await exists(legacy)) return (await registerInLegacyProviders(legacy, className, relativeImport)) ? "bootstrap/providers.ts" : false;
+
+  const serverPath = resolve(process.cwd(), "server.ts");
+  if (!(await exists(serverPath))) return false;
+  let source = await Bun.file(serverPath).text();
+  if (!/bunyad\(\s*import\.meta/.test(source)) return false;
+  if (!source.includes(`import ${className} from`)) {
+    const importLine = `import ${className} from "@/Providers/${className}.ts";`;
+    const lastImport = [...source.matchAll(/^import .+$/gm)].at(-1);
+    source = lastImport?.index != null
+      ? source.slice(0, lastImport.index + lastImport[0].length) + `\n${importLine}` + source.slice(lastImport.index + lastImport[0].length)
+      : `${importLine}\n${source}`;
   }
+  if (/providers:\s*\[/.test(source)) {
+    if (!new RegExp(`providers:\\s*\\[[^\\]]*\\b${className}\\b`).test(source)) source = source.replace(/providers:\s*\[/, (m) => `${m}${className}, `).replace(new RegExp(`${className}, \\]`), `${className}]`);
+  } else if (/bunyad\(\s*import\.meta\s*,\s*\{/.test(source)) {
+    source = source.replace(/(bunyad\(\s*import\.meta\s*,\s*\{)/, `$1\n  providers: [${className}],`);
+  } else {
+    source = source.replace(/bunyad\(\s*import\.meta\s*\)/, `bunyad(import.meta, { providers: [${className}] })`);
+  }
+  await writeFile(serverPath, source);
+  return "server.ts";
+}
+
+async function registerInLegacyProviders(providersPath: string, className: string, relativeImport: string): Promise<boolean> {
   let source = await Bun.file(providersPath).text();
   const importLine = `import ${className} from "${relativeImport}";`;
   if (!source.includes(importLine) && !source.includes(`import ${className} from`)) {
@@ -173,7 +199,10 @@ export default class ${cls} extends Command {
 
     const { dir, base } = splitFolder(name);
     const cls = className(base, "Controller");
-    const path = join("app/Http/Controllers", dir, `${cls}.ts`);
+    // The controller goes in the route folder of its URL: `Auth/Register` is `routes/auth/register/RegisterController.ts`.
+    const kebab = (word: string) => word.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    const routeFolder = [...dir.split("/").filter(Boolean).map(kebab), kebab(cls.replace(/Controller$/, ""))];
+    const path = join("routes", ...routeFolder, `${cls}.ts`);
     const model = modelFlag ? className(modelFlag) : undefined;
     const subject = model ?? cls.replace(/Controller$/, "");
 
@@ -193,7 +222,7 @@ import { json${resource ? ", noContent" : ""} } from "@bunyad/http";`;
 
     let body: string;
     if (invokable) {
-      body = `  async __invoke(_request: Request) {
+      body = `  async handle(_request: Request) {
     return json({ message: "${cls}" });
   }`;
     } else if (resource) {
@@ -702,7 +731,7 @@ import { TestCase, testCase } from "@bunyad/testing";
 
 @testCase({
   async createApplication() {
-    const { createApplication } = await import("../../bootstrap/app.ts");
+    const { createApplication } = await import("../../server.ts");
     return createApplication();
   },
 })
@@ -754,10 +783,10 @@ export default class ${cls} extends ServiceProvider {
       `../app/Providers/${cls}.ts`,
     );
     if (appended) {
-      console.log(`Provider registered in bootstrap/providers.ts`);
+      console.log(`Provider registered in ${appended}`);
     } else {
       console.log(
-        `Note: bootstrap/providers.ts not found — register ${cls} manually.`,
+        `Note: no server.ts with bunyad() found — register ${cls} manually.`,
       );
     }
   },

@@ -23,7 +23,16 @@ export type Terminable = {
 export type Middleware =
   | string
   | MiddlewareHandler
-  | ({ handle: MiddlewareHandler; alias?: string; __params?: string[] } &
+  | ({
+      handle: MiddlewareHandler;
+      alias?: string;
+      __params?: string[];
+      /**
+       * Global middleware only: `false` leaves it out of that route's stack, so a route it can never
+       * affect costs nothing. Must be conservative: when unsure, return `true`.
+       */
+      appliesTo?: (route: { uri: string }) => boolean;
+    } &
       Terminable);
 
 function paramsOf(layer: Middleware): string[] {

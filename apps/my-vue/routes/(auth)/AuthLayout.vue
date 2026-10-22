@@ -1,0 +1,23 @@
+<script setup lang="ts">
+import { route } from "~/routes";
+import { Head, Link } from "@inertiajs/vue3";
+import AppLogo from "~/_components/AppLogo.vue";
+import Heading from "~/_components/Heading.vue";
+import type { PageMeta } from "~/_types";
+
+/** A centered card with the logo above it. Wraps every page in `(auth)`; the page's `meta` is its title and text. */
+defineProps<{ meta: PageMeta }>();
+</script>
+
+<template>
+  <main class="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+    <Head :title="meta.title" />
+    <Link :href="route('home')" class="text-lg"><AppLogo /></Link>
+    <div class="card w-full max-w-sm bg-base-100 shadow-sm">
+      <div class="card-body gap-6">
+        <Heading :title="meta.title" :description="meta.description" />
+        <slot />
+      </div>
+    </div>
+  </main>
+</template>

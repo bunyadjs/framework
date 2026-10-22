@@ -81,6 +81,7 @@ export function isRuntimeArtifact(path: string): boolean {
     name === ".env" ||
     /\.sqlite(-journal|-wal|-shm)?$/.test(name) ||
     parts.join("/").startsWith("public/build") ||
+    /^\.bunyad\/entry\.(tsx|ts)$/.test(parts.join("/")) ||
     parts.join("/").startsWith("storage/framework/sessions/")
   );
 }
@@ -209,11 +210,13 @@ export async function newProject(rawArgs: string[]): Promise<void> {
   outro(`Created ${template} app → ${target}`);
   const installed = options.install ? await run(["bun", "install"], target) : false;
   if (options.git) await run(["git", "init", "-q"], target);
+  // Apps without the `./bunyad` launcher use the `bunyad` command from their dependencies.
+  const launcher = existsSync(resolve(target, "bunyad")) ? "bun ./bunyad" : "bunx bunyad";
   console.log("Next steps:");
   console.log(`  cd ${targetArg}`);
   if (!installed) console.log("  bun install");
   if (existsSync(resolve(target, "database/migrations"))) {
-    console.log("  bun ./bunyad migrate");
+    console.log(`  ${launcher} migrate`);
   }
   const hint = flockServedHint(appName, target);
   if (hint) {
@@ -221,7 +224,7 @@ export async function newProject(rawArgs: string[]): Promise<void> {
     if (pkgJson.scripts?.build) console.log("  bun run build");
     console.log(`  ${hint}`);
   } else {
-    console.log(pkgJson.scripts?.dev ? "  bun run dev" : "  bun ./bunyad serve");
+    console.log(pkgJson.scripts?.dev ? "  bun run dev" : `  ${launcher} serve`);
   }
 }
 

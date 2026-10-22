@@ -17,14 +17,13 @@ import {
   getSchedule,
   setScheduleCommandRunner,
 } from "@bunyad/schedule";
-import { Route, loadRouteModule } from "@bunyad/router";
+import { Route, fullMiddleware, loadRouteModule, routeEntries } from "@bunyad/router";
 import {
   installShutdownHandlers,
   shutdownSignal,
   startWorkers,
 } from "@bunyad/core";
 import { makeCommands } from "./make.ts";
-import { migrateConvert, migrateReport } from "./migrate.ts";
 import { writeAppKey } from "./key.ts";
 import { newProject } from "./new.ts";
 import {
@@ -75,12 +74,17 @@ function openCliConnection() {
   return connection;
 }
 
-/** Every model class default-exported from `app/Models/**` (after the app has booted). */
+/** The app's code folder. */
+function appDir(_root = process.cwd()): string {
+  return "app";
+}
+
+/** Every model class default-exported from `Models/**` in the app's code folder (after the app has booted). */
 async function loadAppModels() {
   const { Glob } = await import("bun");
   const { isModelCtor } = await import("@bunyad/orm");
   const found = new Map<string, ReturnType<typeof Object>>();
-  for await (const file of new Glob("app/Models/**/*.{ts,js}").scan({ cwd: process.cwd() })) {
+  for await (const file of new Glob(`${appDir()}/Models/**/*.{ts,js}`).scan({ cwd: process.cwd() })) {
     const mod = await import(resolve(process.cwd(), file));
     for (const value of Object.values(mod)) {
       if (isModelCtor(value) && (value as { table?: string }).table) found.set((value as { name: string }).name, value as never);
@@ -89,10 +93,18 @@ async function loadAppModels() {
   return [...found.values()] as unknown as Array<import("@bunyad/orm").ModelClass>;
 }
 
+/** Scheduled tasks and console commands. */
+function consoleModulePath(root = process.cwd()): string {
+  return resolve(root, "app/Console/schedule.ts");
+}
+
+/** The module that exports `createApplication`. */
+function appModulePath(root = process.cwd()): string {
+  return resolve(root, "server.ts");
+}
+
 async function bootApp() {
-  const { createApplication } = await import(
-    resolve(process.cwd(), "bootstrap/app.ts")
-  );
+  const { createApplication } = await import(appModulePath());
   await createApplication();
 }
 
@@ -109,7 +121,7 @@ async function loadConsoleSchedule() {
     await handler(args);
   });
 
-  const consoleEntry = resolve(process.cwd(), "routes/console.ts");
+  const consoleEntry = consoleModulePath();
   try {
     getSchedule().clear();
     const mod = await import(consoleEntry);
@@ -139,6 +151,8 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     console.log("Usage: bunyad <command> [options]   (bunyad <command> --help for one command)");
     console.log("");
     console.log("Available commands:");
+    console.log("  dev            Server with hot reload, frontend bundle, types and Tailwind");
+    console.log("  build          Bundle the frontend into public/build");
     console.log("  serve          Start the HTTP server (dev)");
     console.log("                 --hot    Soft-reload with bun --hot");
     console.log("                 --watch  Restart process on file changes");
@@ -196,8 +210,6 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     console.log("  mcp            Serve this app's tools to an AI agent over stdio (MCP)");
     console.log('                 Editor config: { "command": "bun", "args": ["bunyad", "mcp"] }');
     console.log("  new            Create an app from a starter kit (views|live|react|vue|svelte|api)");
-    console.log("  migrate:report Scan PHP project for Bunyad compatibility");
-    console.log("  migrate:convert Emit TS controller stub from a PHP file");
     const appCommands = await describeAppCommands();
     if (appCommands.length > 0) {
       console.log("");
@@ -207,6 +219,40 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
         console.log(`  ${row.name.padEnd(16)}${desc}`.trimEnd());
       }
     }
+  },
+
+  /** The development loop. Apps with their own `scripts/dev.ts` keep it. */
+  async dev() {
+    const root = process.cwd();
+    const own = resolve(root, "scripts/dev.ts");
+    if (existsSync(own)) {
+      process.exitCode = await Bun.spawn(["bun", own], { cwd: root, stdout: "inherit", stderr: "inherit", stdin: "inherit" }).exited;
+      return;
+    }
+    const { hasBuiltInFrontend, hasStylesheet, runDev } = await import("./frontend.ts");
+    if (!hasBuiltInFrontend(root) && !hasStylesheet(root)) {
+      console.error("No frontend (a *Page.tsx, *Page.vue or *Page.svelte under routes, or routes/app.css) found. Run `bunyad serve --hot` for the server alone.");
+      process.exitCode = 1;
+      return;
+    }
+    process.exitCode = await runDev(root, [process.execPath, process.argv[1]!]);
+  },
+
+  /** Bundle the frontend. Apps with their own `scripts/build.ts` keep it. */
+  async build(args) {
+    const root = process.cwd();
+    const own = resolve(root, "scripts/build.ts");
+    if (existsSync(own)) {
+      process.exitCode = await Bun.spawn(["bun", own, ...args], { cwd: root, stdout: "inherit", stderr: "inherit" }).exited;
+      return;
+    }
+    const { buildFrontend, hasBuiltInFrontend, hasStylesheet } = await import("./frontend.ts");
+    if (!hasBuiltInFrontend(root) && !hasStylesheet(root)) {
+      console.error("No frontend (a *Page.tsx, *Page.vue or *Page.svelte under routes, or routes/app.css) found.");
+      process.exitCode = 1;
+      return;
+    }
+    if (!(await buildFrontend(root, { watch: args.includes("--watch") }))) process.exitCode = 1;
   },
 
   async serve(args) {
@@ -241,12 +287,14 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     const env = devServeEnv(false);
     process.env.BUNYAD_DEV = env.BUNYAD_DEV;
     if (env.APP_ENV !== undefined) process.env.APP_ENV = env.APP_ENV;
+    // `server.ts` serves when it is the entry, or when this says so.
+    process.env.BUNYAD_SERVE = "1";
     await import(serverEntry);
   },
 
   async console() {
     await bootApp();
-    const { startConsole } = await import("@bunyad/console");
+    const { startConsole } = await import("./repl.ts");
     await startConsole({
       banner: [
         "Bunyad console ready.",
@@ -259,18 +307,9 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
   async compile(args) {
     const root = process.cwd();
     const { access } = await import("node:fs/promises");
-    const routesEntries: string[] = [];
-    for (const name of ["web.ts", "api.ts"]) {
-      const path = resolve(root, "routes", name);
-      try {
-        await access(path);
-        routesEntries.push(path);
-      } catch {
-        // optional entry
-      }
-    }
+    const routesEntries = routeEntries(root);
     if (routesEntries.length === 0) {
-      console.error("No routes/web.ts or routes/api.ts found.");
+      console.error("No route folders (src/web, src/api) or routes/web.ts, routes/api.ts found.");
       process.exitCode = 1;
       return;
     }
@@ -288,7 +327,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
       optimize,
       plugins: [createViewPlugin()],
       bootstrap: {
-        applicationModule: resolve(root, "bootstrap/app.ts"),
+        applicationModule: appModulePath(root),
       },
     });
     const routeCount =
@@ -751,13 +790,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     const { generateTypes, writeGenerated } = await import("./types-generate.ts");
     Route.clear();
     const root = process.cwd();
-    for (const name of ["web.ts", "api.ts"]) {
-      const routesEntry = resolve(root, "routes", name);
-      try {
-        await access(routesEntry);
-      } catch {
-        continue;
-      }
+    for (const routesEntry of routeEntries(root)) {
       await loadRouteModule(routesEntry, Route);
     }
     const named: Record<string, string> = {};
@@ -765,7 +798,15 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
       if (route.name) named[route.name] = route.uri.startsWith("/") ? route.uri : `/${route.uri}`;
     }
 
-    const files = await generateTypes(root, named);
+    // Actions that return a page's props, so their return type can be checked against the page.
+    const { controllerSourceFile, pageName } = await import("@bunyad/router");
+    const actions = Route.routes.flatMap((route) => {
+      if (!Array.isArray(route.action) || !route.page) return [];
+      const controller = controllerSourceFile(route.action[0] as Function);
+      return controller ? [{ controller, method: String(route.action[1]), page: pageName(route.page) }] : [];
+    });
+
+    const files = await generateTypes(root, named, actions);
     const written = await writeGenerated(root, files);
     for (const file of files) {
       console.log(`  ${written.includes(file.path) ? "wrote    " : "unchanged"} ${file.path}`);
@@ -776,13 +817,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     const { access } = await import("node:fs/promises");
     Route.clear();
     const root = process.cwd();
-    for (const name of ["web.ts", "api.ts"]) {
-      const routesEntry = resolve(root, "routes", name);
-      try {
-        await access(routesEntry);
-      } catch {
-        continue;
-      }
+    for (const routesEntry of routeEntries(root)) {
       await loadRouteModule(routesEntry, Route);
     }
 
@@ -814,7 +849,8 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
 
     const formatMiddleware = (route: (typeof Route.routes)[number]): string => {
       // Prefer string aliases. Tagged factories without alias are omitted.
-      return route.middleware
+      // Middleware declared on the controller class or method (`@Middleware`) runs after the route's own.
+      return fullMiddleware(route)
         .filter((mw): mw is string => typeof mw === "string")
         .join(",");
     };
@@ -864,13 +900,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     const { mkdir, access } = await import("node:fs/promises");
     Route.clear();
     const root = process.cwd();
-    for (const name of ["web.ts", "api.ts"]) {
-      const routesEntry = resolve(root, "routes", name);
-      try {
-        await access(routesEntry);
-      } catch {
-        continue;
-      }
+    for (const routesEntry of routeEntries(root)) {
       await loadRouteModule(routesEntry, Route);
     }
 
@@ -966,20 +996,11 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
       return;
     }
 
-    const routesEntries: string[] = [];
-    for (const name of ["web.ts", "api.ts"]) {
-      const path = resolve(root, "routes", name);
-      try {
-        await access(path);
-        routesEntries.push(path);
-      } catch {
-        // optional
-      }
-    }
+    const routesEntries = routeEntries(root);
 
     await mkdir(resolve(root, ".build"), { recursive: true });
     if (routesEntries.length === 0) {
-      console.log("No routes/web.ts or routes/api.ts — skipping view compile.");
+      console.log("No route folders (src/web, src/api) or routes/web.ts, routes/api.ts — skipping view compile.");
       console.log("Optimized.");
       return;
     }
@@ -991,7 +1012,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
       optimize: true,
       plugins: [createViewPlugin()],
       bootstrap: {
-        applicationModule: resolve(root, "bootstrap/app.ts"),
+        applicationModule: appModulePath(root),
       },
     });
     const viewCount =
@@ -1037,19 +1058,10 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
   async "view:cache"() {
     const { access, mkdir } = await import("node:fs/promises");
     const root = process.cwd();
-    const routesEntries: string[] = [];
-    for (const name of ["web.ts", "api.ts"]) {
-      const path = resolve(root, "routes", name);
-      try {
-        await access(path);
-        routesEntries.push(path);
-      } catch {
-        // optional
-      }
-    }
+    const routesEntries = routeEntries(root);
     await mkdir(resolve(root, ".build"), { recursive: true });
     if (routesEntries.length === 0) {
-      console.log("No routes/web.ts or routes/api.ts — nothing to compile.");
+      console.log("No route folders (src/web, src/api) or routes/web.ts, routes/api.ts — nothing to compile.");
       return;
     }
     const manifest = await compile({
@@ -1059,7 +1071,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
       optimize: true,
       plugins: [createViewPlugin()],
       bootstrap: {
-        applicationModule: resolve(root, "bootstrap/app.ts"),
+        applicationModule: appModulePath(root),
       },
     });
     const viewCount =
@@ -1174,7 +1186,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     await bootApp();
     const models = await loadAppModels();
     if (models.length === 0) {
-      console.log("No models found in app/Models.");
+      console.log(`No models found in ${appDir()}/Models.`);
       return;
     }
     const { generateModelTypes } = await import("@bunyad/orm");
@@ -1213,7 +1225,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
   async "model:prune"(args) {
     await bootApp();
     const { Glob } = await import("bun");
-    const modelsGlob = new Glob("app/Models/**/*.{ts,js}");
+    const modelsGlob = new Glob(`${appDir()}/Models/**/*.{ts,js}`);
     for await (const file of modelsGlob.scan({ cwd: process.cwd() })) {
       await import(resolve(process.cwd(), file));
     }
@@ -1310,13 +1322,6 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     await newProject(args);
   },
 
-  async "migrate:report"(args: string[]) {
-    await migrateReport(args);
-  },
-
-  async "migrate:convert"(args: string[]) {
-    await migrateConvert(args);
-  },
 };
 
 /** `bunyad <command> --help`: show that command's lines from the command list. */
@@ -1351,9 +1356,9 @@ async function printCommandHelp(
 }
 
 export async function run(argv = process.argv.slice(2)): Promise<void> {
-  // Load routes/console.ts closures before merging handlers
+  // Load the console module's commands before merging handlers
   try {
-    const consoleEntry = resolve(process.cwd(), "routes/console.ts");
+    const consoleEntry = consoleModulePath();
     const mod = await import(consoleEntry);
     mod.registerCommands?.();
   } catch {
@@ -1409,7 +1414,7 @@ export async function run(argv = process.argv.slice(2)): Promise<void> {
 async function providerCommandAfterBoot(
   command: string,
 ): Promise<((args: string[]) => Promise<void>) | undefined> {
-  if (!existsSync(resolve(process.cwd(), "bootstrap/app.ts"))) return undefined;
+  if (!existsSync(appModulePath())) return undefined;
   try {
     await bootApp();
   } catch {
@@ -1435,21 +1440,21 @@ async function watchTypes(): Promise<void> {
   const { watch } = await import("node:fs");
   const root = process.cwd();
   const run = async () => {
-    const child = Bun.spawn([process.execPath, resolve(root, "bunyad"), "types:generate"], { cwd: root, stdout: "pipe", stderr: "inherit" });
+    const child = Bun.spawn([process.execPath, process.argv[1]!, "types:generate"], { cwd: root, stdout: "pipe", stderr: "inherit" });
     const output = await new Response(child.stdout).text();
     // Only say something when a file actually changed.
     for (const line of output.split("\n")) if (line.includes("wrote")) console.log(line.trim());
   };
   await run();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  for (const dir of ["routes", "app", "resources/js/pages"]) {
+  for (const dir of ["routes", "app"]) {
     if (!existsSync(resolve(root, dir))) continue;
     watch(resolve(root, dir), { recursive: true }, () => {
       clearTimeout(timer);
       timer = setTimeout(run, 300);
     });
   }
-  console.log("Watching routes, app, and resources/js/pages for type changes.");
+  console.log("Watching routes, app, and src for type changes.");
   await new Promise(() => {});
 }
 

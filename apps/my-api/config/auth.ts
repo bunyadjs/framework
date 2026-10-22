@@ -13,7 +13,7 @@ export default {
     },
   },
 
-  // Users are the `@bunyad/orm` model `app/Models/{model}.ts`.
+  // Users are the `@bunyad/orm` model `src/Models/{model}.ts`.
   providers: {
     users: {
       driver: "orm",

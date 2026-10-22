@@ -569,7 +569,7 @@ export {
   mountLive,
   updateLive,
   clientScript,
-} from "@bunyad/live";
+} from "@bunyad/live-components";
 export type {
   LiveComponentClass,
   LiveRoutesOptions,
@@ -579,7 +579,7 @@ export type {
   LiveUpdateResult,
   LiveEffects,
   LiveEvent,
-} from "@bunyad/live";
+} from "@bunyad/live-components";
 
 export {
   connectSqlite,
@@ -703,6 +703,8 @@ export {
   type PreloadedDiscovery,
 } from "./discovery.ts";
 
+export { bunyad, type BunyadOptions, type CreateApplicationOptions } from "./bunyad.ts";
+
 export {
   bootFrameworkProviders,
   loadFrameworkConfig,
@@ -746,6 +748,7 @@ export {
 } from "./providers/index.ts";
 
 export { installGlobals } from "./globals.ts";
+export { trans, addTranslations, loadTranslations, translations, setLocale, getLocale, setFallbackLocale, clearTranslations } from "./translator.ts";
 
 // Full-stack helpers (csrf_token, bcrypt, event, …) + core globals.
 import "./globals.ts";

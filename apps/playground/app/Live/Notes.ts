@@ -1,4 +1,4 @@
-import { LiveComponent } from "@bunyad/live";
+import { LiveComponent } from "@bunyad/live-components";
 import Note from "../Models/Note.ts";
 
 type NoteRow = {
@@ -133,6 +133,6 @@ export default class Notes extends LiveComponent {
   }
 
   view(): string {
-    return "livewire.notes";
+    return "_components.live.notes";
   }
 }

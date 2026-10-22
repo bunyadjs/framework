@@ -37,24 +37,17 @@ const DEFAULT_CORS: Required<
 };
 
 let corsConfig: CorsConfig = { ...DEFAULT_CORS };
+/** Bumped whenever the bound config changes, so compiled matchers are rebuilt. */
+let corsVersion = 0;
 
 /** Bound by HttpServiceProvider from `config/cors.ts`. */
 export function setCorsConfig(config: CorsConfig | undefined): void {
   corsConfig = { ...DEFAULT_CORS, ...(config ?? {}) };
+  corsVersion++;
 }
 
 export function getCorsConfig(): CorsConfig {
   return corsConfig;
-}
-
-function pathMatches(pattern: string, path: string): boolean {
-  const normalized = path.replace(/^\//, "");
-  if (pattern === "*") return true;
-  if (pattern.endsWith("/*")) {
-    const prefix = pattern.slice(0, -2).replace(/^\//, "");
-    return normalized === prefix || normalized.startsWith(`${prefix}/`);
-  }
-  return normalized === pattern.replace(/^\//, "");
 }
 
 function originAllowed(origin: string | null, config: CorsConfig): string | null {
@@ -122,36 +115,93 @@ function applyCorsHeaders(
   });
 }
 
+type CompiledCors = {
+  version: number;
+  cfg: CorsConfig;
+  /** No path is covered. */
+  none: boolean;
+  /** `*` covers every path. */
+  all: boolean;
+  exact: Set<string>;
+  /** `prefix/*` patterns, without the slashes. */
+  prefixes: string[];
+};
+
+/** The merged config and its path patterns, built once per config version instead of once per request. */
+function compileCors(config: CorsConfig | undefined): CompiledCors {
+  const cfg = { ...DEFAULT_CORS, ...corsConfig, ...(config ?? {}) };
+  const paths = cfg.paths ?? [];
+  const exact = new Set<string>();
+  const prefixes: string[] = [];
+  let all = false;
+  for (const pattern of paths) {
+    if (pattern === "*") all = true;
+    else if (pattern.endsWith("/*")) prefixes.push(pattern.slice(0, -2).replace(/^\//, ""));
+    else exact.add(pattern.replace(/^\//, ""));
+  }
+  return { version: corsVersion, cfg, none: paths.length === 0, all, exact, prefixes };
+}
+
+function coversPath(compiled: CompiledCors, path: string): boolean {
+  if (compiled.all) return true;
+  const normalized = path.charCodeAt(0) === 47 ? path.slice(1) : path;
+  if (compiled.exact.has(normalized)) return true;
+  for (const prefix of compiled.prefixes) {
+    if (normalized === prefix || normalized.startsWith(`${prefix}/`)) return true;
+  }
+  return false;
+}
+
+/** Whether a route's URL can match a CORS path. `{param}` segments could be anything, so they match. */
+function routeMayMatch(compiled: CompiledCors, uri: string): boolean {
+  if (compiled.none) return false;
+  if (compiled.all) return true;
+  const segments = uri.split("/").filter(Boolean);
+  const isParam = (segment: string | undefined) => segment !== undefined && segment.startsWith("{");
+  const same = (pattern: string, count: number) => {
+    const wanted = pattern.split("/").filter(Boolean);
+    if (wanted.length > segments.length || (count >= 0 && wanted.length !== count)) return false;
+    return wanted.every((part, i) => isParam(segments[i]) || segments[i] === part);
+  };
+  for (const exact of compiled.exact) if (same(exact, segments.length)) return true;
+  for (const prefix of compiled.prefixes) if (same(prefix, -1)) return true;
+  return false;
+}
+
 /**
  * Global CORS middleware.
- * Answers OPTIONS preflight when the path matches `config/cors.ts` paths.
+ * Answers OPTIONS preflight when the path matches `config/cors.ts` paths. A request outside those paths
+ * passes straight through with no work beyond the path test.
  */
 export function handleCors(config?: CorsConfig): Middleware {
-  const resolved = () => ({ ...DEFAULT_CORS, ...corsConfig, ...(config ?? {}) });
+  let compiled = compileCors(config);
 
   return {
     alias: "cors",
-    async handle(request: Request, next: Next): Promise<Response> {
-      const cfg = resolved();
-      const path = request.path();
-      const paths = cfg.paths ?? [];
-      if (paths.length === 0 || !paths.some((pattern) => pathMatches(pattern, path))) {
-        return next();
-      }
-
-      const origin = request.header("origin");
-      const allowOrigin = originAllowed(origin, cfg);
-
-      if (request.method.toUpperCase() === "OPTIONS") {
-        if (!allowOrigin) {
-          return new Response(null, { status: 403 });
-        }
-        return applyCorsHeaders(new Response(null, { status: 204 }), request, cfg, allowOrigin);
-      }
-
-      const response = await next();
-      if (!allowOrigin) return response;
-      return applyCorsHeaders(response, request, cfg, allowOrigin);
+    appliesTo(route: { uri: string }): boolean {
+      if (compiled.version !== corsVersion) compiled = compileCors(config);
+      return routeMayMatch(compiled, route.uri);
+    },
+    handle(request: Request, next: Next): Promise<Response> | Response {
+      if (compiled.version !== corsVersion) compiled = compileCors(config);
+      if (compiled.none || !coversPath(compiled, request.path())) return next();
+      return cors(request, next, compiled.cfg);
     },
   };
+}
+
+async function cors(request: Request, next: Next, cfg: CorsConfig): Promise<Response> {
+  const origin = request.header("origin");
+  const allowOrigin = originAllowed(origin, cfg);
+
+  if (request.method.toUpperCase() === "OPTIONS") {
+    if (!allowOrigin) {
+      return new Response(null, { status: 403 });
+    }
+    return applyCorsHeaders(new Response(null, { status: 204 }), request, cfg, allowOrigin);
+  }
+
+  const response = await next();
+  if (!allowOrigin) return response;
+  return applyCorsHeaders(response, request, cfg, allowOrigin);
 }

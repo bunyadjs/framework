@@ -3,7 +3,7 @@ import type { CompilerPlugin, GenerateContext } from "../types.ts";
 
 export type WorkersBootstrap = {
   applicationModule: string;
-  /** Path to `routes/console.ts` when present (schedule worker). */
+  /** Path to the console module (`app/Console/schedule.ts` or `routes/console.ts`) when present (schedule worker). */
   consoleModule?: string;
 };
 

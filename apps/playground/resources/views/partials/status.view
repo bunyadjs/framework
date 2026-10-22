@@ -1,3 +1,0 @@
-@if(status)
-<p class="status">{{ status }}</p>
-@endif

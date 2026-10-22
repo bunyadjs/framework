@@ -349,7 +349,7 @@ describe("defaultCompilerPlugins", () => {
   test("keeps the plugin order and always ends with the server plugin", () => {
     const names = defaultCompilerPlugins({ routesEntries: ["a.ts", "b.ts"], applicationModule: "app.ts", optimize: true })
       .map((p) => p.name);
-    expect(names).toEqual(["router", "middleware", "providers", "discovery", "config", "server"]);
+    expect(names).toEqual(["router", "discovery", "config", "server"]);
   });
 
   test("a route-less setup still builds; the router plugin reports it at analyze time", async () => {

@@ -1,7 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "include": [
-    "**/*.ts"
+    "**/*.ts",
+    "routes/**/*.vue",
+    ".bunyad/**/*.ts"
   ],
   "compilerOptions": {
     "baseUrl": ".",
@@ -11,11 +13,19 @@
       ],
       "@database/*": [
         "database/*"
+      ],
+      "~/*": [
+        "routes/*",
+        ".bunyad/*"
       ]
-    }
+    },
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ]
   },
   "exclude": [
-    "resources/js",
     "node_modules"
   ]
 }

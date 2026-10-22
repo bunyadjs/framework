@@ -64,7 +64,7 @@
     "@bunyad/http": "workspace:^",
     "@bunyad/image": "workspace:^",
     "@bunyad/inertia": "workspace:^",
-    "@bunyad/live": "workspace:^",
+    "@bunyad/live-components": "workspace:^",
     "@bunyad/log": "workspace:^",
     "@bunyad/mail": "workspace:^",
     "@bunyad/notifications": "workspace:^",

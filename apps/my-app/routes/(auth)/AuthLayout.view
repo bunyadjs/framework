@@ -1,0 +1,11 @@
+<main class="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+  <a href="{{ route('home') }}" class="text-lg"><x-app-logo /></a>
+  <div class="card w-full max-w-sm bg-base-100 shadow-sm">
+    <div class="card-body gap-6">
+      @if(meta.header !== false)
+      <x-auth-header :title="meta.title" :description="meta.description" />
+      @endif
+      {!! children !!}
+    </div>
+  </div>
+</main>

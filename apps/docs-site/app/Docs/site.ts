@@ -12,7 +12,7 @@ import {
 import { parseFrontmatter, renderMarkdown, type Heading } from "./markdown.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
-const contentDir = join(root, "resources/docs/1.x");
+const contentDir = join(root, "content/1.x");
 
 export type BuiltPage = {
   slug: string;

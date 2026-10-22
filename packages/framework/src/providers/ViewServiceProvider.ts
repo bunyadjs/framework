@@ -4,16 +4,21 @@ import { setMailViewRenderer } from "@bunyad/mail";
 import {
   ViewFactory,
   setViewFactory,
+  getViewFactory,
   render,
   takePreloadedViews,
   type ViewRenderer,
 } from "@bunyad/view";
-import { getUrlContext } from "@bunyad/router";
+import { existsSync } from "node:fs";
+import { getUrlContext, pageName, setPageResponder } from "@bunyad/router";
 import { discoverViewComponents } from "../discovery.ts";
 
 export class ViewServiceProvider extends ServiceProvider {
   async boot(): Promise<void> {
-    const viewsPath = this.app.resourcePath("views");
+    // Views sit beside their controllers in `routes/` unless the app keeps them in `resources/views`.
+    const treePath = this.app.basePath("routes");
+    const besideControllers = !existsSync(this.app.resourcePath("views")) && existsSync(treePath);
+    const viewsPath = besideControllers ? treePath : this.app.resourcePath("views");
     const compiledViewsPath = this.app.basePath(".build/views/index.js");
     let compiled: Record<string, ViewRenderer> | undefined;
     let compiledOnly = false;
@@ -68,6 +73,7 @@ export class ViewServiceProvider extends ServiceProvider {
     const factory = new ViewFactory(viewsPath, {
       ...(compiled ? { compiled } : {}),
       ...(compiledOnly ? { compiledOnly: true } : {}),
+      ...(besideControllers ? { componentsFolder: "_components" } : {}),
     });
     // Flashed validation errors and old input reach every view.
     factory.shareUsing(() => {
@@ -83,6 +89,20 @@ export class ViewServiceProvider extends ServiceProvider {
     const { setRouteViewRenderer } = await import("@bunyad/router");
     const { view } = await import("@bunyad/view");
     setRouteViewRenderer((name, data, status) => view(name, data ?? {}, status));
+    if (besideControllers) registerViewPages();
     await discoverViewComponents(this.app);
   }
+}
+
+/**
+ * A `*Page.view` beside its controller is the view of the action. It renders inside the
+ * `*Layout.view` of each folder from `routes/` down, outermost first.
+ */
+function registerViewPages(): void {
+  setPageResponder([".view"], (page, props) => {
+    const factory = getViewFactory();
+    const name = pageName(page.file).replaceAll("/", ".");
+    const html = factory.renderPage(name, factory.layoutsFor(name), props);
+    return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  });
 }

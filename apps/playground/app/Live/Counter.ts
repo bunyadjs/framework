@@ -1,4 +1,4 @@
-import { LiveComponent } from "@bunyad/live";
+import { LiveComponent } from "@bunyad/live-components";
 
 export default class Counter extends LiveComponent {
   count = 0;
@@ -17,6 +17,6 @@ export default class Counter extends LiveComponent {
   }
 
   view(): string {
-    return "livewire.counter";
+    return "_components.live.counter";
   }
 }

@@ -29,11 +29,11 @@ test("types come from the React kit: page props, shared props, and the route lis
     (await generateTypes(root, { dashboard: "/dashboard" })).map((file) => [file.path, file.contents]),
   );
 
-  expect(files["resources/js/routes.ts"]).toContain('"dashboard": "/dashboard",');
+  expect(files[".bunyad/routes.ts"]).toContain('"dashboard": "/dashboard",');
   // Each page's props, from the component's parameter.
-  expect(files["types/inertia.d.ts"]).toContain('"settings/profile": { mustVerifyEmail: boolean };');
-  expect(files["types/inertia.d.ts"]).toContain('"auth/reset-password": { token: string; email?: string | undefined };');
+  expect(files[".bunyad/inertia.d.ts"]).toContain('"(app)/settings/profile/ProfilePage": { mustVerifyEmail: boolean };');
+  expect(files[".bunyad/inertia.d.ts"]).toContain('"(auth)/reset-password/[token]/ResetPasswordPage": { token: string; email?: string | undefined };');
   // What HandleInertiaRequests.share() returns, with the validation errors.
-  expect(files["resources/js/types/shared.d.ts"]).toContain("export type SharedData = { name: string; auth: { user: {");
-  expect(files["resources/js/types/shared.d.ts"]).toContain("& { errors: Record<string, string> };");
+  expect(files[".bunyad/shared.d.ts"]).toContain("export type SharedData = { name: string; auth: { user: {");
+  expect(files[".bunyad/shared.d.ts"]).toContain("& { errors: Record<string, string> };");
 }, 30_000);

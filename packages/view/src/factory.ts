@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { BunyadError } from "@bunyad/common";
 import {
   compile,
@@ -22,6 +22,8 @@ export type ViewFactoryOptions = {
    * Missing names throw `BUNYAD_VIEW_001` (no Glob / no runtime compile).
    */
   compiledOnly?: boolean;
+  /** Folder `<x-name>` components load from (default `components`; `_components` beside the pages). */
+  componentsFolder?: string;
 };
 
 /**
@@ -47,6 +49,8 @@ const SHARED_VIEW_HELPERS = [
   "collect",
   "dd",
   "dump",
+  "trans",
+  "__",
 ] as const;
 
 function sharedViewHelpers(
@@ -81,11 +85,14 @@ export class ViewFactory {
   #requestData: (() => Record<string, unknown>) | undefined;
   #compiled: Record<string, ViewRenderer> | undefined;
   readonly #compiledOnly: boolean;
+  readonly #componentsFolder: string;
+  #layoutNames: string[] | undefined;
 
   constructor(path: string, options: ViewFactoryOptions = {}) {
     this.#path = path;
     this.#compiled = options.compiled;
     this.#compiledOnly = options.compiledOnly ?? false;
+    this.#componentsFolder = options.componentsFolder ?? "components";
   }
 
   /**
@@ -236,7 +243,7 @@ export class ViewFactory {
         });
       }
 
-      const viewName = `components.${component.replaceAll("/", ".")}`;
+      const viewName = `${this.#componentsFolder}.${component.replaceAll("/", ".")}`;
       return this.render(viewName, {
         errors: bag.errors,
         _old,
@@ -251,7 +258,75 @@ export class ViewFactory {
       return this.render(includeName, includeData);
     };
 
-    return this.#resolve(name)(bag, renderComponent, renderInclude);
+    const html = this.#resolve(name)(bag, renderComponent, renderInclude);
+    // A page's `@meta(...)` goes back to whoever asked for it (see `renderPage`).
+    const capture = data.__capture as { meta?: Record<string, unknown>; stacks?: unknown; once?: unknown } | undefined;
+    if (capture) {
+      capture.meta = bag.__meta as Record<string, unknown> | undefined;
+      capture.stacks = bag.__stacks;
+      capture.once = bag.__once;
+    }
+    return html;
+  }
+
+  /**
+   * Render a page, then wrap it in its layouts, innermost first. Each layout gets the page's
+   * `@meta(...)` as `meta` and the HTML inside it as `children` (`{!! children !!}`).
+   */
+  renderPage(name: string, layouts: readonly string[], data: Record<string, unknown> = {}): string {
+    const capture: { meta?: Record<string, unknown>; stacks?: unknown; once?: unknown } = {};
+    const html = this.render(name, { ...data, __capture: capture });
+    // What the page pushed (`@push('scripts')`) is printed by the layouts' `@stack`.
+    return this.wrapInLayouts(layouts, html, capture.meta ?? {}, { ...data, __stacks: capture.stacks, __once: capture.once });
+  }
+
+  /** Put already rendered `children` inside `layouts` (outermost first). */
+  wrapInLayouts(layouts: readonly string[], children: string, meta: Record<string, unknown>, data: Record<string, unknown> = {}): string {
+    let html = children;
+    for (const layout of [...layouts].reverse()) {
+      html = this.render(layout, { ...data, meta, children: html });
+    }
+    return html;
+  }
+
+  /**
+   * The `*Layout` views around a page, outermost first: one per folder from the root down to the
+   * page's folder (`(auth).login.LoginPage` -> `MainLayout`, `(auth).AuthLayout`).
+   */
+  layoutsFor(page: string): string[] {
+    const names = (this.#layoutNames ??= this.#findLayouts());
+    const parts = page.split(".").slice(0, -1);
+    const found: string[] = [];
+    for (let i = 0; i <= parts.length; i++) {
+      const folder = parts.slice(0, i).join(".");
+      const layout = names.find((name) => {
+        const at = name.lastIndexOf(".");
+        return (at === -1 ? "" : name.slice(0, at)) === folder;
+      });
+      if (layout) found.push(layout);
+    }
+    return found;
+  }
+
+  /** Every `*Layout` view, from the compiled map or the views folder. */
+  #findLayouts(): string[] {
+    const isLayout = (name: string) => /Layout$/.test(name.slice(name.lastIndexOf(".") + 1)) && !name.split(".").some((part) => part.startsWith("_"));
+    if (this.#compiled) return Object.keys(this.#compiled).filter(isLayout).sort();
+    const found: string[] = [];
+    const walk = (dir: string, prefix: string) => {
+      if (!existsSync(dir)) return;
+      for (const entry of readdirSync(dir).sort()) {
+        if (entry.startsWith("_") || entry.startsWith(".")) continue;
+        const full = `${dir}/${entry}`;
+        if (statSync(full).isDirectory()) walk(full, `${prefix}${entry}.`);
+        else if (entry.endsWith(".view")) {
+          const name = `${prefix}${entry.slice(0, -5)}`;
+          if (isLayout(name)) found.push(name);
+        }
+      }
+    };
+    walk(this.#path, "");
+    return found;
   }
 
   /**
@@ -261,6 +336,7 @@ export class ViewFactory {
   clearCache(): void {
     this.#cache.clear();
     this.#compiled = undefined;
+    this.#layoutNames = undefined;
   }
 
   #read(name: string): string {

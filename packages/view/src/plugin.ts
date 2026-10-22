@@ -4,7 +4,7 @@ import { compileToModuleSource } from "./compiler.ts";
 import { resolveLayouts } from "./layouts.ts";
 
 export type ViewPluginOptions = {
-  /** Relative to app root (default `resources/views`). */
+  /** Relative to app root (default `resources/views`, or `routes` for an app that keeps views beside its controllers). */
   viewsPath?: string;
 };
 
@@ -35,12 +35,11 @@ function safeIdent(name: string): string {
 export function createViewPlugin(
   options: ViewPluginOptions = {},
 ): CompilerPlugin {
-  const viewsPath = options.viewsPath ?? "resources/views";
-
   return {
     name: "view",
 
     async analyze(ctx) {
+      const viewsPath = options.viewsPath ?? (existsSync(`${ctx.root}/resources/views`) || !existsSync(`${ctx.root}/routes`) ? "resources/views" : "routes");
       const root = `${ctx.root}/${viewsPath}`.replace(/\/+/g, "/");
       const views: ViewIR[] = [];
       // An app without views (an API): nothing to compile, and the entry skips view preloading.
@@ -56,6 +55,8 @@ export function createViewPlugin(
         });
       }
 
+      // A route tree with no `.view` files (an Inertia or API app) has nothing to compile.
+      if (views.length === 0) return;
       views.sort((a, b) => a.name.localeCompare(b.name));
       ctx.ir.set("view", { views, viewsPath });
     },

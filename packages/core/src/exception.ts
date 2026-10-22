@@ -854,6 +854,22 @@ export function renderException(
   );
 }
 
+/**
+ * Renders an error as one of the app's own pages (`NotFoundPage`, `ErrorPage`, … in `routes/`) for
+ * browser requests. Return `undefined` to fall back to the built-in page.
+ */
+export type ErrorPageRenderer = (status: number, request: Request, error: unknown) => Response | undefined | Promise<Response | undefined>;
+
+let errorPageRenderer: ErrorPageRenderer | undefined;
+
+export function setErrorPageRenderer(renderer: ErrorPageRenderer | undefined): void {
+  errorPageRenderer = renderer;
+}
+
+export function getErrorPageRenderer(): ErrorPageRenderer | undefined {
+  return errorPageRenderer;
+}
+
 export type ExceptionListener = (error: unknown, request: Request) => void;
 
 const exceptionListeners = new Set<ExceptionListener>();

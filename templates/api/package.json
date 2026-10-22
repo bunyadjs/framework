@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun ./bunyad serve --hot",
-    "serve": "bun ./bunyad serve",
+    "dev": "bunyad serve --hot",
+    "serve": "bunyad serve",
     "test": "bun test"
   },
   "dependencies": {
