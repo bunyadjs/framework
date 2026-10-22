@@ -230,7 +230,8 @@ export function scanRoutes(root: string): RouteScan {
           }
           continue;
         }
-        const seg = parseSegment(entry);
+        // Below a spa.routes.ts the folders are the browser's routes, so `[...rest]` and the like are fine.
+        const seg = spa ? { uri: entry, name: entry } : parseSegment(entry);
         walk(
           full,
           seg ? [...uriParts, seg.uri] : uriParts,

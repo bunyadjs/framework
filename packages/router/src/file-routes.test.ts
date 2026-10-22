@@ -852,3 +852,8 @@ test("the views below a spa.routes.ts are routed in the browser, not by the serv
   const routes = await collectFileRoutes(scanRoutes(root), { load });
   expect(routes.map((r) => r.uri)).toEqual(["/orders"]);
 });
+
+test("catch-all folders are allowed below a spa.routes.ts", () => {
+  const root = tree({ "app/spa.routes.ts": "", "app/[...rest]/NotFoundPage.tsx": "" });
+  expect(() => scanRoutes(root)).not.toThrow();
+});
