@@ -164,7 +164,7 @@ export function scanRoutes(root: string): RouteScan {
     // server does not make routes of the views below it.
     const spa = clientOnly || entries.includes("spa.routes.ts") || entries.includes("spa.routes.js");
     const rel = relative(root, dir);
-    const own = rel === "" ? undefined : parseSegment(basename(dir));
+    const own = rel === "" || spa ? undefined : parseSegment(basename(dir));
     const folder: RouteFolder = {
       dir,
       path: rel,
