@@ -14,6 +14,7 @@ export {
 } from "./app-commands.ts";
 export { Console, command } from "./console.ts";
 export { startConsole, type ConsoleOptions } from "./repl.ts";
+export { routesModule } from "./types-generate.ts";
 export {
   registerClosureCommand,
   registerProviderCommand,

@@ -33,6 +33,7 @@
   "registerClosureCommand",
   "registerProviderCommand",
   "restore",
+  "routesModule",
   "run",
   "runAppCommands",
   "search",
