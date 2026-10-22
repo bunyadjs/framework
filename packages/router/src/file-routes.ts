@@ -138,9 +138,11 @@ function isTestFile(file: string): boolean {
 
 type Segment = { uri: string; name: string; param?: string };
 
-function parseSegment(segment: string): Segment | null {
+function parseSegment(segment: string, browserRouted = false): Segment | null {
   if (segment.startsWith("(") && segment.endsWith(")")) return null;
   const rest = /^\[\.\.\.(.+)\]$/.exec(segment);
+  // Below a spa.routes.ts a catch-all folder is the browser's concern, not a server route.
+  if (rest && browserRouted) return { uri: `{${rest[1]}}`, name: "", param: rest[1] };
   if (rest) {
     throw new Error(`Catch-all route folders ([...${rest[1]}]) are not supported yet.`);
   }
@@ -164,7 +166,7 @@ export function scanRoutes(root: string): RouteScan {
     // server does not make routes of the views below it.
     const spa = clientOnly || entries.includes("spa.routes.ts") || entries.includes("spa.routes.js");
     const rel = relative(root, dir);
-    const own = rel === "" || spa ? undefined : parseSegment(basename(dir));
+    const own = rel === "" ? undefined : parseSegment(basename(dir), spa);
     const folder: RouteFolder = {
       dir,
       path: rel,
@@ -231,7 +233,7 @@ export function scanRoutes(root: string): RouteScan {
           continue;
         }
         // Below a spa.routes.ts the folders are the browser's routes, so `[...rest]` and the like are fine.
-        const seg = spa ? { uri: entry, name: entry } : parseSegment(entry);
+        const seg = parseSegment(entry, spa);
         walk(
           full,
           seg ? [...uriParts, seg.uri] : uriParts,
