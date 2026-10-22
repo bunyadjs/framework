@@ -273,6 +273,8 @@ export type RegisterFileRoutesOptions = {
   defaultMiddleware?: RouteMiddleware[];
   /** Values for `{root}` in a `domain` (default `APP_DOMAIN`). */
   vars?: { root?: string };
+  /** Folders (paths relative to the tree, such as `(web)/(central)`) whose routes are not registered, with everything below them. */
+  exclude?: string[];
 };
 
 async function defaultLoad(file: string): Promise<Record<string, unknown>> {
@@ -726,7 +728,9 @@ export async function registerFileRoutes(
   router: Router = getActiveRouter(),
   options: RegisterFileRoutesOptions = {},
 ): Promise<FileRoute[]> {
-  const scan = typeof root === "string" ? scanRoutes(root) : root;
+  const whole = typeof root === "string" ? scanRoutes(root) : root;
+  const excluded = (path: string) => (options.exclude ?? []).some((skip) => path === skip || path.startsWith(`${skip}/`));
+  const scan = options.exclude?.length ? { ...whole, folders: whole.folders.filter((folder) => !excluded(folder.path)) } : whole;
   const routes = await collectFileRoutes(scan, options);
   await registerRouteFiles(scan, router, options);
   // The update endpoint and client script the components talk to.

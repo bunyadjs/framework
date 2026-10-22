@@ -822,3 +822,17 @@ test("a route decorator can limit a parameter with where", async () => {
   await registerFileRoutes(root, router, { load });
   expect(router.match("GET", "/files/a/b/c.png")?.params.key).toBe("a/b/c.png");
 });
+
+test("excluded folders are not registered", async () => {
+  class AController {
+    index() {}
+  }
+  class BController {
+    index() {}
+  }
+  const root = tree({ "(shop)/a/AController.ts": "", "(central)/b/BController.ts": "" });
+  use({ "AController.ts": { default: AController }, "BController.ts": { default: BController } });
+  const router = new Router();
+  const routes = await registerFileRoutes(root, router, { load, exclude: ["(central)"] });
+  expect(routes.map((r) => r.uri)).toEqual(["/a"]);
+});
