@@ -9,7 +9,7 @@ void createInertiaApp({
   resolve: async (name) => {
     const entry = pages[name];
     if (!entry) throw new Error(`Page not found: resources/js/pages/${name}.vue`);
-    return (await entry.page()).default;
+    return (await entry.page()).default as never;
   },
   setup({ el, App, props, plugin }) {
     // The first page arrives rendered on the server (`config/inertia.ts`); hydrate it.

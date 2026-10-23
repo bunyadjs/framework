@@ -250,8 +250,6 @@ declare module "virtual:pages" {
     }
   >;
 }
-
-export {};
 `;
 }
 
