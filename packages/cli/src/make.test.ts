@@ -146,3 +146,27 @@ test("make:controller and make:request follow the folder they run in", async () 
   });
   expect(await readFile(join(root, "app/Jobs/SendInvoiceJob.ts"), "utf8")).toContain("SendInvoiceJob");
 });
+
+test("classic apps get controllers and requests in app/Http", async () => {
+  const root = await mkdtemp(join(tmpdir(), "bunyad-make-classic-"));
+  await writeFile(join(root, "server.ts"), "export default {};\n");
+  await mkdir(join(root, "routes"), { recursive: true });
+  await writeFile(join(root, "routes/web.ts"), "export default function () {}\n");
+  await withCwd(root, async () => {
+    await makeCommands["make:controller"]!(["Auth/Register", "--resource", "--requests"]);
+  });
+  expect(await readFile(join(root, "app/Http/Controllers/Auth/RegisterController.ts"), "utf8")).toContain(
+    'import StoreRegisterRequest from "@/Http/Requests/Auth/StoreRegisterRequest.ts"',
+  );
+  expect(await readFile(join(root, "app/Http/Requests/Auth/UpdateRegisterRequest.ts"), "utf8")).toContain("FormRequest");
+});
+
+test("bunyad.json decides the structure over the files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "bunyad-make-marker-"));
+  await writeFile(join(root, "server.ts"), "export default {};\n");
+  await writeFile(join(root, "bunyad.json"), JSON.stringify({ structure: "classic" }));
+  await withCwd(root, async () => {
+    await makeCommands["make:controller"]!(["Post"]);
+  });
+  expect(await readFile(join(root, "app/Http/Controllers/PostController.ts"), "utf8")).toContain("class PostController");
+});

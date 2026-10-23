@@ -1,6 +1,7 @@
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
+import { structureOf } from "./structure.ts";
 
 function studly(name: string): string {
   return name
@@ -222,14 +223,18 @@ export default class ${cls} extends Command {
     const base = parts.pop() ?? name;
     const dir = parts.map(studly).join("/");
     const cls = className(base, "Controller");
-    // The controller goes in the route folder of its URL: `Auth/Register` is `routes/auth/register/RegisterController.ts`.
+    // Folders: the controller goes in the route folder of its URL, `Auth/Register` is `routes/auth/register/RegisterController.ts`.
     // Run from inside `routes/`, the folder is relative to where you are: in `routes/(auth)`, `Login` is `routes/(auth)/login/`.
+    // Classic: `app/Http/Controllers/Auth/RegisterController.ts`, and you add the route in `routes/web.ts` yourself.
+    const classic = structureOf(projectRoot()) === "classic";
     const routeFolder = [
       ...(routesFolderOfCwd() ?? []),
       ...parts.map(routeSegment),
       routeSegment(cls.replace(/Controller$/, "")),
     ];
-    const path = join("routes", ...routeFolder, `${cls}.ts`);
+    const path = classic
+      ? join("app/Http/Controllers", dir, `${cls}.ts`)
+      : join("routes", ...routeFolder, `${cls}.ts`);
     const model = modelFlag ? className(modelFlag) : undefined;
     const subject = model ?? cls.replace(/Controller$/, "");
 
@@ -240,9 +245,11 @@ export default class ${cls} extends Command {
       formStore = `Store${subject}Request`;
       formUpdate = `Update${subject}Request`;
       for (const form of [formStore, formUpdate]) {
-        // The request sits beside its controller, like the starters' `LoginRequest.ts`.
-        await makeCommands["make:request"]!([form, `--route=${routeFolder.join("/")}`, ...(force ? ["--force"] : [])]);
-        imports.push(`import ${form} from "./${form}.ts";`);
+        // Folders: the request sits beside its controller, like the starters' `LoginRequest.ts`.
+        await makeCommands["make:request"]!(
+          classic ? [join(dir, form), ...(force ? ["--force"] : [])] : [form, `--route=${routeFolder.join("/")}`, ...(force ? ["--force"] : [])],
+        );
+        imports.push(classic ? `import ${form} from "@/Http/Requests/${join(dir, form)}.ts";` : `import ${form} from "./${form}.ts";`);
       }
     }
     const requestImport = `import type { Request } from "@bunyad/http";
@@ -283,6 +290,7 @@ ${body}
       force,
     );
     console.log(`Controller created: ${file}`);
+    if (classic) console.log(`Add its route in routes/web.ts (or routes/api.ts), for example: Route.get("/${routeSegment(cls.replace(/Controller$/, ""))}", [${cls}, "index"]);`);
   },
 
   async "make:model"(args) {
@@ -526,8 +534,9 @@ export default class ${cls} extends Event {
     }
     const { dir, base } = splitFolder(name);
     const cls = className(base, "Request");
-    // Inside `routes/` (or given `--route`), the request sits in that route folder; elsewhere it is shared in `app/Http/Requests`.
-    const inRoutes = routeFlag !== undefined ? routeFlag.split("/").filter(Boolean) : routesFolderOfCwd();
+    // Folders: inside `routes/` (or given `--route`) the request sits in that route folder. Classic, or elsewhere: `app/Http/Requests`.
+    const classic = structureOf(projectRoot()) === "classic";
+    const inRoutes = classic ? null : routeFlag !== undefined ? routeFlag.split("/").filter(Boolean) : routesFolderOfCwd();
     const path =
       inRoutes !== null
         ? join("routes", ...inRoutes, `${cls}.ts`)
