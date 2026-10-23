@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { controllerSourceFile as routeFolderSource } from "@bunyad/router";
 import { dirname, join } from "node:path";
 import {
   isFormRequestCtor,
@@ -289,6 +290,8 @@ async function controllerSourceFile(
   app: Application,
   method: string,
 ): Promise<string | null> {
+  const known = routeFolderSource(Controller);
+  if (known) return known;
   const name = Controller.name;
   if (!name) return null;
   const cached = controllerFiles.get(Controller);

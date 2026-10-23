@@ -79,7 +79,7 @@ DATABASE_URL=postgres://user:pass@localhost:5432/bunyad \
 
 You can also call `connect({ driver: "postgres", url, max: 10 })` from
 `@bunyad/database` in your own app — same pattern as Nest/Next. See
-[Using the ORM Outside Bunyad](../../../apps/docs-site/resources/docs/1.x/orm-outside.md).
+[Using the ORM Outside Bunyad](../../../apps/docs-site/content/1.x/orm-outside.md).
 
 ## Layout
 

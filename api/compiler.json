@@ -2,9 +2,7 @@
   "compile",
   "createConfigPlugin",
   "createDiscoveryPlugin",
-  "createMiddlewarePlugin",
   "createMigrationsPlugin",
-  "createProvidersPlugin",
   "createRouterPlugin",
   "createServerPlugin",
   "createWorkersPlugin"

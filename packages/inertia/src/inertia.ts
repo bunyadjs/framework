@@ -1,4 +1,4 @@
-import { getUrlContext, Route, type Router } from "@bunyad/router";
+import { getUrlContext, pageName, Route, setPageResponder, type Router } from "@bunyad/router";
 import {
   factory,
   FLASH_KEY,
@@ -146,6 +146,14 @@ export const Inertia = {
     return factory.ssr(options);
   },
 };
+
+/**
+ * Render an action's data with its view file: `LoginPage.tsx` (or `.jsx`, `.vue`, `.svelte`) next to the
+ * controller becomes the Inertia page named after its path, with the returned object as props.
+ */
+export function registerInertiaPages(): void {
+  setPageResponder([".tsx", ".jsx", ".vue", ".svelte"], (page, props) => factory.render(pageName(page.file), props));
+}
 
 /** The action behind `Inertia.route`: render `component` with fixed props. */
 export function inertiaPage(component: string, props: Record<string, unknown> = {}): () => InertiaResponse {

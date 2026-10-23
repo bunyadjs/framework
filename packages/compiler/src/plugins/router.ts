@@ -1,9 +1,11 @@
+import { existsSync } from "node:fs";
 import { BunyadError } from "@bunyad/common";
 import { middlewareAliasOf } from "@bunyad/http";
 import { dirname, join } from "node:path";
 import {
   Route,
   loadRouteModule,
+  controllerSourceFile,
   getDefaultRouter,
   setActiveRouter,
   parseActionParams,
@@ -39,11 +41,15 @@ type RouteIR = {
   name?: string;
   middleware: string[];
   wheres: Record<string, string>;
+  /** Host limit (`admin.example.com`, `{tenant}.example.com`). */
+  domain?: string;
   /** A controller action, or a helper route (`Route.view` / `Route.redirect` / `Inertia.route`). */
   controller?: ControllerIR;
   declaration?: RouteDeclaration;
   /** Precomputed inject plan stamped onto compiled routes (no request-path Glob). */
   inject: InjectSlot[];
+  /** The view file of the action, relative to the app. */
+  page?: string;
 };
 
 type ConstructorDepIR = {
@@ -369,6 +375,11 @@ function serializeInjectSlots(slots: InjectSlot[]): string {
     .join(", ")}]`;
 }
 
+/** The app's code folder, relative to the root. */
+function appDirName(_root: string): string {
+  return "app";
+}
+
 export function createRouterPlugin(options: {
   /** @deprecated Prefer `routesEntries`. */
   routesEntry?: string;
@@ -420,7 +431,7 @@ export function createRouterPlugin(options: {
 
       const controllers = await mapDefaultExports(
         ctx.root,
-        "app/Http/Controllers/**/*.{ts,tsx,js}",
+        `${appDirName(ctx.root)}/Http/Controllers/**/*.{ts,tsx,js}`,
       );
       const packageControllers = await mapDependencyControllers(ctx.root);
       for (const [ctor, info] of packageControllers) {
@@ -428,7 +439,7 @@ export function createRouterPlugin(options: {
       }
       const models = await mapDefaultExports(
         ctx.root,
-        "app/Models/**/*.{ts,tsx,js}",
+        `${appDirName(ctx.root)}/Models/**/*.{ts,tsx,js}`,
       );
 
       const routes: RouteIR[] = [];
@@ -445,8 +456,10 @@ export function createRouterPlugin(options: {
             name: route.name,
             middleware: collectMiddlewareAliases(route, primaryEntry, ctx.diagnostics),
             wheres: { ...route.wheres },
+            domain: route.domain,
             declaration: route.declaration,
             inject: [],
+            page: route.page,
           });
           continue;
         }
@@ -464,11 +477,14 @@ export function createRouterPlugin(options: {
           new () => object,
           string,
         ];
-        const found = controllers.get(Controller);
+        const folderFile = controllerSourceFile(Controller);
+        const found =
+          controllers.get(Controller) ??
+          (folderFile ? { module: folderFile, exportName: "default" } : undefined);
         if (!found) {
           ctx.diagnostics.push({
             code: "BUNYAD_ROUTE_011",
-            message: `Controller for route [${route.uri}] not found under app/Http/Controllers or package exports.`,
+            message: `Controller for route [${route.uri}] not found under Http/Controllers or package exports.`,
             file: primaryEntry,
           });
           continue;
@@ -516,6 +532,7 @@ export function createRouterPlugin(options: {
             method,
           },
           inject,
+          page: route.page,
         });
       }
 
@@ -528,7 +545,7 @@ export function createRouterPlugin(options: {
         if (!found) {
           ctx.diagnostics.push({
             code: "BUNYAD_ROUTE_014",
-            message: `Route.model("${param}") class not found under app/Models.`,
+            message: `Route.model("${param}") class not found under Models.`,
             file: primaryEntry,
           });
           continue;
@@ -707,11 +724,16 @@ export function createRouterPlugin(options: {
           const injectCall = route.controller
             ? `.inject(${serializeInjectSlots(route.inject)})`
             : "";
-          const chain = `${mw}${where}${nameCall}${injectCall}`;
+          const domainCall = route.domain ? `.domain(${JSON.stringify(route.domain)})` : "";
+          const pageCall = route.page ? `.page(${JSON.stringify(route.page)})` : "";
+          const chain = `${mw}${where}${nameCall}${domainCall}${pageCall}${injectCall}`;
           const uri = JSON.stringify(route.uri);
           const d = route.declaration;
           if (d?.kind === "view") {
             return `  router.view(${uri}, ${JSON.stringify(d.view)}, ${JSON.stringify(d.data)}, ${d.status})${chain};`;
+          }
+          if (d?.kind === "page") {
+            return `  router.${fn}(${uri}, () => null)${chain};`;
           }
           if (d?.kind === "redirect") {
             return `  router.redirect(${uri}, ${JSON.stringify(d.to)}, ${d.status})${chain};`;

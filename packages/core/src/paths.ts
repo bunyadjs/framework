@@ -23,3 +23,10 @@ export function resolveAppBasePath(importMetaDir: string): string {
   }
   return resolve(importMetaDir, "..");
 }
+
+/** The application root when the calling file is in it (`server.ts`), not in a folder under it. */
+export function resolveAppRoot(importMetaDir: string): string {
+  if (process.env.BUNYAD_BASE_PATH) return resolve(process.env.BUNYAD_BASE_PATH);
+  if (isBunEmbeddedPath(importMetaDir)) return process.cwd();
+  return resolve(importMetaDir);
+}

@@ -1,6 +1,6 @@
 # Docs site
 
-The site follows the application layout: `app/`, `bootstrap/`, `config/`, `routes/`, `resources/`, and `tests/`. Pages are markdown in `resources/docs`.
+The site follows the application layout: `app/` (the docs renderer), `config/`, and `routes/`. Pages are markdown in `content/1.x`.
 
 ```bash
 cd apps/docs-site

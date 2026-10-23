@@ -1,7 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "include": [
-    "**/*.ts"
+    "**/*.ts",
+    "routes/**/*.tsx",
+    ".bunyad/**/*.ts"
   ],
   "compilerOptions": {
     "baseUrl": ".",
@@ -11,11 +13,20 @@
       ],
       "@database/*": [
         "database/*"
+      ],
+      "~/*": [
+        "routes/*",
+        ".bunyad/*"
       ]
-    }
+    },
+    "jsx": "react-jsx",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ]
   },
   "exclude": [
-    "resources/js",
     "node_modules"
   ]
 }

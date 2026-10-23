@@ -5,9 +5,8 @@ import { join } from "node:path";
 
 test("`bunyad mcp` boots the app, serves its tools, and keeps boot logs off stdout", async () => {
   const root = await mkdtemp(join(tmpdir(), "bunyad-mcp-cli-"));
-  await mkdir(join(root, "bootstrap"), { recursive: true });
   await writeFile(
-    join(root, "bootstrap/app.ts"),
+    join(root, "server.ts"),
     `import { Mcp } from ${JSON.stringify(import.meta.resolve("@bunyad/mcp"))};
 export async function createApplication() {
   console.log("BOOT LOG that must stay off stdout");

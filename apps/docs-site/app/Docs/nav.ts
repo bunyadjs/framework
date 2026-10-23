@@ -30,6 +30,7 @@ export const nav: DocGroup[] = [
       { slug: "installation", title: "Installation", file: "installation.md" },
       { slug: "configuration", title: "Configuration", file: "configuration.md" },
       { slug: "structure", title: "Directory Structure", file: "structure.md" },
+      { slug: "choosing-a-structure", title: "Choosing a Structure", file: "choosing-a-structure.md" },
       { slug: "standalone", title: "Using Packages Alone", file: "standalone.md" },
     ],
   },
@@ -45,6 +46,7 @@ export const nav: DocGroup[] = [
   {
     title: "The Basics",
     pages: [
+      { slug: "file-routing", title: "Route Folders", file: "file-routing.md" },
       { slug: "routing", title: "Routing", file: "routing.md" },
       { slug: "middleware", title: "Middleware", file: "middleware.md" },
       { slug: "csrf", title: "CSRF Protection", file: "csrf.md" },

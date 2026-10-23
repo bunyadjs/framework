@@ -1,6 +1,7 @@
 /** Inertia adapter config. */
 export default {
   ssr: {
+    entry: "app/Http/inertia-ssr.tsx",
     /**
      * Default on for Bun inline SSR. Set `INERTIA_SSR_ENABLED=0` to disable.
      * HTTP mode still needs a running `inertia:start-ssr` process.

@@ -23,7 +23,7 @@ test("newProject scaffolds api template", async () => {
   try {
     await newProject(["api", "scaffold-api"]);
     expect(existsSync(resolve(target, "server.ts"))).toBe(true);
-    expect(existsSync(resolve(target, "routes/api.ts"))).toBe(true);
+    expect(existsSync(resolve(target, "routes/(api)/register/RegisterController.ts"))).toBe(true);
     const pkg = (await Bun.file(resolve(target, "package.json")).json()) as {
       name: string;
     };
@@ -92,7 +92,7 @@ test("the prompt offers the starter kits by name and copies no runtime leftovers
   const cwd = process.cwd();
   process.chdir(parent);
   try {
-    Prompt.fake(["1", "shop", "1", false, false, true]);
+    Prompt.fake(["1", "folders", "shop", "1", false, false, true]);
     await newProject([]);
 
     const menu = lines.join("\n");
@@ -101,13 +101,13 @@ test("the prompt offers the starter kits by name and copies no runtime leftovers
     expect(menu).not.toContain("saas");
 
     const target = resolve(parent, "shop");
-    expect(existsSync(resolve(target, "routes/auth.ts"))).toBe(true);
+    expect(existsSync(resolve(target, "routes/(auth)/login/LoginController.ts"))).toBe(true);
     // The template has node_modules and a test database from being run.
     expect(existsSync(resolve(target, "node_modules"))).toBe(false);
     expect(existsSync(resolve(target, "database/testing.sqlite"))).toBe(false);
     expect(existsSync(resolve(target, "database/migrations"))).toBe(true);
     expect(existsSync(resolve(target, ".env"))).toBe(true);
-    expect(menu).toContain("bun ./bunyad migrate");
+    expect(menu).toContain("bunx bunyad migrate");
     expect(menu).toContain("bun run dev");
   } finally {
     if (prevHome === undefined) delete process.env.FLOCK_HOME;
@@ -192,8 +192,8 @@ test("--kit and --dir name the starter kit and directory without prompts", async
   try {
     await newProject(["--kit=api", "--dir=from-flags"]);
     await newProject(["--kit=api", "positional-dir"]);
-    expect(existsSync(resolve(parent, "from-flags/routes/api.ts"))).toBe(true);
-    expect(existsSync(resolve(parent, "positional-dir/routes/api.ts"))).toBe(true);
+    expect(existsSync(resolve(parent, "from-flags/routes/(api)/register/RegisterController.ts"))).toBe(true);
+    expect(existsSync(resolve(parent, "positional-dir/routes/(api)/register/RegisterController.ts"))).toBe(true);
   } finally {
     process.chdir(cwd);
     await rm(parent, { recursive: true, force: true });
@@ -233,3 +233,62 @@ test("names with spaces are rejected, and non-empty directories are not overwrit
     await rm(parent, { recursive: true, force: true });
   }
 });
+
+test("--structure=classic lays the classic layout over the kit and records the choice", async () => {
+  const parent = resolve(import.meta.dir, "../.tmp-new-classic");
+  await rm(parent, { recursive: true, force: true });
+  await mkdir(parent, { recursive: true });
+  const cwd = process.cwd();
+  process.chdir(parent);
+  try {
+    await newProject(["react", "classic-app", "--structure=classic"]);
+    const target = resolve(parent, "classic-app");
+    expect(existsSync(resolve(target, "app/Http/Controllers/Auth/AuthenticatedSessionController.ts"))).toBe(true);
+    expect(existsSync(resolve(target, "resources/js/pages/auth/login.tsx"))).toBe(true);
+    expect(existsSync(resolve(target, "routes/web.ts"))).toBe(true);
+    // What only the folder layout has is gone; the shared parts stay.
+    expect(existsSync(resolve(target, "routes/(auth)"))).toBe(false);
+    expect(existsSync(resolve(target, "structure.json"))).toBe(false);
+    expect(existsSync(resolve(target, "app/Models/User.ts"))).toBe(true);
+    expect(await Bun.file(resolve(target, "bunyad.json")).json()).toEqual({ structure: "classic" });
+
+    await newProject(["react", "folders-app", "--structure=folders"]);
+    expect(existsSync(resolve(parent, "folders-app/routes/(auth)/login/LoginController.ts"))).toBe(true);
+    expect(await Bun.file(resolve(parent, "folders-app/bunyad.json")).json()).toEqual({ structure: "folders" });
+  } finally {
+    process.chdir(cwd);
+    await rm(parent, { recursive: true, force: true });
+  }
+}, 30_000);
+
+test("the prompt asks for the structure with a description of each, and an unknown one is rejected", async () => {
+  const parent = resolve(import.meta.dir, "../.tmp-new-structure");
+  await rm(parent, { recursive: true, force: true });
+  await mkdir(parent, { recursive: true });
+  const lines: string[] = [];
+  setPromptOutput((line) => lines.push(line));
+  const log = console.log;
+  console.log = (line: string) => lines.push(String(line));
+  const cwd = process.cwd();
+  process.chdir(parent);
+  try {
+    // react, classic, directory, sqlite, no install, no git, confirm
+    Prompt.fake(["react", "classic", "shop", "sqlite", false, false, true]);
+    await newProject([]);
+    const menu = lines.join("\n");
+    expect(menu).toContain("Which structure?");
+    expect(menu).toContain("Folders (recommended)");
+    expect(menu).toContain("Best if you know this layout already");
+    expect(existsSync(resolve(parent, "shop/app/Http/Controllers"))).toBe(true);
+
+    await newProject(["react", "odd", "--structure=weird"]);
+    expect(existsSync(resolve(parent, "odd"))).toBe(false);
+  } finally {
+    process.exitCode = 0;
+    console.log = log;
+    restore();
+    setPromptOutput((line) => console.log(line));
+    process.chdir(cwd);
+    await rm(parent, { recursive: true, force: true });
+  }
+}, 30_000);

@@ -2,6 +2,7 @@ export {
   Inertia,
   inertia,
   inertiaPage,
+  registerInertiaPages,
   resolveInertiaResponse,
   resetInertiaState,
   ResponseFactory,

@@ -1,4 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { controllerSourceFile as routeFolderSource } from "@bunyad/router";
 import { dirname, join } from "node:path";
 import { BunyadError } from "@bunyad/common";
 import {
@@ -42,6 +43,8 @@ function isInjectableType(typeName: string | undefined): typeName is string {
 }
 
 function controllerSourceFile(Controller: Function, app: Application): string | null {
+  const known = routeFolderSource(Controller);
+  if (known) return known;
   const name = Controller.name;
   if (!name) return null;
   const roots = [app.path("Http/Controllers"), app.basePath()];

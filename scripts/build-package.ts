@@ -56,20 +56,22 @@ rmSync(configPath, { force: true });
 if (tsc.exitCode !== 0) process.exit(tsc.exitCode ?? 1);
 
 const relativeTs = /(\bfrom\s+|\bimport\s*\(\s*|\bimport\s+)(["'])(\.{1,2}\/[^"']*?)\.ts\2/g;
+// tsc leaves a lazy `require("./x.ts")` as it is in the JS output.
+const relativeRequire = /(\brequire\s*\(\s*)(["'])(\.{1,2}\/[^"']*?)\.ts\2/g;
 
 async function walk(dir: string): Promise<string[]> {
   const out: string[] = [];
   for (const e of await readdir(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
     if (e.isDirectory()) out.push(...(await walk(p)));
-    else if (e.name.endsWith(".d.ts")) out.push(p);
+    else if (e.name.endsWith(".d.ts") || e.name.endsWith(".js")) out.push(p);
   }
   return out;
 }
 
 for (const file of await walk(dist)) {
   const src = await readFile(file, "utf8");
-  const next = src.replace(relativeTs, "$1$2$3.js$2");
+  const next = file.endsWith(".js") ? src.replace(relativeRequire, "$1$2$3.js$2") : src.replace(relativeTs, "$1$2$3.js$2");
   if (next !== src) await writeFile(file, next);
 }
 console.log(`built ${pkgDir}`);

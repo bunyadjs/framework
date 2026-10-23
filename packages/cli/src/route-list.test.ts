@@ -8,7 +8,7 @@ async function routeList(args: string[] = []): Promise<{
   stdout: string;
   stderr: string;
 }> {
-  const proc = Bun.spawn(["bun", "./bunyad", "route:list", ...args], {
+  const proc = Bun.spawn(["bun", resolve(import.meta.dir, "bunyad.ts"), "route:list", ...args], {
     cwd: playground,
     stdout: "pipe",
     stderr: "pipe",
@@ -31,7 +31,7 @@ test("route:list prints Method URI Name Action Middleware", async () => {
   expect(stdout).toContain("Action");
   expect(stdout).toContain("Middleware");
   expect(stdout).toContain("home");
-  expect(stdout).toMatch(/HelloController@index/);
+  expect(stdout).toMatch(/HelloController@home/);
   expect(stdout).toContain("users.show");
   expect(stdout).toMatch(/UserController@show/);
 });
@@ -50,7 +50,7 @@ test("route:list --json emits filterable rows", async () => {
   const home = rows.find((r) => r.name === "home");
   expect(home?.method).toBe("GET");
   expect(home?.uri).toBe("/");
-  expect(home?.action).toBe("HelloController@index");
+  expect(home?.action).toBe("HelloController@home");
 });
 
 test("route:list --method=POST --name=login filters", async () => {

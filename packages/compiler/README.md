@@ -28,7 +28,7 @@ const manifest = await compile({
   appName: "demo",
   routesEntries: ["./routes/web.ts"],
   plugins: [hello],
-  bootstrap: { applicationModule: "./bootstrap/app.ts" },
+  bootstrap: { applicationModule: "./server.ts" },
 });
 
 manifest.version;       // 1
@@ -41,7 +41,7 @@ manifest.meta.hello;    // { present: true }
 
 - Bun-only runtime. Normally driven by the `bunyad compile` CLI.
 - The router, middleware, providers, migrations, discovery, config, server and workers plugins always run first; `plugins` are appended after them (for example `createViewPlugin()` from `@bunyad/view`).
-- Route entries need at least one route file. Closure routes are skipped with a warning; controller routes must live under `app/Http/Controllers`.
+- Route entries need at least one route file. Closure routes are skipped with a warning; controller routes must come from a route folder or live under `src/Http/Controllers`.
 - Set `optimize: true` to emit the radix route matcher.
 
 ## License

@@ -14,14 +14,23 @@
     "paths": {
       "@/*": [
         "app/*"
+      ],
+      "@database/*": [
+        "database/*"
+      ],
+      "~/*": [
+        "routes/*",
+        ".bunyad/*"
       ]
     }
   },
   "include": [
-    "resources/js/**/*",
-    "app/**/*",
-    "bootstrap/**/*",
-    "routes/**/*",
-    "scripts/**/*"
+    "**/*.ts",
+    "routes/**/*.tsx",
+    "app/**/*.tsx",
+    ".bunyad/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }

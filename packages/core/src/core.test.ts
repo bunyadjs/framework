@@ -1096,3 +1096,52 @@ test("isCompiledBootMode respects BUNYAD_COMPILED and DEV veto", async () => {
     else process.env.NODE_ENV = prev.nodeEnv;
   }
 });
+
+test("an action's data is its view's props: GET renders the view, JSON requests and other verbs get JSON", async () => {
+  const { setPageResponder } = await import("@bunyad/router");
+  const seen: { name: string; props: unknown }[] = [];
+  setPageResponder([".fake"], (page, props) => {
+    seen.push({ name: page.name, props });
+    return new Response(`page:${page.name}`, { headers: { "content-type": "text/html" } });
+  });
+
+  class ProfileController {
+    edit() {
+      return { user: "ada" };
+    }
+    show() {}
+    update() {
+      return { saved: true };
+    }
+    destroy() {
+      return new Response("gone");
+    }
+  }
+  const router = new Router();
+  router.get("/profile", [ProfileController, "edit"]).page("src/web/profile/ProfilePage.fake");
+  router.get("/empty", [ProfileController, "show"]).page("src/web/empty/EmptyPage.fake");
+  router.put("/profile", [ProfileController, "update"]).page("src/web/profile/ProfilePage.fake");
+  router.delete("/profile", [ProfileController, "destroy"]).page("src/web/profile/ProfilePage.fake");
+
+  const app = new Application({ router, config: { app: { port: 0 } } });
+  await app.boot();
+  const fetch = createFetchHandler(app);
+
+  const page = await fetch(new Request("http://localhost/profile"));
+  expect(await page.text()).toBe("page:web/profile/ProfilePage");
+  expect(seen[0]).toEqual({ name: "web/profile/ProfilePage", props: { user: "ada" } });
+
+  const empty = await fetch(new Request("http://localhost/empty"));
+  expect(await empty.text()).toBe("page:web/empty/EmptyPage");
+  expect(seen[1]!.props).toEqual({});
+
+  const asJson = await fetch(new Request("http://localhost/profile", { headers: { accept: "application/json" } }));
+  expect(await asJson.json()).toEqual({ user: "ada" });
+
+  const put = await fetch(new Request("http://localhost/profile", { method: "PUT" }));
+  expect(await put.json()).toEqual({ saved: true });
+
+  const del = await fetch(new Request("http://localhost/profile", { method: "DELETE" }));
+  expect(await del.text()).toBe("gone");
+  expect(seen).toHaveLength(2);
+});

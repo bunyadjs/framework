@@ -10,9 +10,10 @@ import {
   type AuthConfig,
   type PolicyClass,
 } from "@bunyad/auth";
-import { Live, type LiveComponentClass } from "@bunyad/live";
+import { Live, type LiveComponentClass } from "@bunyad/live-components";
 import { registerMailable, type MailableConstructor } from "@bunyad/mail";
 import type { Model } from "@bunyad/orm";
+import { liveComponentName, routeTreeOf } from "@bunyad/router";
 import { getViewFactory, type ComponentClass } from "@bunyad/view";
 import { tokenGuardUsing } from "./token-guard-using.ts";
 
@@ -67,6 +68,18 @@ async function listFiles(cwd: string, pattern: string): Promise<string[]> {
   return files;
 }
 
+/** `*Live.ts` files of a route tree, skipping `_` and capitalised folders and tests. */
+export async function liveFilesIn(tree: string): Promise<string[]> {
+  const found: string[] = [];
+  for await (const file of new Bun.Glob("**/*Live.{ts,tsx}").scan({ cwd: tree, absolute: true })) {
+    const parts = relative(tree, file).split(/[\\/]/);
+    if (parts.slice(0, -1).some((part) => part.startsWith("_") || part.startsWith(".") || /^[A-Z]/.test(part))) continue;
+    if (!/^[A-Z]\w*Live\.tsx?$/.test(parts.at(-1)!)) continue;
+    found.push(file);
+  }
+  return found.sort();
+}
+
 async function importDefault(file: string): Promise<unknown> {
   const mod = await import(file);
   return mod.default;
@@ -89,14 +102,21 @@ export async function discoverLive(app: Application): Promise<void> {
 
   const root = app.path("Live");
   const files = await listFiles(root, "**/*.{ts,tsx}");
-  if (files.length === 0) return;
+  // Components beside their templates in a route folder (`routes/(auth)/login/LoginLive.ts`).
+  const tree = routeTreeOf(app.basePath());
+  const inTree = tree ? await liveFilesIn(tree) : [];
+  if (files.length === 0 && inTree.length === 0) return;
 
-  const modules = await Promise.all(
-    files.map(async (file) => ({
+  const modules = await Promise.all([
+    ...files.map(async (file) => ({
       name: dottedKebabName(file, root),
       exported: await importDefault(file),
     })),
-  );
+    ...inTree.map(async (file) => ({
+      name: liveComponentName(tree!, file),
+      exported: await importDefault(file),
+    })),
+  ]);
 
   for (const { name, exported } of modules) {
     if (isClass(exported)) {

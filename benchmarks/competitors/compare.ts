@@ -16,6 +16,7 @@
 import { collectFingerprint } from "../lib/fingerprint.ts";
 import type { BenchmarkResult } from "../lib/result-schema.ts";
 import { writeSuiteResults } from "../lib/write-result.ts";
+import { startBunyadAppServer } from "./bunyad-app.ts";
 import { startBunyadRefServer } from "./bunyad-ref.ts";
 import { startElysiaServer } from "./elysia/server.ts";
 import { startFastifyServer } from "./fastify/server.ts";
@@ -53,6 +54,12 @@ function buildSpecs(): FrameworkSpec[] {
       version: "0.0.0",
       dependencies: { bunyad: "0.0.0" },
       start: startBunyadRefServer,
+    },
+    {
+      id: "bunyad-app",
+      version: "0.0.0",
+      dependencies: { bunyad: "0.0.0" },
+      start: startBunyadAppServer,
     },
     {
       id: "elysia",

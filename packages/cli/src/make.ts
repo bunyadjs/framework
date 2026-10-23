@@ -1,5 +1,7 @@
 import { mkdir, writeFile, access } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join, relative, resolve, sep } from "node:path";
+import { structureOf } from "./structure.ts";
 
 function studly(name: string): string {
   return name
@@ -25,12 +27,32 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+/** The app's folder: the nearest folder above the current one with a `server.ts`, so a command run from a subfolder still writes to the right place. */
+function projectRoot(): string {
+  const cwd = process.cwd();
+  for (let dir = cwd; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, "server.ts"))) return dir;
+    if (dirname(dir) === dir) return cwd;
+  }
+}
+
+/** Folders of the current directory below the app's `routes/`, or null when it is somewhere else. */
+function routesFolderOfCwd(): string[] | null {
+  const parts = relative(projectRoot(), process.cwd()).split(sep);
+  return parts[0] === "routes" ? parts.slice(1) : null;
+}
+
+/** A route folder segment as a URL word: `Blog` is `blog`; group `(auth)` and parameter `[id]` folders stay as written. */
+function routeSegment(word: string): string {
+  return /^[(\[]/.test(word) ? word : word.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
 async function writeStub(
   relativePath: string,
   contents: string,
   force: boolean,
 ): Promise<string> {
-  const path = resolve(process.cwd(), relativePath);
+  const path = resolve(projectRoot(), relativePath);
   if (!force && (await exists(path))) {
     throw new Error(`${relativePath} already exists (use --force to overwrite).`);
   }
@@ -79,14 +101,40 @@ function tableNameFromModel(cls: string): string {
     .replace(/([^s])$/, "$1s");
 }
 
+/**
+ * Register a provider with the app: in the `providers` option of `bunyad()` in `server.ts`, or in
+ * `bootstrap/providers.ts` for an app that still has one.
+ */
 async function appendProviderRegistration(
   className: string,
   relativeImport: string,
-): Promise<boolean> {
-  const providersPath = resolve(process.cwd(), "bootstrap/providers.ts");
-  if (!(await exists(providersPath))) {
-    return false;
+): Promise<string | false> {
+  const legacy = resolve(projectRoot(), "bootstrap/providers.ts");
+  if (await exists(legacy)) return (await registerInLegacyProviders(legacy, className, relativeImport)) ? "bootstrap/providers.ts" : false;
+
+  const serverPath = resolve(projectRoot(), "server.ts");
+  if (!(await exists(serverPath))) return false;
+  let source = await Bun.file(serverPath).text();
+  if (!/bunyad\(\s*import\.meta/.test(source)) return false;
+  if (!source.includes(`import ${className} from`)) {
+    const importLine = `import ${className} from "@/Providers/${className}.ts";`;
+    const lastImport = [...source.matchAll(/^import .+$/gm)].at(-1);
+    source = lastImport?.index != null
+      ? source.slice(0, lastImport.index + lastImport[0].length) + `\n${importLine}` + source.slice(lastImport.index + lastImport[0].length)
+      : `${importLine}\n${source}`;
   }
+  if (/providers:\s*\[/.test(source)) {
+    if (!new RegExp(`providers:\\s*\\[[^\\]]*\\b${className}\\b`).test(source)) source = source.replace(/providers:\s*\[/, (m) => `${m}${className}, `).replace(new RegExp(`${className}, \\]`), `${className}]`);
+  } else if (/bunyad\(\s*import\.meta\s*,\s*\{/.test(source)) {
+    source = source.replace(/(bunyad\(\s*import\.meta\s*,\s*\{)/, `$1\n  providers: [${className}],`);
+  } else {
+    source = source.replace(/bunyad\(\s*import\.meta\s*\)/, `bunyad(import.meta, { providers: [${className}] })`);
+  }
+  await writeFile(serverPath, source);
+  return "server.ts";
+}
+
+async function registerInLegacyProviders(providersPath: string, className: string, relativeImport: string): Promise<boolean> {
   let source = await Bun.file(providersPath).text();
   const importLine = `import ${className} from "${relativeImport}";`;
   if (!source.includes(importLine) && !source.includes(`import ${className} from`)) {
@@ -171,9 +219,22 @@ export default class ${cls} extends Command {
     const withRequests = hasFlag(rest, "--requests", "-R");
     const modelFlag = rest.find((a) => a.startsWith("--model="))?.slice("--model=".length);
 
-    const { dir, base } = splitFolder(name);
+    const parts = name.replace(/\\/g, "/").split("/").filter(Boolean);
+    const base = parts.pop() ?? name;
+    const dir = parts.map(studly).join("/");
     const cls = className(base, "Controller");
-    const path = join("app/Http/Controllers", dir, `${cls}.ts`);
+    // Folders: the controller goes in the route folder of its URL, `Auth/Register` is `routes/auth/register/RegisterController.ts`.
+    // Run from inside `routes/`, the folder is relative to where you are: in `routes/(auth)`, `Login` is `routes/(auth)/login/`.
+    // Classic: `app/Http/Controllers/Auth/RegisterController.ts`, and you add the route in `routes/web.ts` yourself.
+    const classic = structureOf(projectRoot()) === "classic";
+    const routeFolder = [
+      ...(routesFolderOfCwd() ?? []),
+      ...parts.map(routeSegment),
+      routeSegment(cls.replace(/Controller$/, "")),
+    ];
+    const path = classic
+      ? join("app/Http/Controllers", dir, `${cls}.ts`)
+      : join("routes", ...routeFolder, `${cls}.ts`);
     const model = modelFlag ? className(modelFlag) : undefined;
     const subject = model ?? cls.replace(/Controller$/, "");
 
@@ -184,8 +245,11 @@ export default class ${cls} extends Command {
       formStore = `Store${subject}Request`;
       formUpdate = `Update${subject}Request`;
       for (const form of [formStore, formUpdate]) {
-        await makeCommands["make:request"]!([join(dir, form), ...(force ? ["--force"] : [])]);
-        imports.push(`import ${form} from "@/Http/Requests/${join(dir, form)}.ts";`);
+        // Folders: the request sits beside its controller, like the starters' `LoginRequest.ts`.
+        await makeCommands["make:request"]!(
+          classic ? [join(dir, form), ...(force ? ["--force"] : [])] : [form, `--route=${routeFolder.join("/")}`, ...(force ? ["--force"] : [])],
+        );
+        imports.push(classic ? `import ${form} from "@/Http/Requests/${join(dir, form)}.ts";` : `import ${form} from "./${form}.ts";`);
       }
     }
     const requestImport = `import type { Request } from "@bunyad/http";
@@ -193,7 +257,7 @@ import { json${resource ? ", noContent" : ""} } from "@bunyad/http";`;
 
     let body: string;
     if (invokable) {
-      body = `  async __invoke(_request: Request) {
+      body = `  async handle(_request: Request) {
     return json({ message: "${cls}" });
   }`;
     } else if (resource) {
@@ -226,6 +290,7 @@ ${body}
       force,
     );
     console.log(`Controller created: ${file}`);
+    if (classic) console.log(`Add its route in routes/web.ts (or routes/api.ts), for example: Route.get("/${routeSegment(cls.replace(/Controller$/, ""))}", [${cls}, "index"]);`);
   },
 
   async "make:model"(args) {
@@ -460,15 +525,22 @@ export default class ${cls} extends Event {
   },
 
   async "make:request"(args) {
-    const { name, force } = parseFlags(args);
+    const routeFlag = args.find((a) => a.startsWith("--route="))?.slice("--route=".length);
+    const { name, force } = parseFlags(args.filter((a) => a !== `--route=${routeFlag}`));
     if (!name) {
-      console.error("Usage: make:request Name [--force]");
+      console.error("Usage: make:request [Folder/]Name [--route=folder] [--force]");
       process.exitCode = 1;
       return;
     }
     const { dir, base } = splitFolder(name);
     const cls = className(base, "Request");
-    const path = join("app/Http/Requests", dir, `${cls}.ts`);
+    // Folders: inside `routes/` (or given `--route`) the request sits in that route folder. Classic, or elsewhere: `app/Http/Requests`.
+    const classic = structureOf(projectRoot()) === "classic";
+    const inRoutes = classic ? null : routeFlag !== undefined ? routeFlag.split("/").filter(Boolean) : routesFolderOfCwd();
+    const path =
+      inRoutes !== null
+        ? join("routes", ...inRoutes, `${cls}.ts`)
+        : join("app/Http/Requests", dir, `${cls}.ts`);
     const file = await writeStub(
       path,
       `import { FormRequest } from "@bunyad/http";
@@ -693,8 +765,11 @@ export default class ${cls} extends Factory<${model}> {
     }
     const unit = hasFlag(rest, "--unit");
     const cls = className(name.replace(/Test$/i, ""), "Test");
-    const folder = unit ? "tests/Unit" : "tests/Feature";
+    // Folders: run inside `routes/`, the test goes in the `_tests/` folder beside the code. Otherwise `tests/`.
+    const inRoutes = structureOf(projectRoot()) === "folders" ? routesFolderOfCwd() : null;
+    const folder = inRoutes ? join("routes", ...inRoutes, "_tests") : unit ? "tests/Unit" : "tests/Feature";
     const path = join(folder, `${cls}.ts`);
+    const server = relative(join(projectRoot(), folder), join(projectRoot(), "server.ts")).replaceAll("\\", "/");
     const file = await writeStub(
       path,
       `import { expect, test } from "bun:test";
@@ -702,7 +777,7 @@ import { TestCase, testCase } from "@bunyad/testing";
 
 @testCase({
   async createApplication() {
-    const { createApplication } = await import("../../bootstrap/app.ts");
+    const { createApplication } = await import("${server}");
     return createApplication();
   },
 })
@@ -754,10 +829,10 @@ export default class ${cls} extends ServiceProvider {
       `../app/Providers/${cls}.ts`,
     );
     if (appended) {
-      console.log(`Provider registered in bootstrap/providers.ts`);
+      console.log(`Provider registered in ${appended}`);
     } else {
       console.log(
-        `Note: bootstrap/providers.ts not found — register ${cls} manually.`,
+        `Note: no server.ts with bunyad() found — register ${cls} manually.`,
       );
     }
   },

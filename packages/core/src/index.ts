@@ -36,6 +36,8 @@ export {
 } from "./route-model-action.ts";
 export {
   renderException,
+  setErrorPageRenderer,
+  type ErrorPageRenderer,
   renderExceptionHtml,
   parseStack,
   statusFromError,
@@ -78,6 +80,7 @@ export {
 } from "./workers.ts";
 export {
   resolveAppBasePath,
+  resolveAppRoot,
   isBunEmbeddedPath,
 } from "./paths.ts";
 export {

@@ -65,3 +65,16 @@ describe("handleCors", () => {
     expect(await response.text()).toBe("home");
   });
 });
+
+test("routeMayMatch is conservative: a {param} segment could be anything", async () => {
+  const { handleCors } = await import("./cors.ts");
+  const cors = handleCors({ paths: ["api/*", "auth/csrf-cookie"] }) as { appliesTo: (r: { uri: string }) => boolean };
+  expect(cors.appliesTo({ uri: "/api/users/{id}" })).toBe(true);
+  expect(cors.appliesTo({ uri: "/api" })).toBe(true);
+  expect(cors.appliesTo({ uri: "/auth/csrf-cookie" })).toBe(true);
+  expect(cors.appliesTo({ uri: "/{tenant}/orders" })).toBe(true);
+  expect(cors.appliesTo({ uri: "/users/{id}" })).toBe(false);
+  expect(cors.appliesTo({ uri: "/" })).toBe(false);
+  expect((handleCors({ paths: [] }) as { appliesTo: (r: { uri: string }) => boolean }).appliesTo({ uri: "/api/x" })).toBe(false);
+  expect((handleCors({ paths: ["*"] }) as { appliesTo: (r: { uri: string }) => boolean }).appliesTo({ uri: "/anything" })).toBe(true);
+});

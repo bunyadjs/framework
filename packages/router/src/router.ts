@@ -37,10 +37,10 @@ export type RouteAction =
       ...args: any[]
     ) => RouteActionResult | Promise<RouteActionResult>)
   | [ControllerClass, string]
-  /** Invokable controller. Resolved to `[Controller, '__invoke']`. */
+  /** Invokable controller. Resolved to `[Controller, 'handle']`. */
   | ControllerClass;
 
-/** Stored route action. A controller class is resolved to `[Controller, '__invoke']`. */
+/** Stored route action. A controller class is resolved to `[Controller, 'handle']`. */
 export type ResolvedRouteAction = Exclude<RouteAction, ControllerClass>;
 
 function isControllerClass(action: RouteAction): action is ControllerClass {
@@ -48,8 +48,8 @@ function isControllerClass(action: RouteAction): action is ControllerClass {
 }
 
 /**
- * A controller class is `[Controller, '__invoke']`.
- * A class without `__invoke` must be registered as `[Controller, 'method']`.
+ * A controller class is `[Controller, 'handle']`.
+ * A class without `handle` must be registered as `[Controller, 'method']`.
  */
 export function resolveControllerAction(
   action: ControllerClass,
@@ -57,14 +57,15 @@ export function resolveControllerAction(
 export function resolveControllerAction(action: RouteAction): ResolvedRouteAction;
 export function resolveControllerAction(action: RouteAction): ResolvedRouteAction {
   if (!isControllerClass(action)) return action;
-  const invoke = (action.prototype as Record<string, unknown>).__invoke;
+  const invoke = (action.prototype as Record<string, unknown>).handle;
   if (typeof invoke !== "function") {
+    const renamed = typeof (action.prototype as Record<string, unknown>).__invoke === "function" ? ` __invoke() was renamed to handle().` : "";
     throw new BunyadError(
-      `${action.name} is missing __invoke. Pass [Controller, 'method'] for a controller with more than one action.`,
+      `${action.name} is missing handle().${renamed} Pass [Controller, 'method'] for a controller with more than one action.`,
       "BUNYAD_ROUTE_002",
     );
   }
-  return [action, "__invoke"];
+  return [action, "handle"];
 }
 
 /** Precomputed action injection slot (boot/compile — never classified per request). */
@@ -108,6 +109,11 @@ export type RouteDefinition = {
   missing?: MissingBindingCallback;
   /** What a closure route from a helper does, so `bunyad compile` can register it again. */
   declaration?: RouteDeclaration;
+  /**
+   * The view file that belongs to this action, relative to the app (`src/web/login/LoginPage.tsx`).
+   * A plain object returned by the action is rendered with it.
+   */
+  page?: string;
 };
 
 /**
@@ -119,7 +125,9 @@ export type RouteDefinition = {
 export type RouteDeclaration =
   | { kind: "view"; view: string; data: Record<string, unknown>; status: number }
   | { kind: "redirect"; to: string; status: number }
-  | { kind: "handler"; module: string; export: string; args: unknown[] };
+  | { kind: "handler"; module: string; export: string; args: unknown[] }
+  /** A page with no controller: the route returns nothing and its view file renders. */
+  | { kind: "page" };
 
 export type RouteBinder = (
   value: string,
@@ -663,6 +671,18 @@ function compileUri(
  */
 export class Router {
   readonly routes: RouteDefinition[] = [];
+
+  #domainCount = -1;
+  #hasDomains = false;
+
+  /** Whether any route is limited to a host, so a request's host has to be looked at. */
+  usesDomains(): boolean {
+    if (this.#domainCount !== this.routes.length) {
+      this.#domainCount = this.routes.length;
+      this.#hasDomains = this.routes.some((route) => route.domain !== undefined);
+    }
+    return this.#hasDomains;
+  }
   readonly #named = new Map<string, RouteDefinition>();
   /** Static URI → candidates (multiple when domains differ). */
   readonly #static = new Map<string, Map<string, RouteDefinition[]>>();
@@ -1425,7 +1445,8 @@ export class Router {
     }
 
     if (host != null && host !== "") {
-      const domainHit = this.#matchLinear(verb, normalized, host, true);
+      // An exact host (`admin.example.com`) wins over a pattern (`{tenant}.example.com`).
+      const domainHit = this.#matchLinear(verb, normalized, host, true, true) ?? this.#matchLinear(verb, normalized, host, true);
       if (domainHit) {
         return this.#rememberHot(verb, normalized, host, domainHit);
       }
@@ -1494,11 +1515,13 @@ export class Router {
     normalized: string,
     host?: string,
     domainOnly = false,
+    exactHostsOnly = false,
   ): { route: RouteDefinition; params: Record<string, string> } | undefined {
     for (const route of this.routes) {
       if (route === this.#fallback) continue;
       if (!route.methods.includes(verb)) continue;
       if (domainOnly && !route.domain) continue;
+      if (exactHostsOnly && domainCompiled(route)!.names.length > 0) continue;
       if (!domainOnly && route.domain) continue;
       const domainParams = extractDomainParams(route, host);
       if (domainParams === null) continue;
@@ -1712,6 +1735,18 @@ class RouteRegistrar {
   name(name: string): this {
     const prefix = this.route.name ?? "";
     this.router.registerName(`${prefix}${name}`, this.route);
+    return this;
+  }
+
+  /** The view file for this route's action, relative to the app. */
+  page(file: string): this {
+    this.route.page = file;
+    return this;
+  }
+
+  /** Describe what a helper route does, so `bunyad compile` can register it again. */
+  declare(declaration: RouteDeclaration): this {
+    this.route.declaration = declaration;
     return this;
   }
 

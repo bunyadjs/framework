@@ -16,9 +16,8 @@ async function withCwd<T>(dir: string, fn: () => Promise<T>): Promise<T> {
 
 test("a command registered by a provider while the app boots is found", async () => {
   const root = await mkdtemp(join(tmpdir(), "bunyad-provider-cmd-"));
-  await mkdir(join(root, "bootstrap"), { recursive: true });
   await writeFile(
-    join(root, "bootstrap/app.ts"),
+    join(root, "server.ts"),
     `import { registerProviderCommand } from ${JSON.stringify(import.meta.resolve("@bunyad/core"))};
 export async function createApplication() {
   registerProviderCommand("provider-test:hello", async (args) => {
@@ -59,15 +58,14 @@ test("an unknown command still fails clearly, with or without an app", async () 
       expect(process.exitCode).toBe(1);
     });
 
-    await mkdir(join(root, "bootstrap"), { recursive: true });
-    await writeFile(join(root, "bootstrap/app.ts"), `export async function createApplication() {}\n`);
+      await writeFile(join(root, "server.ts"), `export async function createApplication() {}\n`);
     await withCwd(root, async () => {
       process.exitCode = 0;
       await run(["nope:nothing"]);
       expect(process.exitCode).toBe(1);
     });
 
-    await writeFile(join(root, "bootstrap/app.ts"), `throw new Error("boot failed");\n`);
+    await writeFile(join(root, "server.ts"), `throw new Error("boot failed");\n`);
     await withCwd(root, async () => {
       process.exitCode = 0;
       await run(["nope:nothing"]);

@@ -204,3 +204,123 @@ export function mergeControllerMiddleware(
   ];
   return excludeMiddleware(combined, withoutMiddlewareOf(Controller, method));
 }
+
+const ROUTE_NAME = Symbol.for("bunyad.controller.routeName");
+const ROUTE_METHOD = Symbol.for("bunyad.controller.routeMethod");
+
+type RouteMeta = Function & {
+  [ROUTE_NAME]?: Map<string, string>;
+  [ROUTE_METHOD]?: string[];
+};
+
+/** Run `apply` for a class decorator (`member` undefined) or a method decorator, legacy or stage 3. */
+function onTarget(args: unknown[], apply: (ctor: RouteMeta, member: string | undefined) => void): void {
+  const [target, key] = args;
+  if (key !== null && typeof key === "object" && "kind" in key && "name" in key) {
+    const ctx = key as { kind: string; name: string | symbol };
+    if (ctx.kind === "class") return apply(target as RouteMeta, undefined);
+    const ctor = typeof target === "function" ? target : (target as object).constructor;
+    return apply(ctor as RouteMeta, String(ctx.name));
+  }
+  if (key !== undefined) return apply((target as object).constructor as RouteMeta, String(key));
+  if (typeof target === "function") apply(target as RouteMeta, undefined);
+}
+
+/**
+ * Name the route of a controller. On a class it names the controller's route; on a method it names
+ * that action's route. Without it the name comes from the folder.
+ */
+export function Name(name: string): ClassDecorator & MethodDecorator {
+  return ((...args: unknown[]) =>
+    onTarget(args, (ctor, member) => {
+      const map = ctor[ROUTE_NAME] ?? new Map<string, string>();
+      map.set(member ?? "", name);
+      ctor[ROUTE_NAME] = map;
+    })) as ClassDecorator & MethodDecorator;
+}
+
+/**
+ * Require an ability for a controller or one action: `@Can("update", "post")` is the `can:update,post`
+ * middleware, which runs the Gate with the route's `{post}` model.
+ */
+export function Can(ability: string, ...models: string[]): ClassDecorator & MethodDecorator {
+  return Middleware(`can:${[ability, ...models].join(",")}`);
+}
+
+/** HTTP verb(s) of a single-action controller (`handle`). The default is GET. */
+export function Method(...verbs: string[]): ClassDecorator {
+  return ((...args: unknown[]) =>
+    onTarget(args, (ctor, member) => {
+      if (member === undefined) ctor[ROUTE_METHOD] = verbs.map((v) => v.toUpperCase());
+    })) as ClassDecorator;
+}
+
+/** Route name set by `@Name` for this action (a class-level name applies to every action). */
+export function routeNameOf(Controller: Function, method: string): string | undefined {
+  const map = (Controller as RouteMeta)[ROUTE_NAME];
+  return map?.get(method) ?? map?.get("");
+}
+
+/** Verbs set by `@Method`, if any. */
+export function routeMethodOf(Controller: Function): string[] | undefined {
+  return (Controller as RouteMeta)[ROUTE_METHOD];
+}
+
+const ROUTE_SPECS = Symbol.for("bunyad.controller.routeSpecs");
+
+/** A route declared on a controller method: a verb and a path relative to the controller's folder. */
+export type DeclaredRoute = { method: string; path: string; name?: string; access?: string; where?: Record<string, string> };
+
+/** Options of `@Get("/x", { … })`: the route's name and its extra middleware. */
+export type DeclaredRouteOptions = { name?: string; middleware?: Middleware[]; /** Who may open it: `guest` or `auth`. Replaces the access its area sets. */ access?: string; /** Patterns for parameters, such as `{ key: ".+" }` for a path with slashes. */ where?: Record<string, string> };
+
+type SpecMeta = Function & { [ROUTE_SPECS]?: Map<string, DeclaredRoute[]> };
+
+function routeDecorator(method: string) {
+  return (path = "/", options: DeclaredRouteOptions = {}): MethodDecorator =>
+    ((...args: unknown[]) =>
+      onTarget(args, (ctor, member) => {
+        if (member === undefined) return;
+        const meta = ctor as SpecMeta;
+        const map = meta[ROUTE_SPECS] ?? new Map<string, DeclaredRoute[]>();
+        map.set(member, [...(map.get(member) ?? []), { method, path, name: options.name, access: options.access, where: options.where }]);
+        meta[ROUTE_SPECS] = map;
+        if (options.middleware?.length) pushMethodList(ctor as unknown as Ctor, METHOD_MIDDLEWARE, member, options.middleware);
+      })) as MethodDecorator;
+}
+
+/** Declare a route on a controller method. The path is relative to the controller's folder URL. */
+export const Get = routeDecorator("GET");
+export const Post = routeDecorator("POST");
+export const Put = routeDecorator("PUT");
+export const Patch = routeDecorator("PATCH");
+export const Delete = routeDecorator("DELETE");
+
+/** Routes declared with `@Get`, `@Post`, … by method name. */
+export function declaredRoutesOf(Controller: Function): ReadonlyMap<string, readonly DeclaredRoute[]> {
+  return (Controller as SpecMeta)[ROUTE_SPECS] ?? new Map();
+}
+
+const ROUTE_VIEW = Symbol.for("bunyad.controller.routeView");
+
+type ViewMeta = Function & { [ROUTE_VIEW]?: Map<string, string> };
+
+/**
+ * Use a different view file for an action (or for the whole controller). The path is relative to the
+ * controller's folder: `@View("../shared/FormPage.tsx")`.
+ */
+export function View(file: string): ClassDecorator & MethodDecorator {
+  return ((...args: unknown[]) =>
+    onTarget(args, (ctor, member) => {
+      const meta = ctor as unknown as ViewMeta;
+      const map = meta[ROUTE_VIEW] ?? new Map<string, string>();
+      map.set(member ?? "", file);
+      meta[ROUTE_VIEW] = map;
+    })) as ClassDecorator & MethodDecorator;
+}
+
+/** View file set by `@View` for this action (a class-level one applies to every action). */
+export function routeViewOf(Controller: Function, method: string): string | undefined {
+  const map = (Controller as ViewMeta)[ROUTE_VIEW];
+  return map?.get(method) ?? map?.get("");
+}

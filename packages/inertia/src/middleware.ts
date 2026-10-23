@@ -3,7 +3,7 @@ import { factory, runInertiaRequest, type SharedPropValue } from "./factory.ts";
 
 /**
  * Base Inertia middleware. Apps extend this as `HandleInertiaRequests`
- * under `app/Http/Middleware`.
+ * under `src/Http/Middleware`.
  */
 export class Middleware {
   /** Root template loaded on the first page visit. */

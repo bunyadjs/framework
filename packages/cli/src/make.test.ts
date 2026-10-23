@@ -41,8 +41,7 @@ test("make:model -mfs writes migration factory and seeder", async () => {
 test("make:model -c --policy writes controller and policy", async () => {
   const root = await mkdtemp(join(tmpdir(), "bunyad-make-model-cp-"));
   await mkdir(join(root, "app/Models"), { recursive: true });
-  await mkdir(join(root, "app/Http/Controllers"), { recursive: true });
-  await mkdir(join(root, "app/Policies"), { recursive: true });
+    await mkdir(join(root, "app/Policies"), { recursive: true });
 
   await withCwd(root, async () => {
     await makeCommands["make:model"]!(["Article", "-c", "--policy"]);
@@ -50,7 +49,7 @@ test("make:model -c --policy writes controller and policy", async () => {
 
   expect(await Bun.file(join(root, "app/Models/Article.ts")).exists()).toBe(true);
   expect(
-    await Bun.file(join(root, "app/Http/Controllers/ArticleController.ts")).exists(),
+    await Bun.file(join(root, "routes/article/ArticleController.ts")).exists(),
   ).toBe(true);
   expect(await Bun.file(join(root, "app/Policies/ArticlePolicy.ts")).exists()).toBe(
     true,
@@ -62,15 +61,14 @@ test("make:test and make:provider stubs", async () => {
   await mkdir(join(root, "tests/Feature"), { recursive: true });
   await mkdir(join(root, "tests/Unit"), { recursive: true });
   await mkdir(join(root, "app/Providers"), { recursive: true });
-  await mkdir(join(root, "bootstrap"), { recursive: true });
   await writeFile(
-    join(root, "bootstrap/providers.ts"),
-    `import type { Application } from "@bunyad/core";
-import AppServiceProvider from "../app/Providers/AppServiceProvider.ts";
+    join(root, "server.ts"),
+    `import { bunyad } from "@bunyad/framework";
+import AppServiceProvider from "@/Providers/AppServiceProvider.ts";
 
-export function registerProviders(app: Application): void {
-  app.register(AppServiceProvider);
-}
+export const createApplication = bunyad(import.meta, {
+  providers: [AppServiceProvider],
+});
 `,
   );
 
@@ -88,9 +86,25 @@ export function registerProviders(app: Application): void {
     await Bun.file(join(root, "app/Providers/BillingProvider.ts")).exists(),
   ).toBe(true);
 
-  const providers = await readFile(join(root, "bootstrap/providers.ts"), "utf8");
-  expect(providers).toContain("BillingProvider");
-  expect(providers).toContain("app.register(BillingProvider)");
+  const server = await readFile(join(root, "server.ts"), "utf8");
+  expect(server).toContain('import BillingProvider from "@/Providers/BillingProvider.ts";');
+  expect(server).toContain("providers: [BillingProvider, AppServiceProvider]");
+});
+
+test("make:provider adds the providers option to a bare bunyad() call", async () => {
+  const root = await mkdtemp(join(tmpdir(), "bunyad-make-test-"));
+  await writeFile(
+    join(root, "server.ts"),
+    `import { bunyad } from "@bunyad/framework";
+
+export const createApplication = bunyad(import.meta);
+`,
+  );
+  await withCwd(root, async () => {
+    await makeCommands["make:provider"]!(["Billing"]);
+  });
+  const server = await readFile(join(root, "server.ts"), "utf8");
+  expect(server).toContain("bunyad(import.meta, { providers: [BillingProvider] })");
 });
 
 test("make:controller supports folders, --invokable, --api and --requests", async () => {
@@ -98,19 +112,81 @@ test("make:controller supports folders, --invokable, --api and --requests", asyn
   await withCwd(root, async () => {
     await makeCommands["make:controller"]!(["Auth/Register", "--invokable"]);
     const invokable = await readFile(
-      join(root, "app/Http/Controllers/Auth/RegisterController.ts"),
+      join(root, "routes/auth/register/RegisterController.ts"),
       "utf8",
     );
     expect(invokable).toContain("export default class RegisterController");
-    expect(invokable).toContain("async __invoke(_request: Request)");
+    expect(invokable).toContain("async handle(_request: Request)");
 
     await makeCommands["make:controller"]!(["Post", "--api", "--requests"]);
-    const api = await readFile(join(root, "app/Http/Controllers/PostController.ts"), "utf8");
+    const api = await readFile(join(root, "routes/post/PostController.ts"), "utf8");
     expect(api).toContain("store(_request: StorePostRequest)");
     expect(api).toContain("update(_request: UpdatePostRequest)");
     expect(api).not.toContain("create(");
-    expect(api).toContain('import StorePostRequest from "@/Http/Requests/StorePostRequest.ts"');
-    const update = await readFile(join(root, "app/Http/Requests/UpdatePostRequest.ts"), "utf8");
+    expect(api).toContain('import StorePostRequest from "./StorePostRequest.ts"');
+    const update = await readFile(join(root, "routes/post/UpdatePostRequest.ts"), "utf8");
     expect(update).toContain("class UpdatePostRequest extends FormRequest");
   });
+});
+
+test("make:controller and make:request follow the folder they run in", async () => {
+  const root = await mkdtemp(join(tmpdir(), "bunyad-make-folder-"));
+  await writeFile(join(root, "server.ts"), "export default {};\n");
+  await mkdir(join(root, "routes/(auth)"), { recursive: true });
+  await withCwd(join(root, "routes/(auth)"), async () => {
+    await makeCommands["make:controller"]!(["Login"]);
+    await makeCommands["make:request"]!(["LoginRequest"]);
+  });
+  expect(await readFile(join(root, "routes/(auth)/login/LoginController.ts"), "utf8")).toContain("class LoginController");
+  expect(await readFile(join(root, "routes/(auth)/LoginRequest.ts"), "utf8")).toContain("class LoginRequest");
+
+  await mkdir(join(root, "app/Models"), { recursive: true });
+  await withCwd(join(root, "app/Models"), async () => {
+    await makeCommands["make:job"]!(["SendInvoice"]);
+  });
+  expect(await readFile(join(root, "app/Jobs/SendInvoiceJob.ts"), "utf8")).toContain("SendInvoiceJob");
+});
+
+test("classic apps get controllers and requests in app/Http", async () => {
+  const root = await mkdtemp(join(tmpdir(), "bunyad-make-classic-"));
+  await writeFile(join(root, "server.ts"), "export default {};\n");
+  await mkdir(join(root, "routes"), { recursive: true });
+  await writeFile(join(root, "routes/web.ts"), "export default function () {}\n");
+  await withCwd(root, async () => {
+    await makeCommands["make:controller"]!(["Auth/Register", "--resource", "--requests"]);
+  });
+  expect(await readFile(join(root, "app/Http/Controllers/Auth/RegisterController.ts"), "utf8")).toContain(
+    'import StoreRegisterRequest from "@/Http/Requests/Auth/StoreRegisterRequest.ts"',
+  );
+  expect(await readFile(join(root, "app/Http/Requests/Auth/UpdateRegisterRequest.ts"), "utf8")).toContain("FormRequest");
+});
+
+test("bunyad.json decides the structure over the files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "bunyad-make-marker-"));
+  await writeFile(join(root, "server.ts"), "export default {};\n");
+  await writeFile(join(root, "bunyad.json"), JSON.stringify({ structure: "classic" }));
+  await withCwd(root, async () => {
+    await makeCommands["make:controller"]!(["Post"]);
+  });
+  expect(await readFile(join(root, "app/Http/Controllers/PostController.ts"), "utf8")).toContain("class PostController");
+});
+
+test("make:test goes in _tests beside the code in a folders app, and in tests/ in a classic one", async () => {
+  const root = await mkdtemp(join(tmpdir(), "bunyad-make-test-"));
+  await writeFile(join(root, "server.ts"), "export default {};\n");
+  await mkdir(join(root, "routes/(auth)/login"), { recursive: true });
+  await writeFile(join(root, "routes/(auth)/login/LoginController.ts"), "export default class LoginController {}\n");
+  await withCwd(join(root, "routes/(auth)/login"), async () => {
+    await makeCommands["make:test"]!(["Login"]);
+  });
+  const test = await readFile(join(root, "routes/(auth)/login/_tests/LoginTest.ts"), "utf8");
+  expect(test).toContain('await import("../../../../server.ts")');
+
+  const classic = await mkdtemp(join(tmpdir(), "bunyad-make-test-classic-"));
+  await writeFile(join(classic, "server.ts"), "export default {};\n");
+  await writeFile(join(classic, "bunyad.json"), JSON.stringify({ structure: "classic" }));
+  await withCwd(classic, async () => {
+    await makeCommands["make:test"]!(["Login"]);
+  });
+  expect(await readFile(join(classic, "tests/Feature/LoginTest.ts"), "utf8")).toContain('await import("../../server.ts")');
 });

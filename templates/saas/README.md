@@ -4,11 +4,11 @@ The Views starter plus the parts most paid products need: Stripe subscriptions t
 
 ## Create an app
 
-From the Bunyad repo:
-
 ```bash
-bun run bunyad new saas apps/my-saas
-cd apps/my-saas
+bunyad new saas my-saas
+# or, without the global CLI:
+bun create bunyad my-saas --kit=saas
+cd my-saas
 bun install
 bunyad migrate
 bun run dev
@@ -47,23 +47,55 @@ Checkout returns to `/billing?checkout=success`. In production, keep subscriptio
 | GET | `/admin` | `admin` | signed in, `can:admin` |
 | GET/POST | `/register` | `register`, `register.store` | guest |
 | GET/POST | `/login` | `login`, `login.store` | guest |
-| GET/POST | `/two-factor-challenge` | `two-factor.login`, `two-factor.login.store` | guest, after the password step |
-| GET/POST | `/forgot-password` | `password.request`, `password.email` | guest |
+| GET/POST | `/two-factor-challenge` | `two-factor-challenge`, `two-factor-challenge.store` | guest, after the password step |
+| GET/POST | `/forgot-password` | `forgot-password`, `forgot-password.store` | guest |
 | GET | `/reset-password/{token}` | `password.reset` | guest |
 | POST | `/reset-password` | `password.store` | guest |
-| GET | `/email/verify` | `verification.notice` | signed in |
+| GET | `/email/verify` | `email.verify` | signed in |
 | GET | `/email/verify/{id}/{hash}` | `verification.verify` | signed in, signed URL |
-| POST | `/email/verification-notification` | `verification.send` | signed in |
-| GET/POST | `/confirm-password` | `password.confirm`, `password.confirm.store` | signed in |
+| POST | `/email/verification-notification` | `email.verification-notification.store` | signed in |
+| GET/POST | `/confirm-password` | `confirm-password`, `confirm-password.store` | signed in |
 | POST | `/logout` | `logout` | signed in |
-| GET/PATCH/DELETE | `/settings/profile` | `profile.edit`, `profile.update`, `profile.destroy` | signed in |
-| GET/PUT | `/settings/password` | `password.edit`, `password.update` | signed in |
+| GET/PATCH/DELETE | `/settings/profile` | `settings.profile`, `settings.profile.update`, `settings.profile.destroy` | signed in |
+| GET/PUT | `/settings/password` | `settings.password`, `settings.password.update` | signed in |
 | GET/POST/DELETE | `/settings/two-factor` | `two-factor.show`, `two-factor.enable`, `two-factor.disable` | signed in, password confirmed |
 | POST | `/settings/two-factor/confirm` | `two-factor.confirm` | signed in, password confirmed |
 | POST | `/settings/two-factor/recovery-codes` | `two-factor.recovery-codes` | signed in, password confirmed |
-| GET | `/settings/appearance` | `appearance.edit` | signed in |
+| GET | `/settings/appearance` | `settings.appearance` | signed in |
 
-Routes live in `routes/web.ts`, `routes/auth.ts`, and `routes/settings.ts`.
+## Where things are
+
+```text
+routes/      URLs: a controller, a page (`LoginPage.view`) and form requests per folder, their tests in `_tests/` folders,
+             the layouts (`MainLayout.view`, `(auth)/AuthLayout.view`, …), and `_components` for `<x-…>` components
+             (folders starting with `_` are not routes) and `app.css`
+app/         code with no URL: Models, the Testing helper
+config/      configuration, one file per concern
+database/    migrations, seeders
+public/      files served as they are, and the build output
+server.ts    boots the app, and serves it when run
+```
+
+A folder in `routes/` is a URL. `routes/(auth)/login/LoginPage.view` is `/login`; `(auth)` adds no URL segment: it groups the sign-in pages that share one controller. Who may open each page is in `routes/(auth)/auth.routes.ts` and `routes/app.routes.ts`. An action with no page (logout, the resend button, the signed verification link) is declared on the area's controller, `routes/(auth)/AuthController.ts`.
+
+## How pages work
+
+A controller returns the data of its page, and the `*Page.view` in the same folder renders it. A page with no data needs no method for it, so `login/` has only `store()`:
+
+```ts
+// routes/(app)/settings/profile/ProfileController.ts
+edit(request: Request) {
+  return { mustVerifyEmail };   // variables of ProfilePage.view in the same folder
+}
+```
+
+A page says what its layouts show with `@meta`:
+
+```text
+@meta({ title: "Profile settings", heading: "Profile", subheading: "Update your name and email address" })
+```
+
+A `*Layout.view` in a folder wraps every page in that folder and in the folders below it, outermost first: `routes/MainLayout.view` wraps everything (the document, `<head>` and title), then `(auth)/AuthLayout.view` wraps the sign-in pages, and `(app)/AppLayout.view` then `(app)/settings/SettingsLayout.view` wrap the settings pages. A layout prints the page with `{!! children !!}` and reads `meta`.
 
 Login allows 5 failed attempts per email and IP per minute (`LoginRequest`). Registering signs the user in. Changing the email on the profile page marks it unverified.
 

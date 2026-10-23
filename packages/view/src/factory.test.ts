@@ -189,3 +189,47 @@ test("exists and first", async () => {
   expect(factory.first(["missing", "a"])).toBe("A");
   expect(() => factory.first(["x", "y"])).toThrow(/None of the views/);
 });
+
+test("a page renders inside its layouts, outermost last, with its @meta", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "bunyad-views-"));
+  await mkdir(join(dir, "(auth)/login"), { recursive: true });
+  await writeFile(join(dir, "MainLayout.view"), "<title>{{ meta.title }}</title><body>{!! children !!}</body>");
+  await writeFile(join(dir, "(auth)/AuthLayout.view"), "<main>{{ meta.description }}|{!! children !!}</main>");
+  await writeFile(join(dir, "(auth)/login/LoginPage.view"), `@meta({ title: "Log in", description: "Welcome back" })\nHello {{ name }}`);
+  const factory = new ViewFactory(dir);
+
+  const html = factory.renderPage("(auth).login.LoginPage", ["MainLayout", "(auth).AuthLayout"], { name: "Ada" });
+  expect(html).toBe("<title>Log in</title><body><main>Welcome back|\nHello Ada</main></body>");
+});
+
+test("components load from the configured folder", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "bunyad-views-"));
+  await mkdir(join(dir, "_components"), { recursive: true });
+  await writeFile(join(dir, "_components/badge.view"), "[badge]");
+  await writeFile(join(dir, "page.view"), "<x-badge />");
+  const factory = new ViewFactory(dir, { componentsFolder: "_components" });
+  expect(factory.render("page")).toBe("[badge]");
+});
+
+test("layoutsFor lists the layouts of each folder down to the page, outermost first", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "bunyad-views-"));
+  await mkdir(join(dir, "(app)/settings/profile"), { recursive: true });
+  await mkdir(join(dir, "_components"), { recursive: true });
+  await writeFile(join(dir, "MainLayout.view"), "");
+  await writeFile(join(dir, "(app)/AppLayout.view"), "");
+  await writeFile(join(dir, "(app)/settings/SettingsLayout.view"), "");
+  await writeFile(join(dir, "_components/BoxLayout.view"), "");
+  const factory = new ViewFactory(dir);
+
+  expect(factory.layoutsFor("(app).settings.profile.ProfilePage")).toEqual(["MainLayout", "(app).AppLayout", "(app).settings.SettingsLayout"]);
+  expect(factory.layoutsFor("(app).dashboard.DashboardPage")).toEqual(["MainLayout", "(app).AppLayout"]);
+  expect(factory.layoutsFor("WelcomePage")).toEqual(["MainLayout"]);
+});
+
+test("what a page pushes is printed by the stack in its layout", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "bunyad-views-"));
+  await writeFile(join(dir, "MainLayout.view"), "[{!! children !!}|@stack('scripts')]");
+  await writeFile(join(dir, "HomePage.view"), "page@push('scripts')js@endpush");
+  const factory = new ViewFactory(dir);
+  expect(factory.renderPage("HomePage", factory.layoutsFor("HomePage"))).toBe("[page|js]");
+});

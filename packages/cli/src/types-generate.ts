@@ -9,7 +9,8 @@
  * Types are printed as plain structures (props are JSON), so neither side
  * imports the other's files: the server's `@/` and the frontend's `@/` differ.
  */
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { rendererOf } from "./frontend.ts";
 import { dirname, relative, resolve } from "node:path";
 import type * as TS from "typescript";
 
@@ -144,10 +145,53 @@ export type SharedData = ${printer(ts, checker)(shared)} & { errors: Record<stri
 `;
 }
 
+/** The route tree: `routes/` when it holds route folders, . */
+function pageTree(root: string): string {
+  const routes = resolve(root, "routes");
+  return routes;
+}
+
+function hasPages(dir: string): boolean {
+  if (!existsSync(dir)) return false;
+  return new Bun.Glob("**/*Page.{tsx,vue,svelte}").scanSync({ cwd: dir }).next().done === false;
+}
+
 /** Each page's props, from its default export's first parameter. */
+/** The text of the balanced `{ … }` or `<…>` group that starts at `open` in `source`. */
+function balanced(source: string, open: number, pair: [string, string]): string | undefined {
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === pair[0]) depth++;
+    else if (source[i] === pair[1] && --depth === 0) return source.slice(open, i + 1);
+  }
+  return undefined;
+}
+
+/** Props of a Vue page: the type literal given to `defineProps<…>()`. */
+function vueProps(source: string): string | undefined {
+  const at = source.indexOf("defineProps<");
+  if (at === -1) return undefined;
+  const group = balanced(source, at + "defineProps".length, ["<", ">"]);
+  const literal = group?.slice(1, -1).trim();
+  return literal?.startsWith("{") ? literal : undefined;
+}
+
+/** Props of a Svelte page: the type written after the destructuring of `$props()`. */
+function svelteProps(source: string): string | undefined {
+  const at = source.search(/}\s*:\s*\{/);
+  if (at === -1 || !/\$props\(\)/.test(source)) return undefined;
+  const open = source.indexOf("{", source.indexOf(":", at));
+  return balanced(source, open, ["{", "}"]);
+}
+
 function pageTypes(ts: typeof TS, root: string): string | undefined {
-  const pagesDir = resolve(root, "resources/js/pages");
-  const tsconfig = resolve(root, "resources/js/tsconfig.json");
+  // Pages sit next to their controllers under `src/` (`LoginPage.tsx`); older apps keep them in `resources/js/pages`.
+  const srcDir = pageTree(root);
+  const legacyDir = resolve(root, "resources/js/pages");
+  const colocated = existsSync(srcDir) && existsSync(resolve(root, "tsconfig.json")) && hasPages(srcDir);
+  const pagesDir = colocated ? srcDir : legacyDir;
+  const ownConfig = resolve(root, "resources/js/tsconfig.json");
+  const tsconfig = colocated || !existsSync(ownConfig) ? resolve(root, "tsconfig.json") : ownConfig;
   if (!existsSync(pagesDir) || !existsSync(tsconfig)) return undefined;
   const program = createProgram(ts, tsconfig);
   const checker = program.getTypeChecker();
@@ -155,6 +199,7 @@ function pageTypes(ts: typeof TS, root: string): string | undefined {
   const entries: string[] = [];
   for (const file of program.getSourceFiles()) {
     if (!file.fileName.startsWith(pagesDir + "/") || !/\.tsx?$/.test(file.fileName)) continue;
+    if (colocated && !/Page\.tsx?$/.test(file.fileName)) continue;
     const name = relative(pagesDir, file.fileName).replace(/\.tsx?$/, "").replaceAll("\\", "/");
     const component = defaultExport(ts, checker, file);
     if (!component) continue;
@@ -162,7 +207,16 @@ function pageTypes(ts: typeof TS, root: string): string | undefined {
     const props = parameter ? print(checker.getTypeOfSymbol(parameter)) : "{}";
     entries.push(`    ${JSON.stringify(name)}: ${props};`);
   }
-  // Pages written in .vue or .svelte are not read; leave Inertia.render open.
+  // Vue and Svelte pages declare their props in the component: `defineProps<{ … }>()` and `$props()`.
+  const tree = colocated ? srcDir : undefined;
+  if (tree) {
+    for (const file of new Bun.Glob("**/*Page.{vue,svelte}").scanSync({ cwd: tree })) {
+      const source = readFileSync(resolve(tree, file), "utf8");
+      const props = file.endsWith(".vue") ? vueProps(source) : svelteProps(source);
+      const name = file.replace(/\.(vue|svelte)$/, "").replaceAll("\\", "/");
+      entries.push(`    ${JSON.stringify(name)}: ${props ?? "{}"};`);
+    }
+  }
   if (entries.length === 0) return undefined;
   return `${HEADER}
 declare module "@bunyad/inertia" {
@@ -176,17 +230,80 @@ export {};
 `;
 }
 
-/** Everything `types:generate` writes, for an app at `root` whose named routes are `routes`. */
-export async function generateTypes(root: string, routes: Record<string, string>): Promise<GeneratedFile[]> {
+/** The `virtual:pages` module `bunyad build` makes: every page, lazily imported, with the layouts around it. */
+function virtualPages(renderer: string): string {
+  const component = renderer === "react" ? 'import type { ComponentType } from "react";\n\n  ' : "";
+  const page = renderer === "react" ? "ComponentType" : "unknown";
+  const layout = renderer === "react" ? "ComponentType<any>" : "unknown";
+  return `// Generated by \`bunyad types:generate\`. Do not edit.
+
+/** Every \`*Page\` view in the route tree, lazily imported, with the layouts around it (\`bunyad build\`). */
+declare module "virtual:pages" {
+  ${component}type Load<T> = () => Promise<T>;
+
+  export const pages: Record<
+    string,
+    {
+      page: Load<{ default: ${page}; meta?: unknown; layout?: unknown }>;
+      /** The layout of each folder from the route tree down to the page, outermost first. */
+      layouts: Load<{ default: ${layout}; reset?: boolean }>[];
+    }
+  >;
+}
+`;
+}
+
+/** An action that renders a page by returning its props: the controller file, the method and the page's name. */
+export type PageAction = { controller: string; method: string; page: string };
+
+/**
+ * `.bunyad/props.check.ts`: for each action that returns data for a page, a type that fails when the
+ * returned object does not fit the page's props. Actions that return a Response or redirect are skipped.
+ */
+function propsCheck(root: string, actions: PageAction[], known: Set<string>): string | undefined {
+  const lines: string[] = [];
+  actions.filter((a) => known.has(a.page)).forEach((a, i) => {
+    const from = relative(resolve(root, ".bunyad"), a.controller).replaceAll("\\", "/");
+    lines.push(
+      `import type C${i} from ${JSON.stringify(from)};`,
+      `type R${i} = Exclude<Awaited<ReturnType<InstanceType<typeof C${i}>[${JSON.stringify(a.method)}]>>, Response | { toResponse(...args: any[]): unknown } | null | undefined | void>;`,
+      `type _${i} = Assert<[R${i}] extends [never] ? true : R${i} extends Pages[${JSON.stringify(a.page)}] ? true : false>; // ${a.method}() -> ${a.page}`,
+      "",
+    );
+  });
+  if (lines.length === 0) return undefined;
+  return `${HEADER}
+import type { Pages } from "@bunyad/inertia";
+
+/** Fails to type-check when an action's returned props do not fit the page that renders them. */
+type Assert<T extends true> = T;
+
+${lines.join("\n")}
+export {};
+`;
+}
+
+/** Everything \`types:generate\` writes, for an app at `root` whose named routes are `routes`. */
+export async function generateTypes(root: string, routes: Record<string, string>, actions: PageAction[] = []): Promise<GeneratedFile[]> {
   const files: GeneratedFile[] = [];
-  if (existsSync(resolve(root, "resources/js"))) {
-    files.push({ path: "resources/js/routes.ts", contents: routesModule(routes) });
+  // Generated files go in `.bunyad/`, or beside the frontend in an app whose `resources/js` has a tsconfig of its own.
+  const legacy = existsSync(resolve(root, "resources/js/tsconfig.json"));
+  const frontend = legacy || existsSync(resolve(root, "resources/js/pages")) || hasPages(pageTree(root));
+  if (frontend) {
+    files.push({ path: legacy ? "resources/js/routes.ts" : ".bunyad/routes.ts", contents: routesModule(routes) });
+    if (!legacy) files.push({ path: ".bunyad/virtual.d.ts", contents: virtualPages(rendererOf(root) ?? "react") });
   }
   const ts = (await import("typescript")).default;
   const shared = sharedTypes(ts, root);
-  if (shared) files.push({ path: "resources/js/types/shared.d.ts", contents: shared });
+  if (shared) files.push({ path: legacy ? "resources/js/types/shared.d.ts" : ".bunyad/shared.d.ts", contents: shared });
   const pages = pageTypes(ts, root);
-  if (pages) files.push({ path: "types/inertia.d.ts", contents: pages });
+  // Generated types go in `.bunyad/`, or in `types/` for an app that already has that folder.
+  if (pages) files.push({ path: existsSync(resolve(root, "types")) ? "types/inertia.d.ts" : ".bunyad/inertia.d.ts", contents: pages });
+  if (pages && !legacy) {
+    const known = new Set([...pages.matchAll(/^    "([^"]+)":/gm)].map((m) => m[1]!));
+    const check = propsCheck(root, actions, known);
+    if (check) files.push({ path: ".bunyad/props.check.ts", contents: check });
+  }
   return files;
 }
 

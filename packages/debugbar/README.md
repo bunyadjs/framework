@@ -57,7 +57,7 @@ These are no-ops when the bar is off, so they are safe to leave in.
 
 ## Configuration
 
-Create `config/debugbar.ts` (every option is optional) and include it in the `config` object in `bootstrap/app.ts`, the same way as your other config files: `config: { app: appConfig, debugbar: debugbarConfig }`. An application that loads its whole `config/` folder reads it automatically.
+Create `config/debugbar.ts` (every option is optional). Every file in `config/` is loaded, so it is read automatically.
 
 ```ts
 export default {

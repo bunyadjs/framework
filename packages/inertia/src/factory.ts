@@ -399,34 +399,44 @@ export class InertiaResponse {
   }
 }
 
+/** Applies the saved appearance before first paint: "system" follows the OS. */
+const APPEARANCE_SCRIPT = `(() => {
+      const appearance = localStorage.getItem("appearance") ?? "system";
+      if (appearance !== "system") document.documentElement.dataset.theme = appearance;
+    })();`;
+
+function escapeAttribute(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+/**
+ * The page a visitor first receives when the app has no root view of its own: the head (SSR head or a
+ * title), the built stylesheet and script, and the server-rendered body or the page data to hydrate.
+ */
 function defaultRootHtml(
   pageJson: string,
   ssrHead = "",
   ssrBody = "",
 ): string {
-  if (ssrBody) {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  ${ssrHead}
-</head>
-<body>
-  ${ssrBody}
-</body>
-</html>`;
-  }
+  const appName = escapeAttribute(String((globalThis as { config?: (key: string) => unknown }).config?.("app.name") ?? ""));
+  const body = ssrBody || `<script data-page="app" type="application/json">${pageJson}</script>
+  <div id="app"></div>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="application-name" content="${appName}" />
+  ${ssrHead || `<title>${appName}</title>`}
+  <script>
+    ${APPEARANCE_SCRIPT}
+  </script>
+  <link rel="stylesheet" href="/build/app.css" />
+  <script type="module" src="/build/app.js"></script>
 </head>
 <body>
-  <script data-page="app" type="application/json">${pageJson}</script>
-  <div id="app"></div>
+  ${body}
 </body>
 </html>`;
 }

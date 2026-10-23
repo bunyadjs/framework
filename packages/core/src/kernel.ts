@@ -24,8 +24,9 @@ import {
   runWithPaginatorRequest,
 } from "@bunyad/common";
 import type { InjectSlot, RouteAction, RouteDefinition, ControllerClass } from "@bunyad/router";
+import { Domain, pageName, pageResponderFor } from "@bunyad/router";
 import type { Application } from "./application.ts";
-import { notifyException, renderException, shouldReturnJson, statusFromError } from "./exception.ts";
+import { getErrorPageRenderer, notifyException, renderException, shouldReturnJson, statusFromError } from "./exception.ts";
 import { resolveFormRequest } from "./form-request-action.ts";
 import { stampControllerConstructorInject } from "./controller-constructor.ts";
 import {
@@ -121,6 +122,7 @@ export class HttpKernel {
   #resolvedStack(route: {
     middleware: unknown[];
     action: RouteAction;
+    uri?: string;
   }): Middleware[] {
     const global = this.app.getMiddleware();
     const priority = this.app.getMiddlewarePriority();
@@ -146,12 +148,18 @@ export class HttpKernel {
       typeof action !== "function"
         ? mergeControllerMiddleware(routeMw, action[0], action[1])
         : routeMw;
+    // Global middleware that says it cannot affect this route (CORS for a non-API URL) is left out, so
+    // the route may take the bare path.
+    const scoped = (layer: Middleware) => typeof layer === "object" && layer !== null && typeof layer.appliesTo === "function";
+    const applicable = global.some(scoped)
+      ? global.filter((layer) => !scoped(layer) || typeof route.uri !== "string" || (layer as { appliesTo: (r: { uri: string }) => boolean }).appliesTo(route as { uri: string }))
+      : global;
     const stack =
       controllerMw.length === 0
-        ? global
-        : global.length === 0
+        ? applicable
+        : applicable.length === 0
           ? controllerMw
-          : global.concat(controllerMw);
+          : applicable.concat(controllerMw);
 
     this.#stackCache.set(route, stack);
     return stack;
@@ -205,6 +213,7 @@ export class HttpKernel {
         this.#resolveResult(
           invokeWithInjectPlan(action, plan, request),
           request,
+          route,
         );
       // Bare only when zero-arg and no inject/bind needs Request.
       if (action.length === 0 && !plan?.length) {
@@ -227,6 +236,7 @@ export class HttpKernel {
       this.#resolveResult(
         this.#invokeController(fn, Controller, method, request, route),
         request,
+        route,
       );
     if (fn.length === 0 && !route.inject?.length) {
       return { run, bare: () => fn() };
@@ -312,7 +322,8 @@ export class HttpKernel {
     const prepared: RouteDispatch = {
       bind: this.app.router.hasBindings(route.paramNames),
       run: this.#wrapStack(stack, dest.run),
-      bare: stack.length === 0 ? dest.bare : undefined,
+      // A route with a view needs the request to render it, so it never takes the bare path.
+      bare: stack.length === 0 && !route.page ? dest.bare : undefined,
     };
     this.#dispatchCache.set(route, prepared);
     this.#lastRoute = route;
@@ -339,7 +350,25 @@ export class HttpKernel {
     path: string,
     method: string,
   ): Response | Promise<Response> {
-    const matched = this.app.router.match(method, path);
+    const router = this.app.router;
+    // Routes limited to a host (`admin.{root}`) need the request's host; a custom domain is mapped to one of those first.
+    if (router.usesDomains()) {
+      const host = raw.headers.get("host") ?? new URL(raw.url).host;
+      if (Domain.active && !Domain.isOwn(host)) {
+        return Domain.resolve(host).then((canonical) => this.#dispatchMatched(raw, path, method, canonical ?? host));
+      }
+      return this.#dispatchMatched(raw, path, method, host);
+    }
+    return this.#dispatchMatched(raw, path, method);
+  }
+
+  #dispatchMatched(
+    raw: globalThis.Request,
+    path: string,
+    method: string,
+    host?: string,
+  ): Response | Promise<Response> {
+    const matched = this.app.router.match(method, path, host);
     if (!matched) {
       const request = new Request(raw);
       if (method !== raw.method) request.setMethod(method);
@@ -526,15 +555,27 @@ export class HttpKernel {
       const reportContext = shouldReport
         ? await this.app.exceptionReportContext(error)
         : undefined;
-      return renderException(error, {
+      const debug = this.#isDebug();
+      const fallback = renderException(error, {
         request,
-        debug: this.#isDebug(),
+        debug,
         appName: String(this.app.config.get("app.name", "Bunyad")),
         env: String(this.app.config.get("app.env", "local")),
         shouldRenderJsonWhen: this.app.shouldRenderJsonWhenCallback(),
         shouldReport,
         reportContext,
       });
+      // The app's own error page, for browsers; a server error keeps the debug page while debugging.
+      const renderPage = getErrorPageRenderer();
+      if (renderPage && fallback.headers.get("content-type")?.includes("text/html") && (!debug || status < 500)) {
+        const page = await Promise.resolve(renderPage(status, request, error)).catch(() => undefined);
+        if (page) {
+          const headers = new Headers(page.headers);
+          for (const [name, value] of fallback.headers) if (!headers.has(name)) headers.set(name, value);
+          return new Response(page.body, { status, headers });
+        }
+      }
+      return fallback;
     })();
   }
 
@@ -573,11 +614,23 @@ export class HttpKernel {
   #resolveResult(
     result: unknown,
     request: Request,
+    route?: RouteDefinition,
   ): Response | Promise<Response> {
     if (result instanceof Promise) {
-      return result.then((value) => this.#resolveResult(value, request));
+      return result.then((value) => this.#resolveResult(value, request, route));
     }
     if (result instanceof Response) return result;
+    // Data from an action that has a view file is that view's props (GET, unless JSON is wanted).
+    if (route?.page && (result == null || (typeof result === "object" && !Array.isArray(result) && isPlainJsonObject(result)))) {
+      const responder = pageResponderFor(route.page);
+      if (responder && (request.method === "GET" || request.method === "HEAD") && !request.wantsJson()) {
+        const props = (result ?? {}) as Record<string, unknown>;
+        return this.#resolveResult(
+          responder({ file: route.page, name: pageName(route.page) }, props, request),
+          request,
+        );
+      }
+    }
     if (isResponsable(result)) return result.toResponse(request);
     if (typeof result === "string") {
       return new Response(result, HTML_OK);

@@ -81,7 +81,6 @@ Pick one and install it next to `@bunyad/database`: `better-sqlite3`, `pg` or `m
 
 - Express on Node: [`docs/examples/orm-node-express`](https://github.com/bunyadjs/framework/tree/main/docs/examples/orm-node-express)
 - Next.js (server-only, one shared pool): [`docs/examples/orm-node-next`](https://github.com/bunyadjs/framework/tree/main/docs/examples/orm-node-next)
-- NestJS: `@bunyad/nestjs` (`BunyadOrmModule`), in the monorepo and not published yet.
 
 ## Status
 

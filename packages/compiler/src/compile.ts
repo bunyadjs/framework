@@ -6,8 +6,6 @@ import type {
 } from "./types.ts";
 import { assertNoErrors, createRouterPlugin } from "./plugins/router.ts";
 import { createServerPlugin } from "./plugins/server.ts";
-import { createMiddlewarePlugin } from "./plugins/middleware.ts";
-import { createProvidersPlugin } from "./plugins/providers.ts";
 import { createWorkersPlugin } from "./plugins/workers.ts";
 import { createMigrationsPlugin } from "./plugins/migrations.ts";
 import { createDiscoveryPlugin } from "./plugins/discovery.ts";
@@ -15,14 +13,18 @@ import { createConfigPlugin } from "./plugins/config.ts";
 import { resolve } from "node:path";
 import { access } from "node:fs/promises";
 
+/** Scheduled tasks and console commands: `app/Console/schedule.ts`. */
 async function resolveConsoleModule(root: string): Promise<string | undefined> {
-  const path = resolve(root, "routes/console.ts");
-  try {
-    await access(path);
-    return path;
-  } catch {
-    return undefined;
+  for (const candidate of ["app/Console/schedule.ts"]) {
+    const path = resolve(root, candidate);
+    try {
+      await access(path);
+      return path;
+    } catch {
+      // try the next place
+    }
   }
+  return undefined;
 }
 
 function resolveRouteEntries(options: CompileOptions): string[] {
@@ -57,8 +59,6 @@ export async function compile(options: CompileOptions): Promise<ManifestV1> {
       routesEntries,
       optimize: options.optimize === true,
     }),
-    createMiddlewarePlugin(),
-    createProvidersPlugin(),
     createMigrationsPlugin(),
     createDiscoveryPlugin(),
     createConfigPlugin(),
@@ -130,8 +130,6 @@ export type {
 } from "./types.ts";
 export { createRouterPlugin } from "./plugins/router.ts";
 export { createServerPlugin } from "./plugins/server.ts";
-export { createMiddlewarePlugin } from "./plugins/middleware.ts";
-export { createProvidersPlugin } from "./plugins/providers.ts";
 export { createWorkersPlugin } from "./plugins/workers.ts";
 export { createMigrationsPlugin } from "./plugins/migrations.ts";
 export { createDiscoveryPlugin } from "./plugins/discovery.ts";

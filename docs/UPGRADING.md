@@ -8,6 +8,68 @@ Every breaking change in a beta (or later) release is listed here with what to c
 2. Upgrade all `@bunyad/*` packages together, because they share one version: `bun add @bunyad/framework@beta` (or the individual packages you use).
 3. Run `bun run typecheck` and your tests. Removed or renamed exports show up as type errors.
 
+## From 0.2.0-beta.2 to 0.2.0-beta.3
+
+Nothing has to move: an app with `routes/web.ts`, `routes/api.ts` and `app/Http/Controllers` still boots (see the next section). New apps can use route folders, where the app is `routes/` + `app/` + `server.ts`; the rest of this section is for moving to them. `bunyad route:list`, `compile`, `optimize` and `view:cache` read the route folders, or the classic route files when there are no folders.
+
+### The layout
+
+| Before | Now |
+| --- | --- |
+| `src/` route folders | `routes/` |
+| `src/Models`, `src/Http/Middleware`, `src/Providers`, … | `app/Models`, `app/Http/Middleware`, `app/Providers`, … |
+| `@/*` → `src/*` | `@/*` → `app/*` |
+| `bootstrap/app.ts`, `middleware.ts`, `providers.ts` | `server.ts` with `bunyad(import.meta, { groups, providers, middleware })` |
+| `routes/console.ts` | `app/Console/schedule.ts` |
+| `resources/views`, `resources/js`, `resources/css` | views and pages beside their controllers in `routes/`, `routes/app.css` |
+| `tests/` | `_tests/` folders beside the code |
+| the `./bunyad` wrapper and `scripts/dev.ts`, `scripts/build.ts` | the `bunyad` binary: `bunyad dev`, `bunyad build` |
+
+`Application.path()` now always resolves under `app`, the `src` fallbacks are gone, and `createMiddlewarePlugin` / `createProvidersPlugin` were removed from `@bunyad/compiler` (the middleware and providers are in `server.ts`). Models are found in `app/Models`, so a model in another folder is no longer discovered by the CLI.
+
+### Move routes into folders
+
+1. Create `routes/`. A route tree is the web interface (the `web` middleware group) unless a root `app.routes.ts` says otherwise. For stateless endpoints put `export default { prefix: "api", use: ["api"] }` in an `api.routes.ts`. An app with both puts each in a group folder (`routes/(web)`, `routes/(api)`).
+2. For each controller, make a folder named for its URL and move the controller into it. Move its form request next to it and import it as `./LoginRequest.ts`.
+3. Where the folder conventions fit (see [Route Folders](../apps/docs-site/content/1.x/file-routing.md)), delete the route. Otherwise put the routes in a `route.ts` in that folder, with URIs relative to the folder.
+4. Say who may open what in `<area>.routes.ts` (`access: "guest"`, `rules: { auth: [...] }`), or with `(group)` folders and `middleware.ts` files.
+5. Replace `bootstrap/` with a `server.ts`:
+
+```ts
+import { bunyad } from "@bunyad/framework";
+
+export const createApplication = bunyad(import.meta, {
+  groups: { web: [startSession(), handleUrl(), verifyCsrf()] },
+  providers: [AppServiceProvider],
+});
+```
+
+### Pages next to controllers
+
+Move each page from `resources/js/pages/<area>/<name>.tsx` (or `.vue`, `.svelte`) or `resources/views/<area>/<name>.view` into the route folder of its controller and name it for the page: `LoginPage.tsx`, `LoginPage.view`. Then:
+
+1. Return the props from the action instead of calling `Inertia.render("…", props)` or `view("…", data)`; the view beside the controller is rendered for you. An action with no props returns nothing.
+2. Layouts are `*Layout` files in a folder and wrap its pages and the folders below (`MainLayout.tsx` at the root). A page sets what its layouts show with `export const meta = { title: "…" }` (`@meta({ … })` in a `.view`). Layouts take `meta` and `children`.
+3. Import shared code with `~/` (`"~/*": ["routes/*", ".bunyad/*"]` in `tsconfig.json`; React also needs `"jsx": "react-jsx"`). Shared components go in `routes/_components`.
+4. Page names change from `auth/login` to `(auth)/login/LoginPage`. Update tests that check the page component, and run `bunyad types:generate`.
+5. Live components in a route folder (`LoginLive.ts`) replace `Live.route()`; the package is now `@bunyad/live-components`.
+
+### Classic apps keep working
+
+An app with `routes/web.ts`, `routes/api.ts` and `app/Http/Controllers` still boots with `bunyad(import.meta)`: those two route files are loaded when `routes/` has no route folders. An app that boots with `Application.configure().withRouting(...)` needs no change. Add `{ "structure": "classic" }` to a `bunyad.json` so the generators write to `app/Http/...`; without it they guess from the files. See [Choosing a Structure](/docs/1.x/choosing-a-structure).
+
+### Rename `__invoke` to `handle`
+
+Single-action controllers (`Route.get("/x", Controller)`) now call `handle()`. Rename the method. A controller that still has `__invoke()` fails at boot with `BUNYAD_ROUTE_002`, and the message says so.
+
+### `@bunyad/console` is in `@bunyad/cli`
+
+Import `startConsole` from `@bunyad/cli` instead of the removed `@bunyad/console` package.
+
+### Route names
+
+If you copied a starter, rename these in pages, views and tests (`bun run typecheck` finds them in typed frontends after `bunyad types:generate`): `password.request` → `forgot-password`, `password.email` → `forgot-password.store`, `two-factor.login` → `two-factor-challenge`, `two-factor.login.store` → `two-factor-challenge.store`, `verification.notice` → `email.verify`, `verification.send` → `email.verification-notification.store`, `password.confirm` → `confirm-password`, `password.confirm.store` → `confirm-password.store`, `profile.edit` → `settings.profile`, `profile.update` → `settings.profile.update`, `profile.destroy` → `settings.profile.destroy`, `password.edit` → `settings.password`, `password.update` → `settings.password.update`. The names `verification.verify`, `password.reset` and `two-factor.show` are unchanged. (`password.confirm` stays the name of the middleware.)
+
 ## From 0.2.0-beta.1 to 0.2.0-beta.2
 
 No names were removed from the public API. Check these behaviour changes:

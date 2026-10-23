@@ -1,14 +1,14 @@
 # Live starter
 
-The Views starter's pages rebuilt as `@bunyad/live` components: forms submit and re-render without a page reload, and sidebar links swap pages in place. Same features: sign up, log in, remember me, two-factor authentication, password reset, email verification, password confirmation, a sidebar dashboard, and settings for profile, password, two-factor, appearance, and account deletion. Styled with DaisyUI on Tailwind.
+The Views starter's pages rebuilt as `@bunyad/live-components` components: forms submit and re-render without a page reload, and sidebar links swap pages in place. Same features: sign up, log in, remember me, two-factor authentication, password reset, email verification, password confirmation, a sidebar dashboard, and settings for profile, password, two-factor, appearance, and account deletion. Styled with DaisyUI on Tailwind.
 
 ## Create an app
 
-From the Bunyad repo:
-
 ```bash
-bun run bunyad new live apps/my-live
-cd apps/my-live
+bunyad new live my-live
+# or, without the global CLI:
+bun create bunyad my-live --kit=live
+cd my-live
 bun install
 bunyad migrate
 bun run dev
@@ -16,46 +16,55 @@ bun run dev
 
 `bunyad new` copies `.env.example` to `.env` and sets `APP_KEY`. Live signs component snapshots with it, so it must be set in production.
 
-`bun run dev` starts the server with hot reload and rebuilds `public/build/app.css` as views change. `bun run build` builds the stylesheet once, minified, for production.
+`bun run dev` (`bunyad dev`) starts the server with hot reload and rebuilds `public/build/app.css` as views change. `bun run build` builds the stylesheet once, minified, for production.
+
+## Where things are
+
+```text
+routes/      URLs: per folder a Live component (`LoginLive.ts`) and its template (`LoginPage.view`), tests in `_tests/`
+             folders, the layouts (`MainLayout.view`, `(auth)/AuthLayout.view`, …), `_components` for `<x-…>` components
+             (folders starting with `_` are not routes) and `app.css`
+app/         code with no URL: Models, Support helpers, the Testing helper
+config/      configuration, one file per concern
+database/    migrations, seeders
+public/      files served as they are, and the build output
+server.ts    boots the app, and serves it when run
+```
 
 ## How pages work
 
-Each page is a component in `app/Live`, registered by its path (`app/Live/Auth/Login.ts` is `auth.login`) and routed as a full page:
+A folder in `routes/` is a URL, and a page is a component in that folder. `routes/(auth)/login/LoginLive.ts` is a `LiveComponent` served at `/login`; `LoginPage.view` beside it is its template (the component's `view()` returns `"(auth).login.LoginPage"`). The component is registered under its path in `routes/`, and the folder is routed as a full page, so there is no route to declare. `static routeName` names the route when the folder's name is not what you want, and `static meta` (or `static title`) says what the layouts show.
 
-```ts
-Live.route("/login", "auth.login").name("login");
-```
-
-`static layout` picks the layout (`layouts.app` by default) and `static title` the page title. The component's view lives in `resources/views/live`. Forms use `live:submit="method"`, and inputs use `live:model.defer="field"`, which sends the value with the next action instead of on every keystroke.
+A `*Layout.view` in a folder wraps every page in that folder and the folders below it, outermost first: `routes/MainLayout.view` is the document, `(auth)/AuthLayout.view` is the card around the sign-in pages, and `(app)/AppLayout.view` then `(app)/settings/SettingsLayout.view` wrap the settings pages. A layout prints the component with `{!! children !!}` and reads `meta`. Forms use `live:submit="method"`, and inputs use `live:model.defer="field"`, which sends the value with the next action instead of on every keystroke.
 
 Component actions post to `/live/update`, which does not run the page route's middleware. Actions that need a signed-in user call `currentUser()` from `app/Support/auth.ts` (401 when signed out), and two-factor actions call `ensurePasswordConfirmed()` (423 when the confirmation has expired).
 
-The signed email-verification link and logout stay plain controllers. The dashboard and the appearance page are plain views.
+Who may open each page is in `routes/(auth)/auth.routes.ts` and `routes/app.routes.ts`. The signed email-verification link and logout are plain controller actions on `routes/(auth)/AuthController.ts`. The dashboard and the appearance page are plain `*Page.view` files with `@meta({ title: "…" })`.
 
 ## Routes
 
-| Method | Path | Name / component | Auth |
+| Method | Path | Name | Auth |
 |--------|------|------|------|
 | GET | `/` | `home` | — |
 | GET | `/dashboard` | `dashboard` | signed in, verified |
-| GET | `/register` | `register` → `auth.register` | guest |
-| GET | `/login` | `login` → `auth.login` | guest |
-| GET | `/two-factor-challenge` | `two-factor.login` → `auth.two-factor-challenge` | guest, after the password step |
-| GET | `/forgot-password` | `password.request` → `auth.forgot-password` | guest |
-| GET | `/reset-password/{token}` | `password.reset` → `auth.reset-password` | guest |
-| GET | `/email/verify` | `verification.notice` → `auth.verify-email` | signed in |
+| GET | `/register` | `register` | guest |
+| GET | `/login` | `login` | guest |
+| GET | `/two-factor-challenge` | `two-factor-challenge` | guest, after the password step |
+| GET | `/forgot-password` | `forgot-password` | guest |
+| GET | `/reset-password/{token}` | `password.reset` | guest |
+| GET | `/email/verify` | `email.verify` | signed in |
 | GET | `/email/verify/{id}/{hash}` | `verification.verify` | signed in, signed URL |
-| GET | `/confirm-password` | `password.confirm` → `auth.confirm-password` | signed in |
+| GET | `/confirm-password` | `confirm-password` | signed in |
 | POST | `/logout` | `logout` | signed in |
-| GET | `/settings/profile` | `profile.edit` → `settings.profile` | signed in |
-| GET | `/settings/password` | `password.edit` → `settings.password` | signed in |
-| GET | `/settings/two-factor` | `two-factor.show` → `settings.two-factor` | signed in, password confirmed |
-| GET | `/settings/appearance` | `appearance.edit` | signed in |
+| GET | `/settings/profile` | `settings.profile` | signed in |
+| GET | `/settings/password` | `settings.password` | signed in |
+| GET | `/settings/two-factor` | `two-factor.show` | signed in, password confirmed |
+| GET | `/settings/appearance` | `settings.appearance` | signed in |
 | POST | `/live/update` | `live.update` — every component action | per action |
 
-Routes live in `routes/web.ts`, `routes/auth.ts`, and `routes/settings.ts`. Component actions all post to `/live/update`.
+Component actions all post to `/live/update`.
 
-Login allows 5 failed attempts per email and IP per minute (`app/Live/Auth/Login.ts`). Registering signs the user in. Changing the email on the profile page marks it unverified.
+Login allows 5 failed attempts per email and IP per minute (`routes/(auth)/login/LoginLive.ts`). Registering signs the user in. Changing the email on the profile page marks it unverified.
 
 ## Two-factor authentication
 

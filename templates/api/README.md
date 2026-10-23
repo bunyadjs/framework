@@ -6,28 +6,29 @@ Session, views, the document head, live components, and Inertia are not register
 
 ## Create an app
 
-From the Bunyad repo:
-
 ```bash
-bun run bunyad new api apps/my-api
-cd apps/my-api
+bunyad new api my-api
+# or, without the global CLI:
+bun create bunyad my-api --kit=api
+cd my-api
 bun install
 bun run dev
 ```
 
 `bunyad new` copies `.env.example` to `.env` and sets `APP_KEY`. In an existing app, run `bunyad key:generate`.
 
-`apps/*` is already a workspace.
 
 ## Routes
 
 | Method | Path | Handler | Auth |
 |--------|------|---------|------|
 | GET | `/` | banner (`{ "name": … }`) | — |
-| POST | `/api/register` | `Auth/RegisterController` — create user, return token (201) | — |
-| POST | `/api/token` | `Auth/TokenController.store` — credentials → token | — |
-| GET | `/api/me` | `UserController.show` | Bearer |
-| DELETE | `/api/token` | `Auth/TokenController.destroy` — revoke (204) | Bearer |
+| POST | `/api/register` | `routes/(api)/register/RegisterController` — create user, return token (201) | — |
+| POST | `/api/token` | `routes/(api)/token/TokenController.store` — credentials → token | — |
+| GET | `/api/me` | `routes/(api)/me/UserController.show` | Bearer |
+| DELETE | `/api/token` | `routes/(api)/token/TokenController.destroy` — revoke (204) | Bearer |
+
+The folders are the URLs. `routes/(api)/` adds the `/api` prefix and the `api` middleware through `api.routes.ts`; models, providers and resources are in `app/`, and `server.ts` boots the app in one call.
 
 Validation and bad credentials answer `422` with `{ message, errors }`. A missing or bad token answers `401` JSON, with or without an `Accept` header.
 

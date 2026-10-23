@@ -14,7 +14,7 @@ export default class WelcomeMail extends Mailable {
 
   content() {
     return {
-      markdown: "mail.welcome",
+      markdown: "_mail.welcome",
       with: { email: this.email },
     };
   }
