@@ -22,7 +22,7 @@ export async function renderInertiaPage(page: InertiaPage): Promise<SsrRenderRes
     // Bunyad's page object is the part of Inertia's `Page` the server sends.
     page: page as never,
     // The Svelte adapter takes the module (`default`, and an optional `layout`).
-    resolve: (name) => import(`${pages}/${name}.svelte`),
-    setup: ({ App, props }) => render(App, { props }),
+    resolve: (name: string) => import(`${pages}/${name}.svelte`),
+    setup: ({ App, props }: { App: never; props: never }) => render(App, { props }),
   })) as SsrRenderResult;
 }

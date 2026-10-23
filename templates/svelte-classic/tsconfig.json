@@ -19,7 +19,7 @@
         ".bunyad/*"
       ],
       "@inertiajs/svelte": [
-        "./node_modules/@inertiajs/svelte/dist/index.js"
+        "./app/Support/inertia-svelte.ts"
       ]
     },
     "lib": [
