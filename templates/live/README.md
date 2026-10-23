@@ -4,11 +4,11 @@ The Views starter's pages rebuilt as `@bunyad/live-components` components: forms
 
 ## Create an app
 
-From the Bunyad repo:
-
 ```bash
-bun run bunyad new live apps/my-live
-cd apps/my-live
+bunyad new live my-live
+# or, without the global CLI:
+bun create bunyad my-live --kit=live
+cd my-live
 bun install
 bunyad migrate
 bun run dev

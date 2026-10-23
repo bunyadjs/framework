@@ -129,7 +129,9 @@ Password reset and verification links go out as mail; `.env.example` sets `MAIL_
 Create the API starter when the client is another program. It serves JSON with bearer tokens. It does not start a session or render views. Mail, file storage, queues, notifications, broadcasting, and dump stay available.
 
 ```shell
-bun run bunyad new api my-api
+bunyad new api my-api
+# or, without the global CLI:
+bun create bunyad my-api --kit=api
 cd my-api
 bun install
 bun run dev

@@ -1,6 +1,6 @@
 import { Application, resolveAppRoot, serve, setApplicationInstance, type ServeOptions, type ServiceProviderClass } from "@bunyad/core";
 import type { Middleware } from "@bunyad/http";
-import { Router, loadRouteModule } from "@bunyad/router";
+import { Router, loadRouteFiles, loadRouteModule, routeEntries } from "@bunyad/router";
 import { registerErrorPages } from "./error-pages.ts";
 import { loadTranslations } from "./translator.ts";
 import { bootFrameworkProviders, type BootFrameworkOptions } from "./providers/index.ts";
@@ -42,7 +42,12 @@ export function bunyad(meta: { dir: string; main?: boolean }, options: BunyadOpt
     if (!app.getMiddlewareGroup("web")) app.middlewareGroup("web", []);
     if (!app.getMiddlewareGroup("api")) app.middlewareGroup("api", []);
 
-    if (!compiled) await loadRouteModule(app.basePath("routes"), app.router);
+    if (!compiled) {
+      // A route tree in `routes/`, or for a classic app `routes/web.ts` and `routes/api.ts`.
+      const entries = routeEntries(app.basePath());
+      if (entries.length > 0) await loadRouteFiles(entries, app.router);
+      else await loadRouteModule(app.basePath("routes"), app.router);
+    }
     setApplicationInstance(app);
     await app.boot();
     registerErrorPages(app);

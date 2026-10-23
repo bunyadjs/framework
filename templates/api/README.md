@@ -6,18 +6,17 @@ Session, views, the document head, live components, and Inertia are not register
 
 ## Create an app
 
-From the Bunyad repo:
-
 ```bash
-bun run bunyad new api apps/my-api
-cd apps/my-api
+bunyad new api my-api
+# or, without the global CLI:
+bun create bunyad my-api --kit=api
+cd my-api
 bun install
 bun run dev
 ```
 
 `bunyad new` copies `.env.example` to `.env` and sets `APP_KEY`. In an existing app, run `bunyad key:generate`.
 
-`apps/*` is already a workspace.
 
 ## Routes
 

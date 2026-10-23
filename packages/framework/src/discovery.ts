@@ -13,7 +13,7 @@ import {
 import { Live, type LiveComponentClass } from "@bunyad/live-components";
 import { registerMailable, type MailableConstructor } from "@bunyad/mail";
 import type { Model } from "@bunyad/orm";
-import { liveComponentName, routeEntries } from "@bunyad/router";
+import { liveComponentName, routeTreeOf } from "@bunyad/router";
 import { getViewFactory, type ComponentClass } from "@bunyad/view";
 import { tokenGuardUsing } from "./token-guard-using.ts";
 
@@ -103,7 +103,7 @@ export async function discoverLive(app: Application): Promise<void> {
   const root = app.path("Live");
   const files = await listFiles(root, "**/*.{ts,tsx}");
   // Components beside their templates in a route folder (`routes/(auth)/login/LoginLive.ts`).
-  const tree = routeEntries(app.basePath())[0];
+  const tree = routeTreeOf(app.basePath());
   const inTree = tree ? await liveFilesIn(tree) : [];
   if (files.length === 0 && inTree.length === 0) return;
 

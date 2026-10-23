@@ -1,0 +1,12 @@
+@extends('layouts.app')
+
+@section('content')
+<x-settings-layout active="appearance" heading="Appearance" subheading="Update the appearance settings for your account">
+  <div class="join" role="radiogroup" aria-label="Appearance">
+    @foreach(['light', 'dark', 'system'] as option)
+    <input type="radio" name="appearance" value="{{ option }}" aria-label="{{ option[0].toUpperCase() + option.slice(1) }}" class="btn join-item" />
+    @endforeach
+  </div>
+
+</x-settings-layout>
+@endsection

@@ -59,8 +59,9 @@ export function resolveControllerAction(action: RouteAction): ResolvedRouteActio
   if (!isControllerClass(action)) return action;
   const invoke = (action.prototype as Record<string, unknown>).handle;
   if (typeof invoke !== "function") {
+    const renamed = typeof (action.prototype as Record<string, unknown>).__invoke === "function" ? ` __invoke() was renamed to handle().` : "";
     throw new BunyadError(
-      `${action.name} is missing handle(). Pass [Controller, 'method'] for a controller with more than one action.`,
+      `${action.name} is missing handle().${renamed} Pass [Controller, 'method'] for a controller with more than one action.`,
       "BUNYAD_ROUTE_002",
     );
   }

@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-const app = resolve(import.meta.dir, "../../../apps/my-api");
+const app = resolve(import.meta.dir, "../../../templates/api");
 
 function run(args: string[], env: Record<string, string>) {
   const proc = Bun.spawnSync([process.execPath, resolve(import.meta.dir, "bunyad.ts"), ...args], { cwd: app, env: { ...process.env, ...env }, stdout: "pipe", stderr: "pipe" });

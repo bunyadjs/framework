@@ -7,11 +7,11 @@ export type Structure = "folders" | "classic";
 export const STRUCTURES: Record<Structure, { label: string; hint: string }> = {
   folders: {
     label: "Folders (recommended)",
-    hint: "A folder is a URL. The controller, page, form request and tests for a screen sit together in routes/. Best for new apps and teams that work one feature at a time.",
+    hint: "a folder is a URL: its controller, page, form request and tests sit together in routes/. Best for new apps and for working one feature at a time.",
   },
   classic: {
     label: "Classic",
-    hint: "Code grouped by kind: app/Http/Controllers, routes/web.ts and routes/api.ts, pages in resources/. Best if you know this layout already or are moving an existing app over.",
+    hint: "code grouped by kind: app/Http/Controllers, routes/web.ts, pages in resources/. Best if you know this layout already or are moving an existing app over.",
   },
 };
 

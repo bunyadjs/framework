@@ -8,9 +8,9 @@ Every breaking change in a beta (or later) release is listed here with what to c
 2. Upgrade all `@bunyad/*` packages together, because they share one version: `bun add @bunyad/framework@beta` (or the individual packages you use).
 3. Run `bun run typecheck` and your tests. Removed or renamed exports show up as type errors.
 
-## Unreleased: route folders
+## From 0.2.0-beta.2 to 0.2.0-beta.3
 
-Routes now live in folders, and the app is `routes/` + `app/` + `server.ts`. `bunyad route:list`, `compile`, `optimize` and `view:cache` read the folders under `routes/` only.
+Nothing has to move: an app with `routes/web.ts`, `routes/api.ts` and `app/Http/Controllers` still boots (see the next section). New apps can use route folders, where the app is `routes/` + `app/` + `server.ts`; the rest of this section is for moving to them. `bunyad route:list`, `compile`, `optimize` and `view:cache` read the route folders, or the classic route files when there are no folders.
 
 ### The layout
 
@@ -54,9 +54,17 @@ Move each page from `resources/js/pages/<area>/<name>.tsx` (or `.vue`, `.svelte`
 4. Page names change from `auth/login` to `(auth)/login/LoginPage`. Update tests that check the page component, and run `bunyad types:generate`.
 5. Live components in a route folder (`LoginLive.ts`) replace `Live.route()`; the package is now `@bunyad/live-components`.
 
+### Classic apps keep working
+
+An app with `routes/web.ts`, `routes/api.ts` and `app/Http/Controllers` still boots with `bunyad(import.meta)`: those two route files are loaded when `routes/` has no route folders. An app that boots with `Application.configure().withRouting(...)` needs no change. Add `{ "structure": "classic" }` to a `bunyad.json` so the generators write to `app/Http/...`; without it they guess from the files. See [Choosing a Structure](/docs/1.x/choosing-a-structure).
+
 ### Rename `__invoke` to `handle`
 
-Single-action controllers (`Route.get("/x", Controller)`) now call `handle()`. Rename the method.
+Single-action controllers (`Route.get("/x", Controller)`) now call `handle()`. Rename the method. A controller that still has `__invoke()` fails at boot with `BUNYAD_ROUTE_002`, and the message says so.
+
+### `@bunyad/console` is in `@bunyad/cli`
+
+Import `startConsole` from `@bunyad/cli` instead of the removed `@bunyad/console` package.
 
 ### Route names
 

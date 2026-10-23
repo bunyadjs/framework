@@ -53,13 +53,13 @@ async function loadPage(name: string) {
 export async function renderInertiaPage(page: InertiaPage): Promise<SsrRenderResult> {
   // Imported after the plugin above is registered: the adapter ships .svelte files.
   // It is published only under the "svelte" export condition, which the server does not
-  // use, so tsconfig maps `@inertiajs/svelte` to that file.
+  // use, so tsconfig maps `@inertiajs/svelte` to `app/Support/inertia-svelte.ts`.
   const { createInertiaApp } = await import("@inertiajs/svelte");
   return (await createInertiaApp({
     // Bunyad's page object is the part of Inertia's `Page` the server sends.
     page: page as never,
     // The Svelte adapter takes the module (`default`, and an optional `layout`).
-    resolve: (name) => loadPage(name),
-    setup: ({ App, props }) => render(App, { props }),
+    resolve: (name: string) => loadPage(name),
+    setup: ({ App, props }: { App: never; props: never }) => render(App, { props }),
   })) as SsrRenderResult;
 }

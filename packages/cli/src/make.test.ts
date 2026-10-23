@@ -170,3 +170,23 @@ test("bunyad.json decides the structure over the files", async () => {
   });
   expect(await readFile(join(root, "app/Http/Controllers/PostController.ts"), "utf8")).toContain("class PostController");
 });
+
+test("make:test goes in _tests beside the code in a folders app, and in tests/ in a classic one", async () => {
+  const root = await mkdtemp(join(tmpdir(), "bunyad-make-test-"));
+  await writeFile(join(root, "server.ts"), "export default {};\n");
+  await mkdir(join(root, "routes/(auth)/login"), { recursive: true });
+  await writeFile(join(root, "routes/(auth)/login/LoginController.ts"), "export default class LoginController {}\n");
+  await withCwd(join(root, "routes/(auth)/login"), async () => {
+    await makeCommands["make:test"]!(["Login"]);
+  });
+  const test = await readFile(join(root, "routes/(auth)/login/_tests/LoginTest.ts"), "utf8");
+  expect(test).toContain('await import("../../../../server.ts")');
+
+  const classic = await mkdtemp(join(tmpdir(), "bunyad-make-test-classic-"));
+  await writeFile(join(classic, "server.ts"), "export default {};\n");
+  await writeFile(join(classic, "bunyad.json"), JSON.stringify({ structure: "classic" }));
+  await withCwd(classic, async () => {
+    await makeCommands["make:test"]!(["Login"]);
+  });
+  expect(await readFile(join(classic, "tests/Feature/LoginTest.ts"), "utf8")).toContain('await import("../../server.ts")');
+});

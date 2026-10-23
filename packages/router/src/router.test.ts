@@ -104,6 +104,10 @@ test("a controller class calls handle", () => {
 test("a controller class without handle must name the action", () => {
   const r = new Router();
   expect(() => r.get("/posts", PostsController)).toThrow(/missing handle/);
+  class OldController {
+    __invoke() {}
+  }
+  expect(() => r.get("/old", OldController)).toThrow(/__invoke\(\) was renamed to handle\(\)/);
 });
 
 test("resource registers rest routes", () => {

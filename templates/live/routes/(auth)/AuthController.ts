@@ -1,5 +1,5 @@
 import type { Request } from "@bunyad/http";
-import { Get, Post, redirect } from "@bunyad/http";
+import { Get, Middleware, Post, redirect } from "@bunyad/http";
 import { Auth, fulfillEmailVerification } from "@bunyad/auth";
 import { route } from "@bunyad/router";
 
@@ -14,6 +14,7 @@ export default class AuthController {
 
   /** Signed link from the verification mail. */
   @Get("/email/verify/{id}/{hash}", { name: "verification.verify" })
+  @Middleware("signed", "throttle:6,1")
   async verifyEmail(request: Request) {
     await fulfillEmailVerification(request);
 

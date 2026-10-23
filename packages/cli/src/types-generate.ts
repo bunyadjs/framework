@@ -190,7 +190,8 @@ function pageTypes(ts: typeof TS, root: string): string | undefined {
   const legacyDir = resolve(root, "resources/js/pages");
   const colocated = existsSync(srcDir) && existsSync(resolve(root, "tsconfig.json")) && hasPages(srcDir);
   const pagesDir = colocated ? srcDir : legacyDir;
-  const tsconfig = colocated ? resolve(root, "tsconfig.json") : resolve(root, "resources/js/tsconfig.json");
+  const ownConfig = resolve(root, "resources/js/tsconfig.json");
+  const tsconfig = colocated || !existsSync(ownConfig) ? resolve(root, "tsconfig.json") : ownConfig;
   if (!existsSync(pagesDir) || !existsSync(tsconfig)) return undefined;
   const program = createProgram(ts, tsconfig);
   const checker = program.getTypeChecker();
@@ -249,8 +250,6 @@ declare module "virtual:pages" {
     }
   >;
 }
-
-export {};
 `;
 }
 
@@ -287,9 +286,9 @@ export {};
 /** Everything \`types:generate\` writes, for an app at `root` whose named routes are `routes`. */
 export async function generateTypes(root: string, routes: Record<string, string>, actions: PageAction[] = []): Promise<GeneratedFile[]> {
   const files: GeneratedFile[] = [];
-  // Generated files go in `.bunyad/`, or beside the frontend in an app that still has `resources/js`.
-  const legacy = existsSync(resolve(root, "resources/js"));
-  const frontend = legacy || hasPages(pageTree(root));
+  // Generated files go in `.bunyad/`, or beside the frontend in an app whose `resources/js` has a tsconfig of its own.
+  const legacy = existsSync(resolve(root, "resources/js/tsconfig.json"));
+  const frontend = legacy || existsSync(resolve(root, "resources/js/pages")) || hasPages(pageTree(root));
   if (frontend) {
     files.push({ path: legacy ? "resources/js/routes.ts" : ".bunyad/routes.ts", contents: routesModule(routes) });
     if (!legacy) files.push({ path: ".bunyad/virtual.d.ts", contents: virtualPages(rendererOf(root) ?? "react") });
