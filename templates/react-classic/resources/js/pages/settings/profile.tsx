@@ -11,7 +11,7 @@ export default function Profile({ mustVerifyEmail }: { mustVerifyEmail: boolean 
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    form.patch(route("profile.update"), { preserveScroll: true });
+    form.patch(route("settings.profile.update"), { preserveScroll: true });
   };
 
   return (
@@ -25,7 +25,7 @@ export default function Profile({ mustVerifyEmail }: { mustVerifyEmail: boolean 
         {mustVerifyEmail && (
           <p className="text-sm">
             Your email address is unverified.{" "}
-            <Link href={route("verification.send")} method="post" as="button" className="link">
+            <Link href={route("email.verification-notification.store")} method="post" as="button" className="link">
               Click here to re-send the verification email.
             </Link>
             {status === "verification-link-sent" && (
@@ -58,7 +58,7 @@ function DeleteUser() {
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    form.delete(route("profile.destroy"), { preserveScroll: true, onFinish: () => form.reset("password") });
+    form.delete(route("settings.profile.destroy"), { preserveScroll: true, onFinish: () => form.reset("password") });
   };
 
   return (

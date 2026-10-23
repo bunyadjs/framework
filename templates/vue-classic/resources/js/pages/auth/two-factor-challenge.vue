@@ -17,7 +17,7 @@ const toggle = () => {
 const submit = () =>
   form
     .transform((data) => (usingRecoveryCode.value ? { recovery_code: data.recovery_code } : { code: data.code }))
-    .post(route("two-factor.login.store"));
+    .post(route("two-factor-challenge.store"));
 </script>
 
 <template>

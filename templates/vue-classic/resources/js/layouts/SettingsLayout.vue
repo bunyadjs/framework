@@ -7,10 +7,10 @@ defineProps<{ title: string; heading: string; subheading: string }>();
 const page = usePage();
 
 const sections = [
-  { href: route("profile.edit"), label: "Profile" },
-  { href: route("password.edit"), label: "Password" },
+  { href: route("settings.profile"), label: "Profile" },
+  { href: route("settings.password"), label: "Password" },
   { href: route("two-factor.show"), label: "Two-factor auth" },
-  { href: route("appearance.edit"), label: "Appearance" },
+  { href: route("settings.appearance"), label: "Appearance" },
 ];
 </script>
 

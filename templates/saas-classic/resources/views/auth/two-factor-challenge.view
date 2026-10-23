@@ -4,7 +4,7 @@
 <div id="challenge-code" @class({ 'hidden': errors?.recovery_code })>
   <x-auth-header title="Authentication code" description="Enter the authentication code provided by your authenticator application." />
 
-  <form method="POST" action="{{ route('two-factor.login.store') }}" class="mt-6 flex flex-col gap-4">
+  <form method="POST" action="{{ route('two-factor-challenge.store') }}" class="mt-6 flex flex-col gap-4">
     @csrf
     <fieldset class="fieldset">
       <label class="label" for="code">Code</label>
@@ -22,7 +22,7 @@
 <div id="challenge-recovery" @class({ 'hidden': !errors?.recovery_code })>
   <x-auth-header title="Recovery code" description="Please confirm access to your account by entering one of your emergency recovery codes." />
 
-  <form method="POST" action="{{ route('two-factor.login.store') }}" class="mt-6 flex flex-col gap-4">
+  <form method="POST" action="{{ route('two-factor-challenge.store') }}" class="mt-6 flex flex-col gap-4">
     @csrf
     <fieldset class="fieldset">
       <label class="label" for="recovery_code">Recovery code</label>

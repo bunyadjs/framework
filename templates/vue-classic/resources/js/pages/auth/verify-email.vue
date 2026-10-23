@@ -13,7 +13,7 @@ const form = useForm({});
     <div v-if="page.props.status === 'verification-link-sent'" role="status" class="alert alert-success alert-soft text-sm">
       A new verification link has been sent to the email address you provided during registration.
     </div>
-    <button type="button" class="btn btn-primary w-full" :disabled="form.processing" @click="form.post(route('verification.send'))">
+    <button type="button" class="btn btn-primary w-full" :disabled="form.processing" @click="form.post(route('email.verification-notification.store'))">
       Resend verification email
     </button>
     <Link :href="route('logout')" method="post" as="button" class="link text-center text-sm">Log out</Link>

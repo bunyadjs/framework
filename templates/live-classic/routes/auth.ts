@@ -8,19 +8,19 @@ export default function (): void {
   Route.middleware("guest").group(() => {
     Live.route("/register", "auth.register").name("register");
     Live.route("/login", "auth.login").name("login");
-    Live.route("/two-factor-challenge", "auth.two-factor-challenge").name("two-factor.login");
-    Live.route("/forgot-password", "auth.forgot-password").name("password.request");
+    Live.route("/two-factor-challenge", "auth.two-factor-challenge").name("two-factor-challenge");
+    Live.route("/forgot-password", "auth.forgot-password").name("forgot-password");
     Live.route("/reset-password/{token}", "auth.reset-password").name("password.reset");
   });
 
   Route.middleware("auth").group(() => {
-    Live.route("/email/verify", "auth.verify-email").name("verification.notice");
+    Live.route("/email/verify", "auth.verify-email").name("email.verify");
 
     Route.get("/email/verify/{id}/{hash}", VerifyEmailController)
       .middleware("signed", "throttle:6,1")
       .name("verification.verify");
 
-    Live.route("/confirm-password", "auth.confirm-password").name("password.confirm");
+    Live.route("/confirm-password", "auth.confirm-password").name("confirm-password");
 
     Route.post("/logout", LogoutController).name("logout");
   });

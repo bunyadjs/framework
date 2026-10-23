@@ -8,7 +8,7 @@
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
-    form.put(route("password.update"), { preserveScroll: true, onFinish: () => form.reset() });
+    form.put(route("settings.password.update"), { preserveScroll: true, onFinish: () => form.reset() });
   }
 </script>
 

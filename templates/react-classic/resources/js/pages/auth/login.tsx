@@ -22,7 +22,7 @@ export default function Login() {
           value={form.data.email} onChange={(e) => form.setData("email", e.target.value)} error={form.errors.email} />
         <Field id="password" label="Password" type="password" required autoComplete="current-password" placeholder="Password"
           value={form.data.password} onChange={(e) => form.setData("password", e.target.value)} error={form.errors.password}
-          aside={<Link href={route("password.request")} className="link link-hover text-sm">Forgot your password?</Link>} />
+          aside={<Link href={route("forgot-password")} className="link link-hover text-sm">Forgot your password?</Link>} />
         <label className="label">
           <input type="checkbox" className="checkbox checkbox-sm" checked={form.data.remember}
             onChange={(e) => form.setData("remember", e.target.checked)} />

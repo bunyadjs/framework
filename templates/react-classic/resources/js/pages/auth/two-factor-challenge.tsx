@@ -17,7 +17,7 @@ export default function TwoFactorChallenge() {
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     form.transform((data) => (usingRecoveryCode ? { recovery_code: data.recovery_code } : { code: data.code }));
-    form.post(route("two-factor.login.store"));
+    form.post(route("two-factor-challenge.store"));
   };
 
   return (

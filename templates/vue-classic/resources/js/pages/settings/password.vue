@@ -6,7 +6,7 @@ import SettingsLayout from "~/layouts/SettingsLayout.vue";
 
 const form = useForm({ current_password: "", password: "", password_confirmation: "" });
 
-const submit = () => form.put(route("password.update"), { preserveScroll: true, onFinish: () => form.reset() });
+const submit = () => form.put(route("settings.password.update"), { preserveScroll: true, onFinish: () => form.reset() });
 </script>
 
 <template>

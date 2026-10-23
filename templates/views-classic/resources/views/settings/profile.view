@@ -2,7 +2,7 @@
 
 @section('content')
 <x-settings-layout heading="Profile" subheading="Update your name and email address">
-  <form method="POST" action="{{ route('profile.update') }}" class="flex flex-col gap-4">
+  <form method="POST" action="{{ route('settings.profile.update') }}" class="flex flex-col gap-4">
     @csrf
     @method('PATCH')
     <fieldset class="fieldset">
@@ -35,7 +35,7 @@
     </div>
   </form>
 
-  <form id="send-verification" method="POST" action="{{ route('verification.send') }}">
+  <form id="send-verification" method="POST" action="{{ route('email.verification-notification.store') }}">
     @csrf
   </form>
 
@@ -54,7 +54,7 @@
   </div>
 
   <dialog id="delete-account" @class({ 'modal': true, 'modal-open': errors?.userDeletion })>
-    <form method="POST" action="{{ route('profile.destroy') }}" class="modal-box flex flex-col gap-4">
+    <form method="POST" action="{{ route('settings.profile.destroy') }}" class="modal-box flex flex-col gap-4">
       @csrf
       @method('DELETE')
       <h3 class="text-lg font-semibold">Are you sure you want to delete your account?</h3>

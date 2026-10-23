@@ -15,7 +15,7 @@ export default function VerifyEmail() {
         </div>
       )}
       <button type="button" className="btn btn-primary w-full" disabled={form.processing}
-        onClick={() => form.post(route("verification.send"))}>
+        onClick={() => form.post(route("email.verification-notification.store"))}>
         Resend verification email
       </button>
       <Link href={route("logout")} method="post" as="button" className="link text-center text-sm">Log out</Link>

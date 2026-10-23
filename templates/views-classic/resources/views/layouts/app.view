@@ -46,7 +46,7 @@
           </div>
           <ul tabindex="0" class="menu dropdown-content z-10 mb-2 w-full rounded-box border border-base-300 bg-base-100 p-2 shadow-sm">
             <li class="menu-title truncate">{{ request().user.email }}</li>
-            <li><a href="{{ route('profile.edit') }}">Settings</a></li>
+            <li><a href="{{ route('settings.profile') }}">Settings</a></li>
             <li>
               <form method="POST" action="{{ route('logout') }}">
                 @csrf

@@ -18,7 +18,7 @@
   <form class="flex flex-col gap-4" onsubmit={submit}>
     <Field id="email" bind:value={form.email} label="Email address" type="email" required autofocus autocomplete="email" placeholder="email@example.com" error={form.errors.email} />
     <Field id="password" bind:value={form.password} label="Password" type="password" required autocomplete="current-password" placeholder="Password" error={form.errors.password}>
-      {#snippet aside()}<Link href={route("password.request")} class="link link-hover text-sm">Forgot your password?</Link>{/snippet}
+      {#snippet aside()}<Link href={route("forgot-password")} class="link link-hover text-sm">Forgot your password?</Link>{/snippet}
     </Field>
     <label class="label">
       <input type="checkbox" class="checkbox checkbox-sm" bind:checked={form.remember} />

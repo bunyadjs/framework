@@ -50,7 +50,7 @@
         </div>
         <ul tabindex="-1" class="menu dropdown-content z-10 mb-2 w-full rounded-box border border-base-300 bg-base-100 p-2 shadow-sm">
           <li class="menu-title truncate">{user.email}</li>
-          <li><Link href={route("profile.edit")}>Settings</Link></li>
+          <li><Link href={route("settings.profile")}>Settings</Link></li>
           <li><Link href={route("logout")} method="post" as="button" class="w-full text-left">Log out</Link></li>
         </ul>
       </div>

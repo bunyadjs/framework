@@ -4,10 +4,10 @@ import AppLayout from "~/layouts/app-layout";
 import { route } from "~/routes";
 
 const sections = [
-  { href: route("profile.edit"), label: "Profile" },
-  { href: route("password.edit"), label: "Password" },
+  { href: route("settings.profile"), label: "Profile" },
+  { href: route("settings.password"), label: "Password" },
   { href: route("two-factor.show"), label: "Two-factor auth" },
-  { href: route("appearance.edit"), label: "Appearance" },
+  { href: route("settings.appearance"), label: "Appearance" },
 ];
 
 type SettingsLayoutProps = { title: string; heading: string; subheading: string; children: ReactNode };

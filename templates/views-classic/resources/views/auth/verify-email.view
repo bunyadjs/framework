@@ -9,7 +9,7 @@
 </div>
 @endif
 
-<form method="POST" action="{{ route('verification.send') }}">
+<form method="POST" action="{{ route('email.verification-notification.store') }}">
   @csrf
   <button type="submit" class="btn btn-primary w-full">Resend verification email</button>
 </form>

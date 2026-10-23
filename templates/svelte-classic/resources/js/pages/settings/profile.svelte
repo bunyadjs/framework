@@ -15,7 +15,7 @@
 
   function save(event: SubmitEvent) {
     event.preventDefault();
-    form.patch(route("profile.update"), { preserveScroll: true });
+    form.patch(route("settings.profile.update"), { preserveScroll: true });
   }
 
   function closeDeletion() {
@@ -26,7 +26,7 @@
 
   function deleteUser(event: SubmitEvent) {
     event.preventDefault();
-    deletion.delete(route("profile.destroy"), { preserveScroll: true, onFinish: () => deletion.reset("password") });
+    deletion.delete(route("settings.profile.destroy"), { preserveScroll: true, onFinish: () => deletion.reset("password") });
   }
 </script>
 
@@ -38,7 +38,7 @@
     {#if mustVerifyEmail}
       <p class="text-sm">
         Your email address is unverified.
-        <Link href={route("verification.send")} method="post" as="button" class="link">Click here to re-send the verification email.</Link>
+        <Link href={route("email.verification-notification.store")} method="post" as="button" class="link">Click here to re-send the verification email.</Link>
         {#if page.props.status === "verification-link-sent"}
           <span class="mt-2 block text-success">A new verification link has been sent to your email address.</span>
         {/if}

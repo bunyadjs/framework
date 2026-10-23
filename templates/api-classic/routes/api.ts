@@ -10,14 +10,14 @@ import UserController from "@/Http/Controllers/UserController.ts";
 export default function (router: Router = Route): void {
   Route.post("/register", RegisterController)
     .middleware("throttle:tokens")
-    .name("api.register");
+    .name("register");
 
   Route.post("/token", [TokenController, "store"])
     .middleware("throttle:token")
-    .name("api.token.store");
+    .name("token.store");
 
   Route.middleware("auth", "throttle:api").group(() => {
-    Route.get("/me", [UserController, "show"]).name("api.me");
-    Route.delete("/token", [TokenController, "destroy"]).name("api.token.destroy");
+    Route.get("/me", [UserController, "show"]).name("me");
+    Route.delete("/token", [TokenController, "destroy"]).name("token.destroy");
   });
 }

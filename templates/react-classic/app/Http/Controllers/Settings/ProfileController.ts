@@ -24,7 +24,7 @@ export default class ProfileController {
     user.email = email;
     await user.save();
 
-    return redirect(route("profile.edit")).with("status", "profile-updated");
+    return redirect(route("settings.profile")).with("status", "profile-updated");
   }
 
   async destroy(request: Request) {

@@ -50,7 +50,7 @@ export default function AppLayout({ title, children }: { title: string; children
             </div>
             <ul tabIndex={0} className="menu dropdown-content z-10 mb-2 w-full rounded-box border border-base-300 bg-base-100 p-2 shadow-sm">
               <li className="menu-title truncate">{auth.user.email}</li>
-              <li><Link href={route("profile.edit")}>Settings</Link></li>
+              <li><Link href={route("settings.profile")}>Settings</Link></li>
               <li><Link href={route("logout")} method="post" as="button" className="w-full text-left">Log out</Link></li>
             </ul>
           </div>

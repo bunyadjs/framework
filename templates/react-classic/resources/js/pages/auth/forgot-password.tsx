@@ -11,7 +11,7 @@ export default function ForgotPassword() {
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    form.post(route("password.email"));
+    form.post(route("forgot-password.store"));
   };
 
   return (

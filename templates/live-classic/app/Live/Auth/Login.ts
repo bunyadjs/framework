@@ -44,7 +44,7 @@ export default class Login extends LiveComponent {
     if (user.hasEnabledTwoFactorAuthentication()) {
       request().session!.put("login.id", user.id);
       request().session!.put("login.remember", this.remember);
-      this.navigate(route("two-factor.login"));
+      this.navigate(route("two-factor-challenge"));
       return;
     }
 

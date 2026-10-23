@@ -18,7 +18,7 @@ export default class AuthenticatedSessionController {
     if (user.hasEnabledTwoFactorAuthentication()) {
       request.session!.put("login.id", user.id);
       request.session!.put("login.remember", remember);
-      return redirect(route("two-factor.login"));
+      return redirect(route("two-factor-challenge"));
     }
 
     await Auth.login(request, user, remember);

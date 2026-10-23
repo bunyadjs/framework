@@ -6,10 +6,10 @@
 
 <div class="flex flex-col gap-8 md:flex-row">
   <ul class="menu w-full shrink-0 p-0 md:w-56">
-    <li><a href="{{ route('profile.edit') }}" @class({ 'menu-active': request().routeIs('profile.edit') })>Profile</a></li>
-    <li><a href="{{ route('password.edit') }}" @class({ 'menu-active': request().routeIs('password.edit') })>Password</a></li>
+    <li><a href="{{ route('settings.profile') }}" @class({ 'menu-active': request().routeIs('settings.profile') })>Profile</a></li>
+    <li><a href="{{ route('settings.password') }}" @class({ 'menu-active': request().routeIs('settings.password') })>Password</a></li>
     <li><a href="{{ route('two-factor.show') }}" @class({ 'menu-active': request().routeIs('two-factor.show') })>Two-factor auth</a></li>
-    <li><a href="{{ route('appearance.edit') }}" @class({ 'menu-active': request().routeIs('appearance.edit') })>Appearance</a></li>
+    <li><a href="{{ route('settings.appearance') }}" @class({ 'menu-active': request().routeIs('settings.appearance') })>Appearance</a></li>
   </ul>
 
   <section class="w-full max-w-lg">

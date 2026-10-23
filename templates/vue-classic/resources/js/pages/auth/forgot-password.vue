@@ -13,7 +13,7 @@ const form = useForm({ email: "" });
 <template>
   <AuthLayout title="Forgot password" description="Enter your email to receive a password reset link">
     <Status :message="page.props.status" />
-    <form class="flex flex-col gap-4" @submit.prevent="form.post(route('password.email'))">
+    <form class="flex flex-col gap-4" @submit.prevent="form.post(route('forgot-password.store'))">
       <Field id="email" v-model="form.email" label="Email address" type="email" required autofocus placeholder="email@example.com" :error="form.errors.email" />
       <button type="submit" class="btn btn-primary w-full" :disabled="form.processing">Email password reset link</button>
     </form>

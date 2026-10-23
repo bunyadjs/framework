@@ -9,7 +9,7 @@
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
-    form.post(route("password.email"));
+    form.post(route("forgot-password.store"));
   }
 </script>
 

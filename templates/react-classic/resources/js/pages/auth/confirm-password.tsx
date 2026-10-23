@@ -8,7 +8,7 @@ export default function ConfirmPassword() {
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    form.post(route("password.confirm.store"), { onFinish: () => form.reset("password") });
+    form.post(route("confirm-password.store"), { onFinish: () => form.reset("password") });
   };
 
   return (

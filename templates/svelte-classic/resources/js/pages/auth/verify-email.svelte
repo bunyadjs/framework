@@ -12,7 +12,7 @@
       A new verification link has been sent to the email address you provided during registration.
     </div>
   {/if}
-  <button type="button" class="btn btn-primary w-full" disabled={form.processing} onclick={() => form.post(route("verification.send"))}>
+  <button type="button" class="btn btn-primary w-full" disabled={form.processing} onclick={() => form.post(route("email.verification-notification.store"))}>
     Resend verification email
   </button>
   <Link href={route("logout")} method="post" as="button" class="link text-center text-sm">Log out</Link>

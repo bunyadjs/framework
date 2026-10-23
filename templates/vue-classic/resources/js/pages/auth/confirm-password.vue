@@ -6,7 +6,7 @@ import AuthLayout from "~/layouts/AuthLayout.vue";
 
 const form = useForm({ password: "" });
 
-const submit = () => form.post(route("password.confirm.store"), { onFinish: () => form.reset("password") });
+const submit = () => form.post(route("confirm-password.store"), { onFinish: () => form.reset("password") });
 </script>
 
 <template>

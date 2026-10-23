@@ -19,6 +19,6 @@ export default class PasswordController {
     user.password = String(password);
     await user.save();
 
-    return redirect(route("password.edit")).with("status", "password-updated");
+    return redirect(route("settings.password")).with("status", "password-updated");
   }
 }
