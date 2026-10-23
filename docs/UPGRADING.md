@@ -54,9 +54,17 @@ Move each page from `resources/js/pages/<area>/<name>.tsx` (or `.vue`, `.svelte`
 4. Page names change from `auth/login` to `(auth)/login/LoginPage`. Update tests that check the page component, and run `bunyad types:generate`.
 5. Live components in a route folder (`LoginLive.ts`) replace `Live.route()`; the package is now `@bunyad/live-components`.
 
+### Classic apps keep working
+
+An app with `routes/web.ts`, `routes/api.ts` and `app/Http/Controllers` still boots with `bunyad(import.meta)`: those two route files are loaded when `routes/` has no route folders. An app that boots with `Application.configure().withRouting(...)` needs no change. Add `{ "structure": "classic" }` to a `bunyad.json` so the generators write to `app/Http/...`; without it they guess from the files. See [Choosing a Structure](/docs/1.x/choosing-a-structure).
+
 ### Rename `__invoke` to `handle`
 
-Single-action controllers (`Route.get("/x", Controller)`) now call `handle()`. Rename the method.
+Single-action controllers (`Route.get("/x", Controller)`) now call `handle()`. Rename the method. A controller that still has `__invoke()` fails at boot with `BUNYAD_ROUTE_002`, and the message says so.
+
+### `@bunyad/console` is in `@bunyad/cli`
+
+Import `startConsole` from `@bunyad/cli` instead of the removed `@bunyad/console` package.
 
 ### Route names
 
