@@ -816,11 +816,20 @@ export function relocateRouteScan(scan: RouteScan, from: string, to: string): Ro
   };
 }
 
-/** Route entries of an app: the route tree in `routes/` (when it holds route folders). */
+/**
+ * Route entries of an app: the route tree in `routes/` (when it holds route folders), or for a classic app
+ * the `routes/web.ts` and `routes/api.ts` it writes by hand (`api.ts` gets the `api` group and `/api`).
+ */
 export function routeEntries(root: string): string[] {
   const routes = join(root, "routes");
-  if (existsSync(routes) && readdirSync(routes).some((e) => statSync(join(routes, e)).isDirectory() && !/^[A-Z_.]/.test(e))) return [routes];
-  return [];
+  if (!existsSync(routes)) return [];
+  if (readdirSync(routes).some((e) => statSync(join(routes, e)).isDirectory() && !/^[A-Z_.]/.test(e))) return [routes];
+  return ["web.ts", "api.ts"].map((file) => join(routes, file)).filter((file) => existsSync(file));
+}
+
+/** The route tree folder of an app (`routes/`), when it has one; a classic app has route files instead. */
+export function routeTreeOf(root: string): string | undefined {
+  return routeEntries(root).find((entry) => statSync(entry).isDirectory());
 }
 
 /**

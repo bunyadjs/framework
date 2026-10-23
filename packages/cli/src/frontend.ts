@@ -211,13 +211,26 @@ function layoutsFor(tree: string, pageFile: string, ext: string): string[] {
   return found;
 }
 
-function pagesPlugin(tree: string, ext: string): BunPlugin {
+/** The folder of a classic app's pages (`resources/js/pages`, or `Pages`), if it has one. */
+function classicPagesDir(root: string): string | undefined {
+  return ["resources/js/pages", "resources/js/Pages"].map((dir) => resolve(root, dir)).find((dir) => existsSync(dir));
+}
+
+function pagesPlugin(tree: string, ext: string, classicDir?: string): BunPlugin {
   return {
     name: "inertia-pages",
     setup(build) {
       build.onResolve({ filter: /^virtual:pages$/ }, () => ({ path: "pages", namespace: "inertia-pages" }));
       build.onLoad({ filter: /.*/, namespace: "inertia-pages" }, async () => {
         const entries: string[] = [];
+        // Classic: every file below `resources/js/pages` is a page named by its path (`auth/login`); pages bring their own layout.
+        if (classicDir) {
+          for await (const file of new Glob(`**/*.${ext}`).scan(classicDir)) {
+            const name = file.replace(new RegExp(`\\.${ext}$`), "").replaceAll("\\", "/");
+            entries.push(`  ${JSON.stringify(name)}: { page: () => import(${JSON.stringify(resolve(classicDir, file))}), layouts: [] },`);
+          }
+          return { contents: `export const pages = {\n${entries.sort().join("\n")}\n};\n`, loader: "ts" };
+        }
         for await (const file of new Glob(`**/*Page.${ext}`).scan(tree)) {
           const name = file.replace(new RegExp(`\\.${ext}$`), "").replaceAll("\\", "/");
           const layouts = layoutsFor(tree, file, ext).map((path) => `() => import(${JSON.stringify(path)})`);
@@ -278,7 +291,7 @@ async function bundle(root: string, tree: string, renderer: Renderer): Promise<b
       "process.env.NODE_ENV": JSON.stringify(production ? "production" : "development"),
       ...(renderer === "vue" ? { __VUE_OPTIONS_API__: "true", __VUE_PROD_DEVTOOLS__: "false", __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false" } : {}),
     },
-    plugins: [pagesPlugin(tree, EXTENSION[renderer]), ...(await frameworkPlugins(root, renderer, production))],
+    plugins: [pagesPlugin(tree, EXTENSION[renderer], classicPagesDir(root)), ...(await frameworkPlugins(root, renderer, production))],
   });
   if (!result.success) {
     for (const log of result.logs) console.error(log);

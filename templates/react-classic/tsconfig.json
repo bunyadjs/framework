@@ -1,0 +1,32 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "**/*.ts",
+    "resources/js/**/*.tsx",
+    ".bunyad/**/*.ts"
+  ],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "app/*"
+      ],
+      "@database/*": [
+        "database/*"
+      ],
+      "~/*": [
+        "resources/js/*",
+        ".bunyad/*"
+      ]
+    },
+    "jsx": "react-jsx",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ]
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}

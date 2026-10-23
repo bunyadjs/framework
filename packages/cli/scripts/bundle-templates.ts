@@ -25,6 +25,12 @@ for (const kit of kits) {
     filter: (path) => !isRuntimeArtifact(relative(from, path)),
   });
 }
+// The classic layout of a kit (`react-classic`) is laid over it by `bunyad new --structure=classic`.
+for (const entry of readdirSync(source, { withFileTypes: true })) {
+  if (!entry.isDirectory() || !entry.name.endsWith("-classic") || !kits.includes(entry.name.replace(/-classic$/, ""))) continue;
+  const from = join(source, entry.name);
+  cpSync(from, join(dest, entry.name), { recursive: true, filter: (path) => !isRuntimeArtifact(relative(from, path)) });
+}
 // Kits extend this; a scaffolded app inlines it (see makeStandalone in new.ts).
 cpSync(resolve(cliDir, "../../tsconfig.base.json"), join(dest, "tsconfig.base.json"));
 

@@ -68,6 +68,7 @@ export {
   relocateRouteScan,
   controllerSourceFile,
   routeEntries,
+  routeTreeOf,
   fullMiddleware,
   setPageResponder,
   setLivePageHandler,

@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { basename } from "node:path";
 import { userProviderModel, type AuthConfig } from "@bunyad/auth";
-import { liveComponentName, routeEntries } from "@bunyad/router";
+import { liveComponentName, routeTreeOf } from "@bunyad/router";
 import type { CompilerPlugin } from "../types.ts";
 
 type DiscoveryFile = {
@@ -113,7 +113,7 @@ export function createDiscoveryPlugin(): CompilerPlugin {
         name: dottedKebabName(file, liveRoot),
       }));
       // Components beside their templates in a route folder (`routes/(auth)/login/LoginLive.ts`).
-      const tree = routeEntries(ctx.root)[0];
+      const tree = routeTreeOf(ctx.root);
       for (const file of tree ? await liveFilesIn(tree) : []) {
         const name = liveComponentName(tree!, file);
         live.push({ file, ident: ident("live", name), name });

@@ -1,9 +1,10 @@
-import { cp, readdir } from "node:fs/promises";
+import { cp, readdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, relative, resolve, sep } from "node:path";
 import { writeAppKey } from "./key.ts";
 import { confirm, intro, outro, select, text } from "./prompts.ts";
 import { appNameProblem, unsupportedRuntimeMessage } from "./runtime.ts";
+import { STRUCTURES, type Structure } from "./structure.ts";
 
 /**
  * A published CLI runs from `dist/` and carries its own copy of the starter kits
@@ -25,11 +26,12 @@ type NewOptions = {
   kit?: string;
   dir?: string;
   database?: string;
+  structure?: string;
   install?: boolean;
   git?: boolean;
 };
 
-/** `--kit=react`, `--dir=my-app`, `--database=pgsql`, `--install` / `--no-install`, `--git` / `--no-git`. */
+/** `--kit=react`, `--dir=my-app`, `--database=pgsql`, `--structure=classic`, `--install` / `--no-install`, `--git` / `--no-git`. */
 function parseFlags(args: string[]): { positional: string[]; options: NewOptions } {
   const positional: string[] = [];
   const options: NewOptions = {};
@@ -42,6 +44,8 @@ function parseFlags(args: string[]): { positional: string[]; options: NewOptions
       options.dir = arg.slice("--dir=".length);
     } else if (arg.startsWith("--database=")) {
       options.database = arg.slice("--database=".length);
+    } else if (arg.startsWith("--structure=")) {
+      options.structure = arg.slice("--structure=".length);
     } else if (arg === "--install" || arg === "--no-install") {
       options.install = arg === "--install";
     } else if (arg === "--git" || arg === "--no-git") {
@@ -55,7 +59,18 @@ function parseFlags(args: string[]): { positional: string[]; options: NewOptions
       `Unknown database "${options.database}". Choose one of: ${Object.keys(DATABASES).join(", ")}.`,
     );
   }
+  if (options.structure !== undefined && !(options.structure in STRUCTURES)) {
+    throw new Error(
+      `Unknown structure "${options.structure}". Choose one of: ${Object.keys(STRUCTURES).join(", ")}.`,
+    );
+  }
   return { positional, options };
+}
+
+/** The folder laid over a kit for the classic layout, when the kit has one (`react` has `react-classic`). */
+function classicOverlay(kit: string): string | undefined {
+  const dir = resolve(TEMPLATES_ROOT, `${kit}-classic`);
+  return existsSync(resolve(dir, "structure.json")) ? dir : undefined;
 }
 
 /**
@@ -131,6 +146,14 @@ export async function newProject(rawArgs: string[]): Promise<void> {
         ),
         default: "views",
       }));
+    if (!options.structure && classicOverlay(template)) {
+      options.structure = await select({
+        label: "Which structure?",
+        hint: Object.values(STRUCTURES).map((s) => `${s.label.replace(" (recommended)", "")}: ${s.hint}`).join("\n  "),
+        options: Object.fromEntries(Object.entries(STRUCTURES).map(([name, s]) => [name, s.label])),
+        default: "folders",
+      });
+    }
     targetArg =
       targetArg ??
       (await text({
@@ -170,6 +193,13 @@ export async function newProject(rawArgs: string[]): Promise<void> {
     return;
   }
 
+  const overlay = classicOverlay(template);
+  if (options.structure === "classic" && !overlay) {
+    console.error(`The ${template} kit has no classic structure yet.`);
+    process.exitCode = 1;
+    return;
+  }
+
   const nameProblem = appNameProblem(targetArg);
   if (nameProblem) {
     console.error(nameProblem);
@@ -190,6 +220,11 @@ export async function newProject(rawArgs: string[]): Promise<void> {
     recursive: true,
     filter: (source) => !isRuntimeArtifact(relative(templateDir, source)),
   });
+  if (overlay) {
+    const structure = (options.structure ?? "folders") as Structure;
+    if (structure === "classic") await applyClassic(target, overlay);
+    await Bun.write(resolve(target, "bunyad.json"), `${JSON.stringify({ structure }, null, 2)}\n`);
+  }
   const appName = targetArg
     .split(/[/\\]/)
     .pop()!
@@ -229,6 +264,16 @@ export async function newProject(rawArgs: string[]): Promise<void> {
   } else {
     console.log(pkgJson.scripts?.dev ? "  bun run dev" : `  ${launcher} serve`);
   }
+}
+
+/** Swap the folder layout of a copied kit for the classic one: remove what only the folder layout has, then lay the overlay over it. */
+async function applyClassic(target: string, overlay: string): Promise<void> {
+  const { remove } = JSON.parse(await Bun.file(resolve(overlay, "structure.json")).text()) as { remove: string[] };
+  for (const path of remove) await rm(resolve(target, path), { recursive: true, force: true });
+  await cp(overlay, target, {
+    recursive: true,
+    filter: (source) => relative(overlay, source) !== "structure.json" && !isRuntimeArtifact(relative(overlay, source)),
+  });
 }
 
 /** Run a command in `cwd`, showing its output. False when it fails or is missing. */
