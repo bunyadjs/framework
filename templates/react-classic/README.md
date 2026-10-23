@@ -2,6 +2,20 @@
 
 The same React app on Inertia as the Folders starter (sign up, log in, two-factor, password reset, email verification, a sidebar dashboard, settings), with the code grouped by kind.
 
+## Create an app
+
+```bash
+bunyad new react my-react --structure=classic
+# or, without the global CLI:
+bun create bunyad my-react --kit=react --structure=classic
+cd my-react
+bun install
+bunyad migrate
+bun run dev
+```
+
+`bunyad new` copies `.env.example` to `.env` and sets `APP_KEY`.
+
 ## Where things are
 
 ```text

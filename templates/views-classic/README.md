@@ -3,6 +3,20 @@
 Server-rendered app on `.view` files, styled with DaisyUI on Tailwind. It ships sign up, log in, remember me, two-factor authentication, password reset, email verification, password confirmation, a sidebar dashboard, and settings for profile, password, two-factor, appearance, and account deletion.
 
 
+## Create an app
+
+```bash
+bunyad new views my-views --structure=classic
+# or, without the global CLI:
+bun create bunyad my-views --kit=views --structure=classic
+cd my-views
+bun install
+bunyad migrate
+bun run dev
+```
+
+`bunyad new` copies `.env.example` to `.env` and sets `APP_KEY`.
+
 ## Where things are
 
 ```text

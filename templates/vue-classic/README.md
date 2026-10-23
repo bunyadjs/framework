@@ -2,6 +2,20 @@
 
 The same Vue app on Inertia as the Folders starter (sign up, log in, two-factor, password reset, email verification, a sidebar dashboard, settings), with the code grouped by kind.
 
+## Create an app
+
+```bash
+bunyad new vue my-vue --structure=classic
+# or, without the global CLI:
+bun create bunyad my-vue --kit=vue --structure=classic
+cd my-vue
+bun install
+bunyad migrate
+bun run dev
+```
+
+`bunyad new` copies `.env.example` to `.env` and sets `APP_KEY`.
+
 ## Where things are
 
 ```text

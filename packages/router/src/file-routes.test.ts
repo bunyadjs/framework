@@ -3,7 +3,7 @@ import { Get, Method, Name, Post, View } from "@bunyad/http";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Router, collectFileRoutes, registerFileRoutes, relocateRouteScan, routeScanFiles, scanRoutes } from "../src/index.ts";
+import { Router, collectFileRoutes, registerFileRoutes, relocateRouteScan, routeEntries, routeScanFiles, routeTreeOf, scanRoutes } from "../src/index.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -856,4 +856,18 @@ test("the views below a spa.routes.ts are routed in the browser, not by the serv
 test("catch-all folders are allowed below a spa.routes.ts", () => {
   const root = tree({ "app/spa.routes.ts": "", "app/[...rest]/NotFoundPage.tsx": "" });
   expect(() => scanRoutes(root)).not.toThrow();
+});
+
+test("routeEntries: a route tree, or for a classic app routes/web.ts and routes/api.ts", () => {
+  const classic = mkdtempSync(join(tmpdir(), "bunyad-classic-"));
+  mkdirSync(join(classic, "routes"));
+  writeFileSync(join(classic, "routes/web.ts"), "export default () => {};\n");
+  writeFileSync(join(classic, "routes/api.ts"), "export default () => {};\n");
+  expect(routeEntries(classic)).toEqual([join(classic, "routes/web.ts"), join(classic, "routes/api.ts")]);
+  expect(routeTreeOf(classic)).toBeUndefined();
+
+  const folders = mkdtempSync(join(tmpdir(), "bunyad-folders-"));
+  mkdirSync(join(folders, "routes/login"), { recursive: true });
+  expect(routeEntries(folders)).toEqual([join(folders, "routes")]);
+  expect(routeTreeOf(folders)).toBe(join(folders, "routes"));
 });

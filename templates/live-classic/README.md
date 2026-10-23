@@ -3,6 +3,20 @@
 The Views starter's pages rebuilt as `@bunyad/live-components` components: forms submit and re-render without a page reload, and sidebar links swap pages in place. Same features: sign up, log in, remember me, two-factor authentication, password reset, email verification, password confirmation, a sidebar dashboard, and settings for profile, password, two-factor, appearance, and account deletion. Styled with DaisyUI on Tailwind.
 
 
+## Create an app
+
+```bash
+bunyad new live my-live --structure=classic
+# or, without the global CLI:
+bun create bunyad my-live --kit=live --structure=classic
+cd my-live
+bun install
+bunyad migrate
+bun run dev
+```
+
+`bunyad new` copies `.env.example` to `.env` and sets `APP_KEY`. Live signs component snapshots with `APP_KEY`, so it must be set in production.
+
 ## Where things are
 
 ```text

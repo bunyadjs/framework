@@ -3,6 +3,20 @@
 The Views starter plus the parts most paid products need: Stripe subscriptions through `@bunyad/billing`, a queued welcome email, and an admin area. Everything in the Views starter is here too — sign up, login with remember me, two-factor authentication, password reset, email verification, password confirmation, and settings — styled with DaisyUI on Tailwind.
 
 
+## Create an app
+
+```bash
+bunyad new saas my-saas --structure=classic
+# or, without the global CLI:
+bun create bunyad my-saas --kit=saas --structure=classic
+cd my-saas
+bun install
+bunyad migrate
+bun run dev
+```
+
+`bunyad new` copies `.env.example` to `.env` and sets `APP_KEY`. Add your Stripe test keys to `.env` before trying the upgrade button.
+
 ## Where things are
 
 ```text
