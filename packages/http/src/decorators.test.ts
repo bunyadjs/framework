@@ -1,3 +1,4 @@
+import { expect, test } from "bun:test";
 
 import { Can as CanDecorator, controllerMiddlewareOf as middlewareOfAction } from "./decorators.ts";
 import { aliasMiddleware, middlewareAliasOf as aliasOfMiddleware } from "./middleware-alias.ts";
