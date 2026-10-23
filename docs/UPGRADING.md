@@ -8,9 +8,9 @@ Every breaking change in a beta (or later) release is listed here with what to c
 2. Upgrade all `@bunyad/*` packages together, because they share one version: `bun add @bunyad/framework@beta` (or the individual packages you use).
 3. Run `bun run typecheck` and your tests. Removed or renamed exports show up as type errors.
 
-## Unreleased: route folders
+## From 0.2.0-beta.2 to 0.2.0-beta.3
 
-Routes now live in folders, and the app is `routes/` + `app/` + `server.ts`. `bunyad route:list`, `compile`, `optimize` and `view:cache` read the folders under `routes/` only.
+Nothing has to move: an app with `routes/web.ts`, `routes/api.ts` and `app/Http/Controllers` still boots (see the next section). New apps can use route folders, where the app is `routes/` + `app/` + `server.ts`; the rest of this section is for moving to them. `bunyad route:list`, `compile`, `optimize` and `view:cache` read the route folders, or the classic route files when there are no folders.
 
 ### The layout
 
