@@ -765,8 +765,11 @@ export default class ${cls} extends Factory<${model}> {
     }
     const unit = hasFlag(rest, "--unit");
     const cls = className(name.replace(/Test$/i, ""), "Test");
-    const folder = unit ? "tests/Unit" : "tests/Feature";
+    // Folders: run inside `routes/`, the test goes in the `_tests/` folder beside the code. Otherwise `tests/`.
+    const inRoutes = structureOf(projectRoot()) === "folders" ? routesFolderOfCwd() : null;
+    const folder = inRoutes ? join("routes", ...inRoutes, "_tests") : unit ? "tests/Unit" : "tests/Feature";
     const path = join(folder, `${cls}.ts`);
+    const server = relative(join(projectRoot(), folder), join(projectRoot(), "server.ts")).replaceAll("\\", "/");
     const file = await writeStub(
       path,
       `import { expect, test } from "bun:test";
@@ -774,7 +777,7 @@ import { TestCase, testCase } from "@bunyad/testing";
 
 @testCase({
   async createApplication() {
-    const { createApplication } = await import("../../server.ts");
+    const { createApplication } = await import("${server}");
     return createApplication();
   },
 })
