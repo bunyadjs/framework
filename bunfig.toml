@@ -1,4 +1,4 @@
 [test]
 # The classic layouts are laid over a kit by `bunyad new` and tested through scripts/classic-starters.test.ts.
 # Build output: starter kits copied into the CLI package by `bun run build`.
-pathIgnorePatterns = ["**/node_modules/**", "templates/*-classic/**", "templates/.classic-smoke/**", "packages/*/templates/**", "packages/*/dist/**"]
+pathIgnorePatterns = ["**/node_modules/**", "templates/*-classic/**", "templates/classic-smoke-*/**", "packages/*/templates/**", "packages/*/dist/**"]
