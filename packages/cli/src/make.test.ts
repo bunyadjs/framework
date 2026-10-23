@@ -123,8 +123,26 @@ test("make:controller supports folders, --invokable, --api and --requests", asyn
     expect(api).toContain("store(_request: StorePostRequest)");
     expect(api).toContain("update(_request: UpdatePostRequest)");
     expect(api).not.toContain("create(");
-    expect(api).toContain('import StorePostRequest from "@/Http/Requests/StorePostRequest.ts"');
-    const update = await readFile(join(root, "app/Http/Requests/UpdatePostRequest.ts"), "utf8");
+    expect(api).toContain('import StorePostRequest from "./StorePostRequest.ts"');
+    const update = await readFile(join(root, "routes/post/UpdatePostRequest.ts"), "utf8");
     expect(update).toContain("class UpdatePostRequest extends FormRequest");
   });
+});
+
+test("make:controller and make:request follow the folder they run in", async () => {
+  const root = await mkdtemp(join(tmpdir(), "bunyad-make-folder-"));
+  await writeFile(join(root, "server.ts"), "export default {};\n");
+  await mkdir(join(root, "routes/(auth)"), { recursive: true });
+  await withCwd(join(root, "routes/(auth)"), async () => {
+    await makeCommands["make:controller"]!(["Login"]);
+    await makeCommands["make:request"]!(["LoginRequest"]);
+  });
+  expect(await readFile(join(root, "routes/(auth)/login/LoginController.ts"), "utf8")).toContain("class LoginController");
+  expect(await readFile(join(root, "routes/(auth)/LoginRequest.ts"), "utf8")).toContain("class LoginRequest");
+
+  await mkdir(join(root, "app/Models"), { recursive: true });
+  await withCwd(join(root, "app/Models"), async () => {
+    await makeCommands["make:job"]!(["SendInvoice"]);
+  });
+  expect(await readFile(join(root, "app/Jobs/SendInvoiceJob.ts"), "utf8")).toContain("SendInvoiceJob");
 });

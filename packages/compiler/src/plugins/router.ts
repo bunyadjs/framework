@@ -456,7 +456,6 @@ export function createRouterPlugin(options: {
             name: route.name,
             middleware: collectMiddlewareAliases(route, primaryEntry, ctx.diagnostics),
             wheres: { ...route.wheres },
-          domain: route.domain,
             domain: route.domain,
             declaration: route.declaration,
             inject: [],

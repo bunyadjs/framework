@@ -1,5 +1,6 @@
 import { mkdir, writeFile, access } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join, relative, resolve, sep } from "node:path";
 
 function studly(name: string): string {
   return name
@@ -25,12 +26,32 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+/** The app's folder: the nearest folder above the current one with a `server.ts`, so a command run from a subfolder still writes to the right place. */
+function projectRoot(): string {
+  const cwd = process.cwd();
+  for (let dir = cwd; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, "server.ts"))) return dir;
+    if (dirname(dir) === dir) return cwd;
+  }
+}
+
+/** Folders of the current directory below the app's `routes/`, or null when it is somewhere else. */
+function routesFolderOfCwd(): string[] | null {
+  const parts = relative(projectRoot(), process.cwd()).split(sep);
+  return parts[0] === "routes" ? parts.slice(1) : null;
+}
+
+/** A route folder segment as a URL word: `Blog` is `blog`; group `(auth)` and parameter `[id]` folders stay as written. */
+function routeSegment(word: string): string {
+  return /^[(\[]/.test(word) ? word : word.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
 async function writeStub(
   relativePath: string,
   contents: string,
   force: boolean,
 ): Promise<string> {
-  const path = resolve(process.cwd(), relativePath);
+  const path = resolve(projectRoot(), relativePath);
   if (!force && (await exists(path))) {
     throw new Error(`${relativePath} already exists (use --force to overwrite).`);
   }
@@ -87,10 +108,10 @@ async function appendProviderRegistration(
   className: string,
   relativeImport: string,
 ): Promise<string | false> {
-  const legacy = resolve(process.cwd(), "bootstrap/providers.ts");
+  const legacy = resolve(projectRoot(), "bootstrap/providers.ts");
   if (await exists(legacy)) return (await registerInLegacyProviders(legacy, className, relativeImport)) ? "bootstrap/providers.ts" : false;
 
-  const serverPath = resolve(process.cwd(), "server.ts");
+  const serverPath = resolve(projectRoot(), "server.ts");
   if (!(await exists(serverPath))) return false;
   let source = await Bun.file(serverPath).text();
   if (!/bunyad\(\s*import\.meta/.test(source)) return false;
@@ -197,11 +218,17 @@ export default class ${cls} extends Command {
     const withRequests = hasFlag(rest, "--requests", "-R");
     const modelFlag = rest.find((a) => a.startsWith("--model="))?.slice("--model=".length);
 
-    const { dir, base } = splitFolder(name);
+    const parts = name.replace(/\\/g, "/").split("/").filter(Boolean);
+    const base = parts.pop() ?? name;
+    const dir = parts.map(studly).join("/");
     const cls = className(base, "Controller");
     // The controller goes in the route folder of its URL: `Auth/Register` is `routes/auth/register/RegisterController.ts`.
-    const kebab = (word: string) => word.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
-    const routeFolder = [...dir.split("/").filter(Boolean).map(kebab), kebab(cls.replace(/Controller$/, ""))];
+    // Run from inside `routes/`, the folder is relative to where you are: in `routes/(auth)`, `Login` is `routes/(auth)/login/`.
+    const routeFolder = [
+      ...(routesFolderOfCwd() ?? []),
+      ...parts.map(routeSegment),
+      routeSegment(cls.replace(/Controller$/, "")),
+    ];
     const path = join("routes", ...routeFolder, `${cls}.ts`);
     const model = modelFlag ? className(modelFlag) : undefined;
     const subject = model ?? cls.replace(/Controller$/, "");
@@ -213,8 +240,9 @@ export default class ${cls} extends Command {
       formStore = `Store${subject}Request`;
       formUpdate = `Update${subject}Request`;
       for (const form of [formStore, formUpdate]) {
-        await makeCommands["make:request"]!([join(dir, form), ...(force ? ["--force"] : [])]);
-        imports.push(`import ${form} from "@/Http/Requests/${join(dir, form)}.ts";`);
+        // The request sits beside its controller, like the starters' `LoginRequest.ts`.
+        await makeCommands["make:request"]!([form, `--route=${routeFolder.join("/")}`, ...(force ? ["--force"] : [])]);
+        imports.push(`import ${form} from "./${form}.ts";`);
       }
     }
     const requestImport = `import type { Request } from "@bunyad/http";
@@ -489,15 +517,21 @@ export default class ${cls} extends Event {
   },
 
   async "make:request"(args) {
-    const { name, force } = parseFlags(args);
+    const routeFlag = args.find((a) => a.startsWith("--route="))?.slice("--route=".length);
+    const { name, force } = parseFlags(args.filter((a) => a !== `--route=${routeFlag}`));
     if (!name) {
-      console.error("Usage: make:request Name [--force]");
+      console.error("Usage: make:request [Folder/]Name [--route=folder] [--force]");
       process.exitCode = 1;
       return;
     }
     const { dir, base } = splitFolder(name);
     const cls = className(base, "Request");
-    const path = join("app/Http/Requests", dir, `${cls}.ts`);
+    // Inside `routes/` (or given `--route`), the request sits in that route folder; elsewhere it is shared in `app/Http/Requests`.
+    const inRoutes = routeFlag !== undefined ? routeFlag.split("/").filter(Boolean) : routesFolderOfCwd();
+    const path =
+      inRoutes !== null
+        ? join("routes", ...inRoutes, `${cls}.ts`)
+        : join("app/Http/Requests", dir, `${cls}.ts`);
     const file = await writeStub(
       path,
       `import { FormRequest } from "@bunyad/http";
