@@ -4,10 +4,8 @@ The Views starter plus the parts most paid products need: Stripe subscriptions t
 
 ## Create an app
 
-From the Bunyad repo:
-
 ```bash
-bun run bunyad new saas my-saas
+bunyad new saas my-saas
 cd my-saas
 bun install
 bunyad migrate

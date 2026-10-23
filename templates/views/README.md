@@ -4,10 +4,8 @@ Server-rendered app on `.view` files, styled with DaisyUI on Tailwind. It ships 
 
 ## Create an app
 
-From the Bunyad repo:
-
 ```bash
-bun run bunyad new views my-app
+bunyad new views my-app
 cd my-app
 bun install
 bunyad migrate

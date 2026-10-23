@@ -6,10 +6,8 @@ Session, views, the document head, live components, and Inertia are not register
 
 ## Create an app
 
-From the Bunyad repo:
-
 ```bash
-bun run bunyad new api my-api
+bunyad new api my-api
 cd my-api
 bun install
 bun run dev
