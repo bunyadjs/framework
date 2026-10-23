@@ -6,6 +6,8 @@ The Views starter's features as a Vue app on Inertia: sign up, log in, remember 
 
 ```bash
 bunyad new vue my-vue
+# or, without the global CLI:
+bun create bunyad my-vue --kit=vue
 cd my-vue
 bun install
 bunyad migrate

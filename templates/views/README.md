@@ -6,6 +6,8 @@ Server-rendered app on `.view` files, styled with DaisyUI on Tailwind. It ships 
 
 ```bash
 bunyad new views my-app
+# or, without the global CLI:
+bun create bunyad my-app --kit=views
 cd my-app
 bun install
 bunyad migrate

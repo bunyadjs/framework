@@ -130,6 +130,8 @@ Create the API starter when the client is another program. It serves JSON with b
 
 ```shell
 bunyad new api my-api
+# or, without the global CLI:
+bun create bunyad my-api --kit=api
 cd my-api
 bun install
 bun run dev

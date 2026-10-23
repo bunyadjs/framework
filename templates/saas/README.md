@@ -6,6 +6,8 @@ The Views starter plus the parts most paid products need: Stripe subscriptions t
 
 ```bash
 bunyad new saas my-saas
+# or, without the global CLI:
+bun create bunyad my-saas --kit=saas
 cd my-saas
 bun install
 bunyad migrate

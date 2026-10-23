@@ -6,6 +6,8 @@ The Views starter's features as a Svelte app on Inertia: sign up, log in, rememb
 
 ```bash
 bunyad new svelte my-svelte
+# or, without the global CLI:
+bun create bunyad my-svelte --kit=svelte
 cd my-svelte
 bun install
 bunyad migrate

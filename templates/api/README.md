@@ -8,6 +8,8 @@ Session, views, the document head, live components, and Inertia are not register
 
 ```bash
 bunyad new api my-api
+# or, without the global CLI:
+bun create bunyad my-api --kit=api
 cd my-api
 bun install
 bun run dev
