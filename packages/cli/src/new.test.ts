@@ -92,7 +92,7 @@ test("the prompt offers the starter kits by name and copies no runtime leftovers
   const cwd = process.cwd();
   process.chdir(parent);
   try {
-    Prompt.fake(["1", "shop", "1", false, false, true]);
+    Prompt.fake(["1", "folders", "shop", "1", false, false, true]);
     await newProject([]);
 
     const menu = lines.join("\n");
@@ -261,7 +261,7 @@ test("--structure=classic lays the classic layout over the kit and records the c
   }
 }, 30_000);
 
-test("the prompt asks for the structure with a description of each, and unknown ones are rejected", async () => {
+test("the prompt asks for the structure with a description of each, and an unknown one is rejected", async () => {
   const parent = resolve(import.meta.dir, "../.tmp-new-structure");
   await rm(parent, { recursive: true, force: true });
   await mkdir(parent, { recursive: true });
@@ -281,8 +281,6 @@ test("the prompt asks for the structure with a description of each, and unknown 
     expect(menu).toContain("Best if you know this layout already");
     expect(existsSync(resolve(parent, "shop/app/Http/Controllers"))).toBe(true);
 
-    await newProject(["views", "no-classic", "--structure=classic"]);
-    expect(existsSync(resolve(parent, "no-classic"))).toBe(false);
     await newProject(["react", "odd", "--structure=weird"]);
     expect(existsSync(resolve(parent, "odd"))).toBe(false);
   } finally {

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  @include('partials.head')
+</head>
+<body class="min-h-screen bg-base-200">
+  <main class="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+    <a href="{{ route('home') }}" live:navigate class="text-lg"><x-app-logo /></a>
+    <div class="card w-full max-w-sm bg-base-100 shadow-sm">
+      <div class="card-body gap-6">
+        {{-- Full-page Live components arrive as `slot`; plain views use @section('content'). --}}
+        {!! slot ?? '' !!}@yield('content')
+      </div>
+    </div>
+  </main>
+</body>
+</html>

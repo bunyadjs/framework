@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { newProject } from "../packages/cli/src/new.ts";
 
 /** Each kit's classic layout, scaffolded the way `bunyad new --structure=classic` does it, must boot and pass its own tests. */
-for (const kit of ["react"]) {
+for (const kit of ["react", "vue", "svelte", "api", "views", "live", "saas"]) {
   test(`the classic ${kit} starter passes its own tests`, async () => {
     const parent = resolve(import.meta.dir, "../templates/.classic-smoke");
     const target = resolve(parent, kit);

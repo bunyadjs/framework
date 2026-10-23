@@ -1,0 +1,34 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "**/*.ts",
+    "resources/js/**/*.svelte",
+    ".bunyad/**/*.ts"
+  ],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "app/*"
+      ],
+      "@database/*": [
+        "database/*"
+      ],
+      "~/*": [
+        "resources/js/*",
+        ".bunyad/*"
+      ],
+      "@inertiajs/svelte": [
+        "./node_modules/@inertiajs/svelte/dist/index.js"
+      ]
+    },
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ]
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}

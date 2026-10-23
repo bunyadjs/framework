@@ -1,0 +1,32 @@
+<div class="flex flex-col gap-6">
+  <x-auth-header title="Log in to your account" description="Enter your email and password below to log in" />
+  <x-auth-session-status :status="session('status')" />
+
+  <form live:submit="login" class="flex flex-col gap-4">
+    <fieldset class="fieldset">
+      <label class="label" for="email">Email address</label>
+      <input id="email" type="email" live:model.defer="email" value="{{ email }}" class="input w-full" required autofocus autocomplete="email" placeholder="email@example.com" />
+      @error('email')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+
+    <fieldset class="fieldset">
+      <div class="flex items-center justify-between">
+        <label class="label" for="password">Password</label>
+        <a href="{{ route('password.request') }}" live:navigate class="link link-hover text-sm">Forgot your password?</a>
+      </div>
+      <input id="password" type="password" live:model.defer="password" class="input w-full" required autocomplete="current-password" placeholder="Password" />
+      @error('password')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+
+    <label class="label">
+      <input type="checkbox" live:model.defer="remember" class="checkbox checkbox-sm" @if(remember) checked @endif />
+      Remember me
+    </label>
+
+    <button type="submit" class="btn btn-primary w-full">Log in</button>
+  </form>
+
+  <p class="text-center text-sm text-base-content/70">
+    Don't have an account? <a href="{{ route('register') }}" live:navigate class="link">Sign up</a>
+  </p>
+</div>

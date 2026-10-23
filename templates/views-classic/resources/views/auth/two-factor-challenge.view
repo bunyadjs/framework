@@ -1,0 +1,50 @@
+@extends('layouts.auth')
+
+@section('content')
+<div id="challenge-code" @class({ 'hidden': errors?.recovery_code })>
+  <x-auth-header title="Authentication code" description="Enter the authentication code provided by your authenticator application." />
+
+  <form method="POST" action="{{ route('two-factor.login.store') }}" class="mt-6 flex flex-col gap-4">
+    @csrf
+    <fieldset class="fieldset">
+      <label class="label" for="code">Code</label>
+      <input id="code" type="text" name="code" class="input w-full tracking-widest" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus placeholder="123456" />
+      @error('code')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+    <button type="submit" class="btn btn-primary w-full">Continue</button>
+  </form>
+
+  <p class="mt-4 text-center text-sm text-base-content/70">
+    or you can <button type="button" class="link" data-show="challenge-recovery">log in using a recovery code</button>
+  </p>
+</div>
+
+<div id="challenge-recovery" @class({ 'hidden': !errors?.recovery_code })>
+  <x-auth-header title="Recovery code" description="Please confirm access to your account by entering one of your emergency recovery codes." />
+
+  <form method="POST" action="{{ route('two-factor.login.store') }}" class="mt-6 flex flex-col gap-4">
+    @csrf
+    <fieldset class="fieldset">
+      <label class="label" for="recovery_code">Recovery code</label>
+      <input id="recovery_code" type="text" name="recovery_code" class="input w-full" autocomplete="one-time-code" placeholder="abcdefghij-klmnopqrst" />
+      @error('recovery_code')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+    <button type="submit" class="btn btn-primary w-full">Continue</button>
+  </form>
+
+  <p class="mt-4 text-center text-sm text-base-content/70">
+    or you can <button type="button" class="link" data-show="challenge-code">log in using an authentication code</button>
+  </p>
+</div>
+
+<script>
+  for (const button of document.querySelectorAll("[data-show]")) {
+    button.addEventListener("click", () => {
+      for (const id of ["challenge-code", "challenge-recovery"]) {
+        document.getElementById(id).classList.toggle("hidden", id !== button.dataset.show);
+      }
+      document.querySelector(`#${button.dataset.show} input:not([type=hidden])`).focus();
+    });
+  }
+</script>
+@endsection

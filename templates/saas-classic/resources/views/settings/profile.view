@@ -1,0 +1,78 @@
+@extends('layouts.app')
+
+@section('content')
+<x-settings-layout heading="Profile" subheading="Update your name and email address">
+  <form method="POST" action="{{ route('profile.update') }}" class="flex flex-col gap-4">
+    @csrf
+    @method('PATCH')
+    <fieldset class="fieldset">
+      <label class="label" for="name">Name</label>
+      <input id="name" type="text" name="name" value="{{ old('name', request().user.name) }}" class="input w-full" required autocomplete="name" />
+      @error('name')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+
+    <fieldset class="fieldset">
+      <label class="label" for="email">Email</label>
+      <input id="email" type="email" name="email" value="{{ old('email', request().user.email) }}" class="input w-full" required autocomplete="email" />
+      @error('email')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+
+    @if(mustVerifyEmail)
+    <p class="text-sm">
+      Your email address is unverified.
+      <button type="submit" form="send-verification" class="link">Click here to re-send the verification email.</button>
+    </p>
+    @if(session('status') === 'verification-link-sent')
+    <p class="text-sm text-success">A new verification link has been sent to your email address.</p>
+    @endif
+    @endif
+
+    <div class="flex items-center gap-4">
+      <button type="submit" class="btn btn-primary">Save</button>
+      @if(session('status') === 'profile-updated')
+      <span class="text-sm text-success">Saved.</span>
+      @endif
+    </div>
+  </form>
+
+  <form id="send-verification" method="POST" action="{{ route('verification.send') }}">
+    @csrf
+  </form>
+
+  <div class="mt-12 flex flex-col gap-4">
+    <div>
+      <h2 class="text-lg font-semibold">Delete account</h2>
+      <p class="text-sm text-base-content/70">Delete your account and all of its resources</p>
+    </div>
+    <div class="alert alert-error alert-soft flex flex-col items-start gap-3">
+      <div>
+        <p class="font-medium">Warning</p>
+        <p class="text-sm">Please proceed with caution, this cannot be undone.</p>
+      </div>
+      <button type="button" class="btn btn-error btn-sm" onclick="document.getElementById('delete-account').showModal()">Delete account</button>
+    </div>
+  </div>
+
+  <dialog id="delete-account" @class({ 'modal': true, 'modal-open': errors?.userDeletion })>
+    <form method="POST" action="{{ route('profile.destroy') }}" class="modal-box flex flex-col gap-4">
+      @csrf
+      @method('DELETE')
+      <h3 class="text-lg font-semibold">Are you sure you want to delete your account?</h3>
+      <p class="text-sm text-base-content/70">
+        Once your account is deleted, all of its resources and data will also be permanently deleted.
+        Please enter your password to confirm.
+      </p>
+      <fieldset class="fieldset">
+        <label class="label" for="delete-password">Password</label>
+        <input id="delete-password" type="password" name="password" class="input w-full" autocomplete="current-password" placeholder="Password" />
+        @error('password', 'userDeletion')<p class="text-sm text-error">{{ message }}</p>@enderror
+      </fieldset>
+      <div class="modal-action">
+        <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="btn btn-error">Delete account</button>
+      </div>
+    </form>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+</x-settings-layout>
+@endsection

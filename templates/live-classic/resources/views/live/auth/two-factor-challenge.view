@@ -1,0 +1,33 @@
+<div class="flex flex-col gap-6">
+  @if(usingRecoveryCode)
+  <x-auth-header title="Recovery code" description="Please confirm access to your account by entering one of your emergency recovery codes." />
+
+  <form live:submit="verify" class="flex flex-col gap-4">
+    <fieldset class="fieldset">
+      <label class="label" for="recovery_code">Recovery code</label>
+      <input id="recovery_code" type="text" live:model.defer="recovery_code" class="input w-full" autocomplete="one-time-code" autofocus placeholder="abcdefghij-klmnopqrst" />
+      @error('recovery_code')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+    <button type="submit" class="btn btn-primary w-full">Continue</button>
+  </form>
+
+  <p class="text-center text-sm text-base-content/70">
+    or you can <button type="button" live:click="toggleRecovery" class="link">log in using an authentication code</button>
+  </p>
+  @else
+  <x-auth-header title="Authentication code" description="Enter the authentication code provided by your authenticator application." />
+
+  <form live:submit="verify" class="flex flex-col gap-4">
+    <fieldset class="fieldset">
+      <label class="label" for="code">Code</label>
+      <input id="code" type="text" live:model.defer="code" class="input w-full tracking-widest" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus placeholder="123456" />
+      @error('code')<p class="text-sm text-error">{{ message }}</p>@enderror
+    </fieldset>
+    <button type="submit" class="btn btn-primary w-full">Continue</button>
+  </form>
+
+  <p class="text-center text-sm text-base-content/70">
+    or you can <button type="button" live:click="toggleRecovery" class="link">log in using a recovery code</button>
+  </p>
+  @endif
+</div>

@@ -1,0 +1,11 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>@if(title){{ title }} - @endif{{ config('app.name') }}</title>
+<script>
+  {{-- Apply the saved appearance before first paint. "system" follows the OS. --}}
+  (() => {
+    const appearance = localStorage.getItem("appearance") ?? "system";
+    if (appearance !== "system") document.documentElement.dataset.theme = appearance;
+  })();
+</script>
+<link rel="stylesheet" href="/build/app.css" />

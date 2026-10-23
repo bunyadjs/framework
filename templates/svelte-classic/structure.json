@@ -1,0 +1,9 @@
+{
+  "remove": [
+    "routes",
+    "app/Http/inertia-ssr.ts",
+    "tsconfig.json",
+    "README.md",
+    ".bunyad"
+  ]
+}

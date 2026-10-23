@@ -1,0 +1,42 @@
+@extends('layouts.app')
+
+@section('content')
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold">Billing</h1>
+  <p class="mb-8 text-base-content/70">Your plan and payment details</p>
+
+  @if(checkout === 'success')
+  <div role="status" class="alert alert-success alert-soft mb-6 text-sm">Checkout completed. Your plan updates when Stripe confirms the payment.</div>
+  @elseif(checkout === 'cancel')
+  <div role="status" class="alert alert-soft mb-6 text-sm">Checkout canceled.</div>
+  @endif
+  @if(session('status'))
+  <div role="status" class="alert alert-info alert-soft mb-6 text-sm">{{ session('status') }}</div>
+  @endif
+  @if(session('error'))
+  <div role="alert" class="alert alert-error alert-soft mb-6 text-sm">{{ session('error') }}</div>
+  @endif
+
+  <div class="card border border-base-300 bg-base-100">
+    <div class="card-body gap-4">
+      <p>Current plan: <span @class({ 'badge': true, 'badge-primary': subscribed })>{{ plan }}</span></p>
+
+      @if(!subscribed)
+      <p class="text-sm text-base-content/70">Upgrade to Pro to unlock everything. You'll finish on Stripe Checkout.</p>
+      <form method="POST" action="{{ route('billing.upgrade') }}">
+        @csrf
+        <button type="submit" class="btn btn-primary">Upgrade to Pro</button>
+      </form>
+      @else
+      <p class="text-sm text-base-content/70">You are on Pro. Change your card or cancel in the Stripe billing portal.</p>
+      @if(hasStripeId)
+      <form method="POST" action="{{ route('billing.portal') }}">
+        @csrf
+        <button type="submit" class="btn">Open billing portal</button>
+      </form>
+      @endif
+      @endif
+    </div>
+  </div>
+</div>
+@endsection

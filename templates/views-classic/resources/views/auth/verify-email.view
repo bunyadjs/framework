@@ -1,0 +1,21 @@
+@extends('layouts.auth')
+
+@section('content')
+<x-auth-header title="Verify email" description="Please verify your email address by clicking on the link we just emailed to you." />
+
+@if(session('status') === 'verification-link-sent')
+<div role="status" class="alert alert-success alert-soft text-sm">
+  A new verification link has been sent to the email address you provided during registration.
+</div>
+@endif
+
+<form method="POST" action="{{ route('verification.send') }}">
+  @csrf
+  <button type="submit" class="btn btn-primary w-full">Resend verification email</button>
+</form>
+
+<form method="POST" action="{{ route('logout') }}" class="text-center">
+  @csrf
+  <button type="submit" class="link text-sm">Log out</button>
+</form>
+@endsection
