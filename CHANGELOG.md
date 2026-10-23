@@ -2,6 +2,12 @@
 
 All `@bunyad/*` packages and `create-bunyad` share one version number and are released together. See [docs/STABILITY.md](docs/STABILITY.md) for what each stage promises and [docs/UPGRADING.md](docs/UPGRADING.md) for how to move between releases.
 
+## Unreleased
+
+### Fixed
+
+- `bunyad new react my-app` (kit and directory given) now asks "Which structure?" in a terminal instead of silently choosing Folders. `--structure=folders|classic` skips the question, and so does running without a terminal (scripts, CI), which gets Folders.
+
 ## 0.2.0-beta.3
 
 Published under the `beta` npm tag. Routes can now live in folders, and `bunyad new` offers a classic layout as well. Several starter names changed; the steps are in [docs/UPGRADING.md](docs/UPGRADING.md).

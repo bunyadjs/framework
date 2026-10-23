@@ -33,7 +33,7 @@ Programmatic entry points are exported too: `run`, `Command`, `command`, and the
 ## Notes
 
 - Runs on Bun only (1.4 or newer).
-- `bunyad new` options: `--kit=`, `--dir=`, `--database=sqlite|pgsql|mysql`, `--install` / `--no-install`, `--git` / `--no-git`. See [create-bunyad](https://www.npmjs.com/package/create-bunyad) for the prompts.
+- `bunyad new` options: `--kit=`, `--dir=`, `--database=sqlite|pgsql|mysql`, `--structure=folders|classic`, `--install` / `--no-install`, `--git` / `--no-git`. See [create-bunyad](https://www.npmjs.com/package/create-bunyad) for the prompts.
 - Other groups: `compile`, `start`, `workers`, `key:generate`, `db:seed`, `queue:*`, `schedule:*`, `config:cache`, `route:cache`, `optimize`, `migrate:report` and `migrate:convert` (PHP project helpers).
 
 ## License

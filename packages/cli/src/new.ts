@@ -67,6 +67,16 @@ function parseFlags(args: string[]): { positional: string[]; options: NewOptions
   return { positional, options };
 }
 
+/** The structure question, with a line on when each one fits. */
+async function askStructure(): Promise<string> {
+  return select({
+    label: "Which structure?",
+    hint: Object.values(STRUCTURES).map((s) => `${s.label.replace(" (recommended)", "")}: ${s.hint}`).join("\n  "),
+    options: Object.fromEntries(Object.entries(STRUCTURES).map(([name, s]) => [name, s.label])),
+    default: "folders",
+  });
+}
+
 /** The folder laid over a kit for the classic layout, when the kit has one (`react` has `react-classic`). */
 function classicOverlay(kit: string): string | undefined {
   const dir = resolve(TEMPLATES_ROOT, `${kit}-classic`);
@@ -146,14 +156,7 @@ export async function newProject(rawArgs: string[]): Promise<void> {
         ),
         default: "views",
       }));
-    if (!options.structure && classicOverlay(template)) {
-      options.structure = await select({
-        label: "Which structure?",
-        hint: Object.values(STRUCTURES).map((s) => `${s.label.replace(" (recommended)", "")}: ${s.hint}`).join("\n  "),
-        options: Object.fromEntries(Object.entries(STRUCTURES).map(([name, s]) => [name, s.label])),
-        default: "folders",
-      });
-    }
+    if (!options.structure && classicOverlay(template)) options.structure = await askStructure();
     targetArg =
       targetArg ??
       (await text({
@@ -184,6 +187,10 @@ export async function newProject(rawArgs: string[]): Promise<void> {
       return;
     }
   }
+
+  // Kit and directory given (`bunyad new react my-app`) skip the questions above, but not this one: in a terminal the
+  // structure is asked unless `--structure=` says. Scripts and CI (no terminal) get folders.
+  if (!options.structure && process.stdin.isTTY && classicOverlay(template)) options.structure = await askStructure();
 
   const templateDir = resolve(TEMPLATES_ROOT, template);
   if (!existsSync(templateDir)) {

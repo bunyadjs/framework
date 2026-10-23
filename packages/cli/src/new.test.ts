@@ -292,3 +292,43 @@ test("the prompt asks for the structure with a description of each, and an unkno
     await rm(parent, { recursive: true, force: true });
   }
 }, 30_000);
+
+test("the structure is asked in a terminal even when the kit and directory are given, and --structure skips it", async () => {
+  const parent = resolve(import.meta.dir, "../.tmp-new-ask");
+  await rm(parent, { recursive: true, force: true });
+  await mkdir(parent, { recursive: true });
+  const lines: string[] = [];
+  setPromptOutput((line) => lines.push(line));
+  const log = console.log;
+  console.log = (line: string) => lines.push(String(line));
+  const tty = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
+  Object.defineProperty(process.stdin, "isTTY", { value: true, configurable: true });
+  const cwd = process.cwd();
+  process.chdir(parent);
+  try {
+    Prompt.fake(["classic"]);
+    await newProject(["react", "asked", "--no-install", "--no-git"]);
+    expect(lines.join("\n")).toContain("Which structure?");
+    expect(existsSync(resolve(parent, "asked/app/Http/Controllers"))).toBe(true);
+
+    lines.length = 0;
+    await newProject(["react", "flagged", "--structure=folders", "--no-install", "--no-git"]);
+    expect(lines.join("\n")).not.toContain("Which structure?");
+    expect(existsSync(resolve(parent, "flagged/routes/(auth)/login/LoginController.ts"))).toBe(true);
+
+    // No terminal (a script, CI): folders, no question.
+    Object.defineProperty(process.stdin, "isTTY", { value: false, configurable: true });
+    lines.length = 0;
+    await newProject(["react", "scripted", "--no-install", "--no-git"]);
+    expect(lines.join("\n")).not.toContain("Which structure?");
+    expect(existsSync(resolve(parent, "scripted/routes/(auth)/login/LoginController.ts"))).toBe(true);
+  } finally {
+    if (tty) Object.defineProperty(process.stdin, "isTTY", tty);
+    else delete (process.stdin as { isTTY?: boolean }).isTTY;
+    console.log = log;
+    restore();
+    setPromptOutput((line) => console.log(line));
+    process.chdir(cwd);
+    await rm(parent, { recursive: true, force: true });
+  }
+}, 30_000);
