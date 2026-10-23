@@ -7,8 +7,8 @@ The Views starter's features as a Svelte app on Inertia: sign up, log in, rememb
 From the Bunyad repo:
 
 ```bash
-bun run bunyad new react apps/my-react
-cd apps/my-react
+bun run bunyad new svelte my-svelte
+cd my-svelte
 bun install
 bunyad migrate
 bun run dev

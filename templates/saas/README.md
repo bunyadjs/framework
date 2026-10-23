@@ -7,8 +7,8 @@ The Views starter plus the parts most paid products need: Stripe subscriptions t
 From the Bunyad repo:
 
 ```bash
-bun run bunyad new saas apps/my-saas
-cd apps/my-saas
+bun run bunyad new saas my-saas
+cd my-saas
 bun install
 bunyad migrate
 bun run dev

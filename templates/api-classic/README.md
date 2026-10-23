@@ -9,15 +9,14 @@ Session, views, the document head, live components, and Inertia are not register
 From the Bunyad repo:
 
 ```bash
-bun run bunyad new api apps/my-api
-cd apps/my-api
+bun run bunyad new api my-api
+cd my-api
 bun install
 bun run dev
 ```
 
 `bunyad new` copies `.env.example` to `.env` and sets `APP_KEY`. In an existing app, run `bunyad key:generate`.
 
-`apps/*` is already a workspace.
 
 ## Where things are
 

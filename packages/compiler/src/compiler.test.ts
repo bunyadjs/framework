@@ -149,18 +149,18 @@ test("compile emits inject plans on controller routes", async () => {
 });
 
 test("compile merges web + api route entries", async () => {
-  const apiRoot = resolve(import.meta.dir, "../../../apps/my-api");
+  const apiRoot = resolve(import.meta.dir, "../../../templates/api");
   const outDir = resolve(apiRoot, ".build-test");
   await rm(outDir, { recursive: true, force: true });
 
   const manifest = await compile({
     root: apiRoot,
     outDir,
-    appName: "my-api",
+    appName: "api",
     routesEntries: [resolve(apiRoot, "routes")],
     plugins: [],
     bootstrap: {
-      applicationModule: resolve(apiRoot, "bootstrap/app.ts"),
+      applicationModule: resolve(apiRoot, "server.ts"),
     },
   });
 

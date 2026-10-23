@@ -7,8 +7,8 @@ The Views starter's features as a React app on Inertia: sign up, log in, remembe
 From the Bunyad repo:
 
 ```bash
-bun run bunyad new react apps/my-react
-cd apps/my-react
+bun run bunyad new react my-react
+cd my-react
 bun install
 bunyad migrate
 bun run dev

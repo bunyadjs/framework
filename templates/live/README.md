@@ -7,8 +7,8 @@ The Views starter's pages rebuilt as `@bunyad/live-components` components: forms
 From the Bunyad repo:
 
 ```bash
-bun run bunyad new live apps/my-live
-cd apps/my-live
+bun run bunyad new live my-live
+cd my-live
 bun install
 bunyad migrate
 bun run dev

@@ -7,8 +7,8 @@ The Views starter's features as a Vue app on Inertia: sign up, log in, remember 
 From the Bunyad repo:
 
 ```bash
-bun run bunyad new react apps/my-react
-cd apps/my-react
+bun run bunyad new vue my-vue
+cd my-vue
 bun install
 bunyad migrate
 bun run dev

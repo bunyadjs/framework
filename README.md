@@ -58,7 +58,7 @@ Every capability is a standalone `@bunyad/*` package, and `@bunyad/framework` br
 
 ```
 bunyad/
-├── apps/              # Playground, example apps, docs site
+├── apps/              # Playground, docs site, benchmark
 ├── packages/          # @bunyad/* packages
 ├── docs/              # Stability policy and runnable examples (Express, Next.js)
 ├── api/               # Recorded public exports of every package
