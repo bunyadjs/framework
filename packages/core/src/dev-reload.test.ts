@@ -59,6 +59,8 @@ test("dev reload handler serves client script and sse", async () => {
   expect(clientScript).toContain("bunyad:morph");
   expect(clientScript).toContain('mode === "morph"');
   expect(clientScript).toContain("pagehide");
+  expect(clientScript).toContain("navigator.locks");
+  expect(clientScript).toContain("BroadcastChannel");
 
   const sse = handler.match("/__bunyad/reload");
   expect(sse?.headers.get("content-type")).toContain("text/event-stream");
