@@ -62,10 +62,15 @@ const RELOAD_CLIENT = `(() => {
     }
   };
 
-  const onReload = (ev) => {
+  // Browsers allow ~6 connections per host on HTTP/1.1. One open stream per tab
+  // would starve every other request once a few dev tabs are open, so a single
+  // tab (the Web Lock holder) keeps the stream and relays reloads to the rest.
+  const channel = typeof BroadcastChannel === "function" ? new BroadcastChannel("bunyad-dev-reload") : null;
+
+  const handleReload = (raw) => {
     let mode = "full";
     try {
-      const data = JSON.parse(ev.data);
+      const data = JSON.parse(raw);
       if (data && data.mode) mode = data.mode;
     } catch {}
     if (mode === "morph") {
@@ -73,6 +78,19 @@ const RELOAD_CLIENT = `(() => {
       return;
     }
     location.reload();
+  };
+
+  const relay = (raw) => {
+    try { channel && channel.postMessage({ type: "reload", data: raw }); } catch {}
+  };
+
+  channel && channel.addEventListener("message", (ev) => {
+    if (ev.data && ev.data.type === "reload") handleReload(ev.data.data);
+  });
+
+  const onReload = (ev) => {
+    relay(ev.data);
+    handleReload(ev.data);
   };
 
   const connect = () => {
@@ -89,6 +107,7 @@ const RELOAD_CLIENT = `(() => {
       delay = 500;
       // Server process restarted (e.g. bun --watch) — refresh once we're back.
       if (reloadOnReconnect) {
+        relay(JSON.stringify({ mode: "full" }));
         location.reload();
         return;
       }
@@ -99,7 +118,12 @@ const RELOAD_CLIENT = `(() => {
     try { es?.close(); } catch {}
     es = null;
   });
-  connect();
+  if (channel && navigator.locks && navigator.locks.request) {
+    // Held until this page goes away; the next waiting tab then takes over.
+    navigator.locks.request("bunyad-dev-reload", () => new Promise(() => connect()));
+  } else {
+    connect();
+  }
 })();
 `;
 
