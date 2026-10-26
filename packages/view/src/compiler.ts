@@ -221,7 +221,7 @@ function compileExpr(expr: string, locals: Set<string>): string {
  * Compile a `.view` template into a render function.
  * Supports: {{ }}, {!! !!}, @if/@elseif/@else/@endif, @unless/@endunless,
  * @isset/@endisset, @empty(...)/@endempty, @switch/@case/@break/@default/@endswitch,
- * @foreach/@endforeach, @forelse/@empty/@endforelse, loop object,
+ * @for/@endfor, @foreach/@endforeach, @forelse/@empty/@endforelse, loop object,
  * @auth/@guest/@can/@cannot, @production/@env, @class/@style, @error/@enderror,
  * @props, @include, @section/@endsection, @yield, @push/@endpush, @prepend/@endprepend,
  * @stack, @once/@endonce,
@@ -304,6 +304,25 @@ export function compile(
       viewEnvIs,
       withStacks,
     );
+}
+
+/** Split on `separator` outside quotes and brackets. */
+function splitTopLevel(source: string, separator: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let from = 0;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i]!;
+    if (ch === '"' || ch === "'" || ch === "`") i = skipQuoted(source, i);
+    else if (ch === "(" || ch === "[" || ch === "{") depth += 1;
+    else if (ch === ")" || ch === "]" || ch === "}") depth -= 1;
+    else if (ch === separator && depth === 0) {
+      parts.push(source.slice(from, i));
+      from = i + 1;
+    }
+  }
+  parts.push(source.slice(from));
+  return parts;
 }
 
 /** The `@endsection` that closes a section, or its Laravel alias `@stop`. */
@@ -460,6 +479,35 @@ function compileBody(source: string, locals: Set<string>): string {
           "Register helpers with ViewFactory.use() and @use('name'), use @let(name = expr), Controllers, or class Components.",
           "BUNYAD_VIEW_004",
         );
+      }
+
+      // `@for (i = 0; i < 10; i++)`, as in Blade. `@foreach` and `@forelse` also start with "@for".
+      if (/^@for\s*\(/.test(rest)) {
+        const open = rest.indexOf("(");
+        const close = requireMatchingParen(rest, open, "@for");
+        const parts = splitTopLevel(rest.slice(open + 1, close), ";");
+        const start = parts[0]?.trim().match(/^\$?([A-Za-z_]\w*)\s*=\s*([\s\S]+)$/);
+        if (parts.length !== 3 || !start) {
+          throw new BunyadError(
+            "@for requires (counter = start; condition; step), for example @for (i = 0; i < 10; i++).",
+            "BUNYAD_VIEW_011",
+          );
+        }
+        const counter = start[1]!;
+        const first = compileExpr(start[2]!, locals);
+        locals.add(counter);
+        localStack.push(counter);
+        out += `for (let ${counter}=${first}; ${compileExpr(parts[1]!, locals)}; ${compileExpr(parts[2]!, locals)}) {\n`;
+        i += close + 1;
+        continue;
+      }
+
+      if (/^@endfor\b/.test(rest)) {
+        out += "}\n";
+        const counter = localStack.pop();
+        if (counter && !localStack.includes(counter)) locals.delete(counter);
+        i += "@endfor".length;
+        continue;
       }
 
       if (rest.startsWith("@foreach")) {

@@ -200,6 +200,14 @@ A front-end framework such as Vue or Alpine uses `{{ }}` too. Put `@` in front t
 
 ### Loops
 
+`@for` counts, as in Blade. The counter has no `$`, and the three parts are an assignment, a condition and a step:
+
+```html
+@for (i = 1; i <= 5; i++)
+<option value="{{ i }}">{{ i }}</option>
+@endfor
+```
+
 `@foreach` iterates any value that JavaScript can loop with `for...of`. The alias is a local inside the loop. A leading `$` on the alias is ignored.
 
 ```html

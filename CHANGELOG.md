@@ -12,6 +12,7 @@ All `@bunyad/*` packages and `create-bunyad` share one version number and are re
 
 ### Added
 
+- **Views: `@for`.** `@for (i = 0; i < 10; i++)` … `@endfor` loops with a counter, as in Blade. It printed as plain text before, with no error.
 - **Views: Laravel's escapes for front-end `{{ }}`.** `@{{ name }}` and `@{!! html !!}` print the braces and what is inside as they are, and `@verbatim … @endverbatim` leaves a block uncompiled. `@stop` ends a `@section` like `@endsection`. `@bunyad/view` exports `withStacks`, which compiled views call.
 
 ## 0.2.0-beta.3
