@@ -2,6 +2,13 @@
 
 All `@bunyad/*` packages and `create-bunyad` share one version number and are released together. See [docs/STABILITY.md](docs/STABILITY.md) for what each stage promises and [docs/UPGRADING.md](docs/UPGRADING.md) for how to move between releases.
 
+## Unreleased
+
+### Fixed
+
+- **Views: a child view's sections and pushes now reach the layout wherever it prints them.** The child renders first, as in Laravel, and its sections are read by `@yield` in the layout, in a partial the layout includes and in a component. Before, `@yield` only worked in the layout's own source, so a `scripts` or `styles` partial included by the layout printed nothing; a `@push` written outside a `@section` was dropped without a message; and a `@stack` in `<head>` could not receive a push from the page. Text a child writes outside its sections is still not printed. `@section('title', 'Users')` sets a short section. `resolveLayouts()` now returns the child's sections and pushes followed by the layout, with `@yield` resolved when the view renders.
+- **A public page can tell who is signed in.** `request.user` was only set by the `auth` and `guest` middleware, so `@auth` on a page outside them, such as the Views, Live and SaaS welcome pages, always showed the guest branch. `@bunyad/auth` exports `optionalAuth()`, which loads the user if there is one and lets guests through, and those three starters have it in their `web` group.
+
 ## 0.2.0-beta.3
 
 Published under the `beta` npm tag. Routes can now live in folders, and `bunyad new` offers a classic layout as well. Several starter names changed; the steps are in [docs/UPGRADING.md](docs/UPGRADING.md).

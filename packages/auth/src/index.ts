@@ -46,6 +46,7 @@ export {
 } from "./password.ts";
 export {
   auth,
+  optionalAuth,
   guest,
   can,
   confirmPassword,

@@ -223,7 +223,8 @@ function compileExpr(expr: string, locals: Set<string>): string {
  * @isset/@endisset, @empty(...)/@endempty, @switch/@case/@break/@default/@endswitch,
  * @foreach/@endforeach, @forelse/@empty/@endforelse, loop object,
  * @auth/@guest/@can/@cannot, @production/@env, @class/@style, @error/@enderror,
- * @props, @include, @push/@endpush, @prepend/@endprepend, @stack, @once/@endonce,
+ * @props, @include, @section/@endsection, @yield, @push/@endpush, @prepend/@endprepend,
+ * @stack, @once/@endonce,
  * @head, @use/@import, @let, @json, <x-*> components (including named <x-slot>).
  *
  * Not supported (by design): `@php` / arbitrary module imports from the template.
@@ -306,6 +307,7 @@ export function compile(
 function renderFunctionBody(source: string): string {
   return (
     `const __stacks=(__d.__stacks||(__d.__stacks={}));\n` +
+    `const __sections=(__d.__sections||(__d.__sections={}));\n` +
     `const __once=(__d.__once||(__d.__once=new Set()));\n` +
     `const __helpers=(__d.__helpers&&typeof __d.__helpers==="object")?__d.__helpers:{};\n` +
     compileBody(stripComments(source), new Set())
@@ -887,6 +889,45 @@ function compileBody(source: string, locals: Set<string>): string {
         continue;
       }
 
+      if (rest.startsWith("@section")) {
+        const open = rest.indexOf("(");
+        const close = requireMatchingParen(rest, open, "@section");
+        const parsed = parseIncludeArgs(rest.slice(open + 1, close).trim());
+        const key = JSON.stringify(parsed.name);
+        if (parsed.data) {
+          // `@section('title', 'Home')`: the value is an expression, no `@endsection`.
+          out += `__sections[${key}]=String(${compileExpr(parsed.data, locals)});\n`;
+          i += close + 1;
+          continue;
+        }
+        const contentStart = i + close + 1;
+        const endIdx = source.indexOf("@endsection", contentStart);
+        if (endIdx === -1) {
+          throw new BunyadError(
+            `@section('${parsed.name}') is missing its @endsection.`,
+            "BUNYAD_VIEW_009",
+          );
+        }
+        const slotFn = compileBody(
+          source.slice(contentStart, endIdx),
+          new Set(locals),
+        );
+        // Rendered now, printed where a layout or partial `@yield`s it.
+        out += `__sections[${key}]=(()=>{${slotFn}})().trim();\n`;
+        i = endIdx + "@endsection".length;
+        continue;
+      }
+
+      if (rest.startsWith("@yield")) {
+        const open = rest.indexOf("(");
+        const close = requireMatchingParen(rest, open, "@yield");
+        const parsed = parseIncludeArgs(rest.slice(open + 1, close).trim());
+        const fallback = parsed.data ? unquoteYieldDefault(parsed.data) : "";
+        out += `__o+=(__sections[${JSON.stringify(parsed.name)}]??${JSON.stringify(fallback)});\n`;
+        i += close + 1;
+        continue;
+      }
+
       if (rest.startsWith("@push")) {
         const open = rest.indexOf("(");
         const close = rest.indexOf(")", open);
@@ -976,6 +1017,17 @@ function compileBody(source: string, locals: Set<string>): string {
 
   out += "return __o;";
   return out;
+}
+
+/** Strip surrounding quotes from a yield default literal, or return the raw expression text. */
+function unquoteYieldDefault(raw: string): string {
+  if (
+    (raw.startsWith("'") && raw.endsWith("'")) ||
+    (raw.startsWith('"') && raw.endsWith('"'))
+  ) {
+    return raw.slice(1, -1).replace(/\\(['"])/g, "$1");
+  }
+  return raw;
 }
 
 function parseUseArgs(inside: string): { name: string; alias: string } {

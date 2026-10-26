@@ -215,7 +215,7 @@ Inside the loop, `loop` is available: `index` (0-based), `iteration` (1-based), 
 
 ### Auth and authorization
 
-`@auth` / `@endauth` and `@guest` / `@endguest` branch on whether a user is present. By default they look for `data.user`, or you can set `__auth` / `__guest` booleans. The framework wires real guards via `setViewAuthHelpers`.
+`@auth` / `@endauth` and `@guest` / `@endguest` branch on whether a user is present. By default they look for `data.user`, or you can set `__auth` / `__guest` booleans. The framework wires real guards via `setViewAuthHelpers`. The user is only known once a guard has checked the request, which the `auth` and `guest` middleware do. A public page needs `optionalAuth()` from `@bunyad/auth` in the `web` group, after `startSession()`, for `@auth` to see who is signed in; the starter kits include it.
 
 ```html
 @auth
@@ -355,9 +355,11 @@ A layout is a view with `@yield` placeholders. A child view starts with `@extend
 @endsection
 ```
 
-`@extends` must be the start of the child. Each `@section('name')` runs until `@endsection`. `@yield('content')` is replaced with that section. A missing section may supply a default: `@yield('title', 'App')`.
+`@extends` must be the start of the child. Each `@section('name')` runs until `@endsection`. `@yield('content')` prints that section. A missing section may supply a default: `@yield('title', 'App')`. A short section takes a value instead of a body: `@section('title', 'Users')`.
 
-`@push('scripts')` / `@endpush` appends markup to a stack. `@prepend('scripts')` / `@endprepend` inserts at the front. `@stack('scripts')` prints the stack. Stacks survive `@include` and components in the same render, so a partial can push a script and the layout can print it.
+The child renders before its layout, so everything it defines is ready when the layout prints. `@yield` works in the layout and in any partial or component it includes, and a `@push` in the child, inside a section or beside one, lands in a stack that the layout prints in `<head>`. The child's `@use` and `@let` lines also run. Anything else a child writes outside its sections is not printed.
+
+`@push('scripts')` / `@endpush` appends markup to a stack. `@prepend('scripts')` / `@endprepend` inserts at the front. `@stack('scripts')` prints the stack. Stacks survive `@include` and components in the same render, so a partial can push a script and the layout can print it. A stack prints what was pushed before the `@stack` is reached: a partial that pushes after the layout has printed the stack comes too late.
 
 ```html
 @push('scripts')
