@@ -6,6 +6,7 @@ const RESERVED = new Set([
   "_old",
   "__stacks",
   "__once",
+  "__sections",
   "__aware",
   "old",
   "attributes",

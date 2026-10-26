@@ -9,6 +9,7 @@ import {
   SessionGuard,
   TokenGuard,
   auth,
+  optionalAuth,
   authorize,
   can,
   guest,
@@ -190,6 +191,27 @@ test("guest middleware redirects authenticated users", async () => {
   );
   expect(res.status).toBe(302);
   expect(res.headers.get("Location")).toBe("/dashboard");
+});
+
+test("optionalAuth loads the signed-in user and lets guests through", async () => {
+  const guard = new SessionGuard({
+    retrieveById: (id) => ({ id, email: "a@b.c" }),
+    retrieveByCredentials: () => null,
+  });
+  setAuthGuard(guard);
+  const next = (async () => json({ ok: true })) as Next;
+
+  const signedIn = new Request(new globalThis.Request("http://localhost/"));
+  signedIn.session = new Session();
+  guard.login(signedIn, { id: 1, email: "a@b.c" });
+  signedIn.user = undefined; // as on the next request: only the session remembers the user
+  expect((await optionalAuth().handle(signedIn, next)).status).toBe(200);
+  expect(signedIn.user).toMatchObject({ id: 1 });
+
+  const guest = new Request(new globalThis.Request("http://localhost/"));
+  guest.session = new Session();
+  expect((await optionalAuth().handle(guest, next)).status).toBe(200);
+  expect(guest.user).toBeFalsy();
 });
 
 test("csrf rejects bad token and accepts header", async () => {

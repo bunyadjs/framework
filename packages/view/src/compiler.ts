@@ -221,9 +221,10 @@ function compileExpr(expr: string, locals: Set<string>): string {
  * Compile a `.view` template into a render function.
  * Supports: {{ }}, {!! !!}, @if/@elseif/@else/@endif, @unless/@endunless,
  * @isset/@endisset, @empty(...)/@endempty, @switch/@case/@break/@default/@endswitch,
- * @foreach/@endforeach, @forelse/@empty/@endforelse, loop object,
+ * @for/@endfor, @foreach/@endforeach, @forelse/@empty/@endforelse, loop object,
  * @auth/@guest/@can/@cannot, @production/@env, @class/@style, @error/@enderror,
- * @props, @include, @push/@endpush, @prepend/@endprepend, @stack, @once/@endonce,
+ * @props, @include, @section/@endsection, @yield, @push/@endpush, @prepend/@endprepend,
+ * @stack, @once/@endonce,
  * @head, @use/@import, @let, @json, <x-*> components (including named <x-slot>).
  *
  * Not supported (by design): `@php` / arbitrary module imports from the template.
@@ -253,6 +254,7 @@ export function compile(
     viewEmpty: typeof viewIsEmpty,
     viewEnv: typeof viewEnvOf,
     viewEnvIsFn: typeof viewEnvIs,
+    withStacksFn: typeof withStacks,
   ) => string;
   try {
     fn = new Function(
@@ -272,6 +274,7 @@ export function compile(
       "__viewEmpty",
       "__viewEnv",
       "__viewEnvIs",
+      "__withStacks",
       body,
     ) as typeof fn;
   } catch (error) {
@@ -299,16 +302,67 @@ export function compile(
       viewIsEmpty,
       viewEnvOf,
       viewEnvIs,
+      withStacks,
     );
+}
+
+/** Split on `separator` outside quotes and brackets. */
+function splitTopLevel(source: string, separator: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let from = 0;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i]!;
+    if (ch === '"' || ch === "'" || ch === "`") i = skipQuoted(source, i);
+    else if (ch === "(" || ch === "[" || ch === "{") depth += 1;
+    else if (ch === ")" || ch === "]" || ch === "}") depth -= 1;
+    else if (ch === separator && depth === 0) {
+      parts.push(source.slice(from, i));
+      from = i + 1;
+    }
+  }
+  parts.push(source.slice(from));
+  return parts;
+}
+
+/** The `@endsection` that closes a section, or its Laravel alias `@stop`. */
+export function findSectionEnd(source: string, from: number): { at: number; length: number } | null {
+  const match = /@(?:endsection|stop)\b/.exec(source.slice(from));
+  return match ? { at: from + match.index, length: match[0].length } : null;
+}
+
+const STACK_MARK = "\u0000bunyad-stack:";
+const STACK_MARKS = /\u0000bunyad-stack:([^\u0000]*)\u0000/g;
+const running = new WeakMap<object, number>();
+
+/**
+ * Run a template body that shares `stacks` with the views it includes. `@stack` prints a marker; the
+ * outermost body swaps each marker for what the stack holds by then, so a `@push` anywhere in the
+ * render, before or after the `@stack`, shows up, as in Laravel. Used by compiled views.
+ */
+export function withStacks(stacks: Record<string, string[]>, run: () => string): string {
+  running.set(stacks, (running.get(stacks) ?? 0) + 1);
+  let html: string;
+  try {
+    html = run();
+  } finally {
+    const left = (running.get(stacks) ?? 1) - 1;
+    if (left === 0) running.delete(stacks);
+    else running.set(stacks, left);
+  }
+  if (running.has(stacks) || !html.includes(STACK_MARK)) return html;
+
+  return html.replace(STACK_MARKS, (_, name: string) => (stacks[name] ?? []).join(""));
 }
 
 /** Shared function body used by `compile` and `compileToModuleSource`. */
 function renderFunctionBody(source: string): string {
   return (
     `const __stacks=(__d.__stacks||(__d.__stacks={}));\n` +
+    `const __sections=(__d.__sections||(__d.__sections={}));\n` +
     `const __once=(__d.__once||(__d.__once=new Set()));\n` +
     `const __helpers=(__d.__helpers&&typeof __d.__helpers==="object")?__d.__helpers:{};\n` +
-    compileBody(stripComments(source), new Set())
+    `return __withStacks(__stacks,()=>{\n${compileBody(stripComments(source), new Set())}\n});`
   );
 }
 
@@ -322,7 +376,7 @@ function stripComments(source: string): string {
  */
 export function compileToModuleSource(source: string): string {
   const body = renderFunctionBody(source);
-  return `import { escapeHtml as e, AttributeBag as __AttributeBag, renderHead as __head, jsonForHtml as __json, toCssClasses as __toCssClasses, toCssStyles as __toCssStyles, viewAuthCheck as __viewAuth, viewGuestCheck as __viewGuest, viewCanCheck as __viewCan, viewCannotCheck as __viewCannot, viewIsEmpty as __viewEmpty, viewEnvOf as __viewEnv, viewEnvIs as __viewEnvIs } from "@bunyad/view";
+  return `import { escapeHtml as e, AttributeBag as __AttributeBag, renderHead as __head, jsonForHtml as __json, toCssClasses as __toCssClasses, toCssStyles as __toCssStyles, viewAuthCheck as __viewAuth, viewGuestCheck as __viewGuest, viewCanCheck as __viewCan, viewCannotCheck as __viewCannot, viewIsEmpty as __viewEmpty, viewEnvOf as __viewEnv, viewEnvIs as __viewEnvIs, withStacks as __withStacks } from "@bunyad/view";
 
 export function render(__d = {}, c = () => "", i = () => "") {
 ${body}
@@ -398,11 +452,62 @@ function compileBody(source: string, locals: Set<string>): string {
     if (source[i] === "@") {
       const rest = source.slice(i);
 
+      // `@{{ name }}` and `@{!! name !!}` print the braces and what is inside as they are.
+      if (rest.startsWith("@{{") || rest.startsWith("@{!!")) {
+        const close = rest.startsWith("@{{") ? "}}" : "!!}";
+        const end = source.indexOf(close, i + 3);
+        if (end !== -1) {
+          pushText(source.slice(i + 1, end + close.length));
+          i = end + close.length;
+          continue;
+        }
+      }
+
+      if (rest.startsWith("@verbatim")) {
+        const start = i + "@verbatim".length;
+        const end = source.indexOf("@endverbatim", start);
+        if (end === -1) {
+          throw new BunyadError("@verbatim is missing its @endverbatim.", "BUNYAD_VIEW_010");
+        }
+        pushText(source.slice(start, end));
+        i = end + "@endverbatim".length;
+        continue;
+      }
+
       if (rest.startsWith("@php")) {
         throw new BunyadError(
           "Register helpers with ViewFactory.use() and @use('name'), use @let(name = expr), Controllers, or class Components.",
           "BUNYAD_VIEW_004",
         );
+      }
+
+      // `@for (i = 0; i < 10; i++)`, as in Blade. `@foreach` and `@forelse` also start with "@for".
+      if (/^@for\s*\(/.test(rest)) {
+        const open = rest.indexOf("(");
+        const close = requireMatchingParen(rest, open, "@for");
+        const parts = splitTopLevel(rest.slice(open + 1, close), ";");
+        const start = parts[0]?.trim().match(/^\$?([A-Za-z_]\w*)\s*=\s*([\s\S]+)$/);
+        if (parts.length !== 3 || !start) {
+          throw new BunyadError(
+            "@for requires (counter = start; condition; step), for example @for (i = 0; i < 10; i++).",
+            "BUNYAD_VIEW_011",
+          );
+        }
+        const counter = start[1]!;
+        const first = compileExpr(start[2]!, locals);
+        locals.add(counter);
+        localStack.push(counter);
+        out += `for (let ${counter}=${first}; ${compileExpr(parts[1]!, locals)}; ${compileExpr(parts[2]!, locals)}) {\n`;
+        i += close + 1;
+        continue;
+      }
+
+      if (/^@endfor\b/.test(rest)) {
+        out += "}\n";
+        const counter = localStack.pop();
+        if (counter && !localStack.includes(counter)) locals.delete(counter);
+        i += "@endfor".length;
+        continue;
       }
 
       if (rest.startsWith("@foreach")) {
@@ -887,6 +992,46 @@ function compileBody(source: string, locals: Set<string>): string {
         continue;
       }
 
+      if (rest.startsWith("@section")) {
+        const open = rest.indexOf("(");
+        const close = requireMatchingParen(rest, open, "@section");
+        const parsed = parseIncludeArgs(rest.slice(open + 1, close).trim());
+        const key = JSON.stringify(parsed.name);
+        if (parsed.data) {
+          // `@section('title', 'Home')`: the value is an expression, no `@endsection`.
+          out += `__sections[${key}]=String(${compileExpr(parsed.data, locals)});\n`;
+          i += close + 1;
+          continue;
+        }
+        const contentStart = i + close + 1;
+        const end = findSectionEnd(source, contentStart);
+        if (!end) {
+          throw new BunyadError(
+            `@section('${parsed.name}') is missing its @endsection.`,
+            "BUNYAD_VIEW_009",
+          );
+        }
+        const endIdx = end.at;
+        const slotFn = compileBody(
+          source.slice(contentStart, endIdx),
+          new Set(locals),
+        );
+        // Rendered now, printed where a layout or partial `@yield`s it.
+        out += `__sections[${key}]=(()=>{${slotFn}})().trim();\n`;
+        i = endIdx + end.length;
+        continue;
+      }
+
+      if (rest.startsWith("@yield")) {
+        const open = rest.indexOf("(");
+        const close = requireMatchingParen(rest, open, "@yield");
+        const parsed = parseIncludeArgs(rest.slice(open + 1, close).trim());
+        const fallback = parsed.data ? unquoteYieldDefault(parsed.data) : "";
+        out += `__o+=(__sections[${JSON.stringify(parsed.name)}]??${JSON.stringify(fallback)});\n`;
+        i += close + 1;
+        continue;
+      }
+
       if (rest.startsWith("@push")) {
         const open = rest.indexOf("(");
         const close = rest.indexOf(")", open);
@@ -930,7 +1075,8 @@ function compileBody(source: string, locals: Set<string>): string {
           .slice(open + 1, close)
           .trim()
           .replace(/^['"]|['"]$/g, "");
-        out += `__o+=(__stacks[${JSON.stringify(stackName)}]||[]).join("");\n`;
+        // Printed where the render ends, so a push made after this point still shows (see `withStacks`).
+        out += `__o+=${JSON.stringify(`${STACK_MARK}${stackName}\u0000`)};\n`;
         i += close + 1;
         continue;
       }
@@ -976,6 +1122,17 @@ function compileBody(source: string, locals: Set<string>): string {
 
   out += "return __o;";
   return out;
+}
+
+/** Strip surrounding quotes from a yield default literal, or return the raw expression text. */
+function unquoteYieldDefault(raw: string): string {
+  if (
+    (raw.startsWith("'") && raw.endsWith("'")) ||
+    (raw.startsWith('"') && raw.endsWith('"'))
+  ) {
+    return raw.slice(1, -1).replace(/\\(['"])/g, "$1");
+  }
+  return raw;
 }
 
 function parseUseArgs(inside: string): { name: string; alias: string } {

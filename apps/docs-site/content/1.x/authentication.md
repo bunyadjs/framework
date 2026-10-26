@@ -129,6 +129,18 @@ Route.get("/dashboard", [DashboardController, "show"]).middleware(
 
 Unauthenticated HTML and Inertia requests redirect to `loginPath` (default `/login`). The requested URL is stored as `url.intended` on the session so you can send the user back after login with `redirect().intended()`. Clients that prefer `application/json` receive `401` with `{ "message": "Unauthenticated." }` (intended URL is still stored when a session is present).
 
+### Showing the user on public pages
+
+`request.user` is set when a guard checks the request, which `auth` does for the routes it guards. A public page, such as a home page that shows "Dashboard" to signed-in users, is not behind `auth`, so `@auth` and `request().user` in its view would always see a guest. Add `optionalAuth()` to the `web` group, after the session starts. It loads the user if there is one and lets guests through:
+
+```ts title="server.ts"
+import { optionalAuth, verifyCsrf } from "@bunyad/auth";
+
+export const createApplication = bunyad(import.meta, {
+  groups: { web: [startSession(), optionalAuth(), handleUrl(), verifyCsrf()] },
+});
+```
+
 Use the token guard for API routes:
 
 ```ts

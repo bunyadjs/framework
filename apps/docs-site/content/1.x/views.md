@@ -128,7 +128,20 @@ Hello, {{ name }}.
 <div>{!! bio !!}</div>
 ```
 
-`null` and `undefined` print as an empty string. Objects are stringified by the encoder.
+`null` and `undefined` print as an empty string.
+
+### Printing braces as they are
+
+A front-end framework such as Vue or Alpine uses `{{ }}` too. Put `@` in front to keep the braces and what is inside them for the browser, or wrap a larger block in `@verbatim`:
+
+```html
+<p>Hello, @{{ name }}</p>
+@verbatim
+<div v-if="user">{{ user.name }}</div>
+@endverbatim
+```
+
+`@{!! html !!}` is kept the same way. Nothing inside `@verbatim` is compiled. Objects are stringified by the encoder.
 
 `@json(user)` prints JSON with characters escaped so the value can sit inside a `<script>` tag.
 
@@ -187,6 +200,14 @@ Hello, {{ name }}.
 
 ### Loops
 
+`@for` counts, as in Blade. The counter has no `$`, and the three parts are an assignment, a condition and a step:
+
+```html
+@for (i = 1; i <= 5; i++)
+<option value="{{ i }}">{{ i }}</option>
+@endfor
+```
+
 `@foreach` iterates any value that JavaScript can loop with `for...of`. The alias is a local inside the loop. A leading `$` on the alias is ignored.
 
 ```html
@@ -215,7 +236,7 @@ Inside the loop, `loop` is available: `index` (0-based), `iteration` (1-based), 
 
 ### Auth and authorization
 
-`@auth` / `@endauth` and `@guest` / `@endguest` branch on whether a user is present. By default they look for `data.user`, or you can set `__auth` / `__guest` booleans. The framework wires real guards via `setViewAuthHelpers`.
+`@auth` / `@endauth` and `@guest` / `@endguest` branch on whether a user is present. By default they look for `data.user`, or you can set `__auth` / `__guest` booleans. The framework wires real guards via `setViewAuthHelpers`. The user is only known once a guard has checked the request, which the `auth` and `guest` middleware do. A public page needs `optionalAuth()` from `@bunyad/auth` in the `web` group, after `startSession()`, for `@auth` to see who is signed in; the starter kits include it.
 
 ```html
 @auth
@@ -355,9 +376,11 @@ A layout is a view with `@yield` placeholders. A child view starts with `@extend
 @endsection
 ```
 
-`@extends` must be the start of the child. Each `@section('name')` runs until `@endsection`. `@yield('content')` is replaced with that section. A missing section may supply a default: `@yield('title', 'App')`.
+`@extends` must be the start of the child. Each `@section('name')` runs until `@endsection`. `@yield('content')` prints that section. A missing section may supply a default: `@yield('title', 'App')`. A short section takes a value instead of a body: `@section('title', 'Users')`. `@stop` ends a section like `@endsection`.
 
-`@push('scripts')` / `@endpush` appends markup to a stack. `@prepend('scripts')` / `@endprepend` inserts at the front. `@stack('scripts')` prints the stack. Stacks survive `@include` and components in the same render, so a partial can push a script and the layout can print it.
+The child renders before its layout, so everything it defines is ready when the layout prints. `@yield` works in the layout and in any partial or component it includes, and a `@push` in the child, inside a section or beside one, lands in a stack that the layout prints in `<head>`. The child's `@use` and `@let` lines also run. Anything else a child writes outside its sections is not printed.
+
+`@push('scripts')` / `@endpush` appends markup to a stack. `@prepend('scripts')` / `@endprepend` inserts at the front. `@stack('scripts')` prints the stack. Stacks survive `@include` and components in the same render, so a partial can push a script and the layout can print it. A stack prints what was pushed anywhere in the render, so a partial included after the `@stack` can still push to it.
 
 ```html
 @push('scripts')

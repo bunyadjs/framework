@@ -153,6 +153,22 @@ export function ability(...list: string[]) {
   return tokenAbilities("any", list);
 }
 
+/**
+ * `auth.optional` middleware: loads the signed-in user, if there is one, and lets guests through.
+ *
+ * `request.user` is only set once a guard has checked the request, which `auth` and `guest` do. A
+ * public page has neither, so `@auth`, `@guest` and `request().user` in its view would always see a
+ * guest. Put this in the `web` group after the session starts.
+ */
+export function optionalAuth(options: AuthenticateOptions = {}) {
+  return taggedMiddleware("auth.optional", {
+    async handle(request: Request, next: Next) {
+      await resolveGuard(options.guard).check(request);
+      return next();
+    },
+  });
+}
+
 /** `guest` middleware. */
 export function guest(options: AuthenticateOptions = {}) {
   return taggedMiddleware("guest", {

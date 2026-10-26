@@ -1,4 +1,4 @@
-export { compile, compileToModuleSource, escapeHtml, jsonForHtml, assertSafeExpr, viewIsEmpty, viewEnvOf, viewEnvIs, type ComponentRenderer, type IncludeRenderer } from "./compiler.ts";
+export { compile, compileToModuleSource, escapeHtml, jsonForHtml, assertSafeExpr, viewIsEmpty, viewEnvOf, viewEnvIs, withStacks, type ComponentRenderer, type IncludeRenderer } from "./compiler.ts";
 export { AttributeBag } from "./attributes.ts";
 export { Component, type ComponentClass } from "./component.ts";
 export { ViewFactory, type ViewRenderer, type ViewFactoryOptions } from "./factory.ts";

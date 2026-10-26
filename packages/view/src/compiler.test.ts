@@ -383,3 +383,41 @@ test("@if and @elseif conditions may contain calls with string arguments", () =>
   expect(render({ f: (v: string) => (v === "a" ? "x" : v), g: () => "" })).toBe("A");
   expect(render({ f: (v: string) => (v === "a" ? "" : "y"), g: () => "b" })).toBe("B");
 });
+
+test("@{{ and @{!! print their braces and contents as they are", () => {
+  const render = compile(`<p>@{{ name }} {{ name }} @{!! raw !!} {!! raw !!}</p>`);
+  expect(render({ name: "Ada", raw: "<b>" })).toBe("<p>{{ name }} Ada {!! raw !!} <b></p>");
+});
+
+test("@verbatim leaves its contents alone", () => {
+  const render = compile(`@verbatim<span v-text="{{ msg }}">@if(x)</span>@endverbatim{{ msg }}`);
+  expect(render({ msg: "hi" })).toBe(`<span v-text="{{ msg }}">@if(x)</span>hi`);
+});
+
+test("@verbatim without @endverbatim is an error", () => {
+  expect(() => compile("@verbatim {{ a }}")).toThrow("@endverbatim");
+});
+
+test("@stack prints what is pushed after it, in the same template", () => {
+  const render = compile(`[@stack('s')]@push('s')late@endpush`);
+  expect(render({})).toBe("[late]");
+});
+
+test("@for loops with a counter, as in Blade", () => {
+  const render = compile(`@for (i = 1; i <= 3; i++)<i>{{ i }}</i>@endfor`);
+  expect(render({})).toBe("<i>1</i><i>2</i><i>3</i>");
+});
+
+test("@for takes a step, a data bound and a nested loop", () => {
+  const render = compile(`@for ($i = 0; $i < max; $i += 2)[@for (j = 0; j < 2; j++){{ i }}{{ j }}@endfor]@endfor`);
+  expect(render({ max: 4 })).toBe("[00 01][20 21]".replaceAll(" ", ""));
+});
+
+test("@for does not swallow @foreach or @forelse", () => {
+  const render = compile(`@for (n = 0; n < 2; n++)@foreach (list as x){{ n }}{{ x }}@endforeach@endfor@forelse (none as y){{ y }}@empty none@endforelse`);
+  expect(render({ list: ["a", "b"], none: [] })).toBe("0a0b1a1b none");
+});
+
+test("@for needs counter, condition and step", () => {
+  expect(() => compile(`@for (i < 3)x@endfor`)).toThrow("@for requires");
+});
