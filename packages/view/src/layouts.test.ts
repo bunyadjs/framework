@@ -115,3 +115,33 @@ test("@yield inside a component reads the child's sections", async () => {
 
   expect(new ViewFactory(dir).render("page")).toBe("<h1>Tools</h1>");
 });
+
+test("a partial that pushes after the layout printed the stack still shows up", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "bunyad-views-"));
+  await mkdir(join(dir, "layouts"));
+  await mkdir(join(dir, "partials"));
+  await writeFile(
+    join(dir, "layouts", "app.view"),
+    "<head>@stack('scripts')</head>@yield('content')@include('partials.toast')",
+  );
+  await writeFile(join(dir, "partials", "toast.view"), "@push('scripts')<toast/>@endpush");
+  await writeFile(join(dir, "page.view"), "@extends('layouts.app')\n@push('scripts')<page/>@endpush\n@section('content')hi@endsection");
+
+  expect(new ViewFactory(dir).render("page")).toBe("<head><page/><toast/></head>hi");
+});
+
+test("@prepend still goes first when the stack prints before the pushes", () => {
+  const layouts = { "layouts.app": "[@stack('s')]" };
+  const child = `@extends('layouts.app')
+@push('s')b@endpush
+@prepend('s')a@endprepend`;
+  expect(renderWith(child, layouts)).toBe("[ab]");
+});
+
+test("@stop ends a section like @endsection", () => {
+  const layouts = { "layouts.app": "<h1>@yield('title')</h1>@yield('content')" };
+  const child = `@extends('layouts.app')
+@section('title')Hi@stop
+@section('content')Body@endsection`;
+  expect(renderWith(child, layouts)).toBe("<h1>Hi</h1>Body");
+});

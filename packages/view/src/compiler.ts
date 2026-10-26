@@ -254,6 +254,7 @@ export function compile(
     viewEmpty: typeof viewIsEmpty,
     viewEnv: typeof viewEnvOf,
     viewEnvIsFn: typeof viewEnvIs,
+    withStacksFn: typeof withStacks,
   ) => string;
   try {
     fn = new Function(
@@ -273,6 +274,7 @@ export function compile(
       "__viewEmpty",
       "__viewEnv",
       "__viewEnvIs",
+      "__withStacks",
       body,
     ) as typeof fn;
   } catch (error) {
@@ -300,7 +302,38 @@ export function compile(
       viewIsEmpty,
       viewEnvOf,
       viewEnvIs,
+      withStacks,
     );
+}
+
+/** The `@endsection` that closes a section, or its Laravel alias `@stop`. */
+export function findSectionEnd(source: string, from: number): { at: number; length: number } | null {
+  const match = /@(?:endsection|stop)\b/.exec(source.slice(from));
+  return match ? { at: from + match.index, length: match[0].length } : null;
+}
+
+const STACK_MARK = "\u0000bunyad-stack:";
+const STACK_MARKS = /\u0000bunyad-stack:([^\u0000]*)\u0000/g;
+const running = new WeakMap<object, number>();
+
+/**
+ * Run a template body that shares `stacks` with the views it includes. `@stack` prints a marker; the
+ * outermost body swaps each marker for what the stack holds by then, so a `@push` anywhere in the
+ * render, before or after the `@stack`, shows up, as in Laravel. Used by compiled views.
+ */
+export function withStacks(stacks: Record<string, string[]>, run: () => string): string {
+  running.set(stacks, (running.get(stacks) ?? 0) + 1);
+  let html: string;
+  try {
+    html = run();
+  } finally {
+    const left = (running.get(stacks) ?? 1) - 1;
+    if (left === 0) running.delete(stacks);
+    else running.set(stacks, left);
+  }
+  if (running.has(stacks) || !html.includes(STACK_MARK)) return html;
+
+  return html.replace(STACK_MARKS, (_, name: string) => (stacks[name] ?? []).join(""));
 }
 
 /** Shared function body used by `compile` and `compileToModuleSource`. */
@@ -310,7 +343,7 @@ function renderFunctionBody(source: string): string {
     `const __sections=(__d.__sections||(__d.__sections={}));\n` +
     `const __once=(__d.__once||(__d.__once=new Set()));\n` +
     `const __helpers=(__d.__helpers&&typeof __d.__helpers==="object")?__d.__helpers:{};\n` +
-    compileBody(stripComments(source), new Set())
+    `return __withStacks(__stacks,()=>{\n${compileBody(stripComments(source), new Set())}\n});`
   );
 }
 
@@ -324,7 +357,7 @@ function stripComments(source: string): string {
  */
 export function compileToModuleSource(source: string): string {
   const body = renderFunctionBody(source);
-  return `import { escapeHtml as e, AttributeBag as __AttributeBag, renderHead as __head, jsonForHtml as __json, toCssClasses as __toCssClasses, toCssStyles as __toCssStyles, viewAuthCheck as __viewAuth, viewGuestCheck as __viewGuest, viewCanCheck as __viewCan, viewCannotCheck as __viewCannot, viewIsEmpty as __viewEmpty, viewEnvOf as __viewEnv, viewEnvIs as __viewEnvIs } from "@bunyad/view";
+  return `import { escapeHtml as e, AttributeBag as __AttributeBag, renderHead as __head, jsonForHtml as __json, toCssClasses as __toCssClasses, toCssStyles as __toCssStyles, viewAuthCheck as __viewAuth, viewGuestCheck as __viewGuest, viewCanCheck as __viewCan, viewCannotCheck as __viewCannot, viewIsEmpty as __viewEmpty, viewEnvOf as __viewEnv, viewEnvIs as __viewEnvIs, withStacks as __withStacks } from "@bunyad/view";
 
 export function render(__d = {}, c = () => "", i = () => "") {
 ${body}
@@ -399,6 +432,28 @@ function compileBody(source: string, locals: Set<string>): string {
 
     if (source[i] === "@") {
       const rest = source.slice(i);
+
+      // `@{{ name }}` and `@{!! name !!}` print the braces and what is inside as they are.
+      if (rest.startsWith("@{{") || rest.startsWith("@{!!")) {
+        const close = rest.startsWith("@{{") ? "}}" : "!!}";
+        const end = source.indexOf(close, i + 3);
+        if (end !== -1) {
+          pushText(source.slice(i + 1, end + close.length));
+          i = end + close.length;
+          continue;
+        }
+      }
+
+      if (rest.startsWith("@verbatim")) {
+        const start = i + "@verbatim".length;
+        const end = source.indexOf("@endverbatim", start);
+        if (end === -1) {
+          throw new BunyadError("@verbatim is missing its @endverbatim.", "BUNYAD_VIEW_010");
+        }
+        pushText(source.slice(start, end));
+        i = end + "@endverbatim".length;
+        continue;
+      }
 
       if (rest.startsWith("@php")) {
         throw new BunyadError(
@@ -901,20 +956,21 @@ function compileBody(source: string, locals: Set<string>): string {
           continue;
         }
         const contentStart = i + close + 1;
-        const endIdx = source.indexOf("@endsection", contentStart);
-        if (endIdx === -1) {
+        const end = findSectionEnd(source, contentStart);
+        if (!end) {
           throw new BunyadError(
             `@section('${parsed.name}') is missing its @endsection.`,
             "BUNYAD_VIEW_009",
           );
         }
+        const endIdx = end.at;
         const slotFn = compileBody(
           source.slice(contentStart, endIdx),
           new Set(locals),
         );
         // Rendered now, printed where a layout or partial `@yield`s it.
         out += `__sections[${key}]=(()=>{${slotFn}})().trim();\n`;
-        i = endIdx + "@endsection".length;
+        i = endIdx + end.length;
         continue;
       }
 
@@ -971,7 +1027,8 @@ function compileBody(source: string, locals: Set<string>): string {
           .slice(open + 1, close)
           .trim()
           .replace(/^['"]|['"]$/g, "");
-        out += `__o+=(__stacks[${JSON.stringify(stackName)}]||[]).join("");\n`;
+        // Printed where the render ends, so a push made after this point still shows (see `withStacks`).
+        out += `__o+=${JSON.stringify(`${STACK_MARK}${stackName}\u0000`)};\n`;
         i += close + 1;
         continue;
       }

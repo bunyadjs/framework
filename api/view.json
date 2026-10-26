@@ -28,5 +28,6 @@
   "viewEnvIs",
   "viewEnvOf",
   "viewGuestCheck",
-  "viewIsEmpty"
+  "viewIsEmpty",
+  "withStacks"
 ]

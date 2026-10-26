@@ -383,3 +383,22 @@ test("@if and @elseif conditions may contain calls with string arguments", () =>
   expect(render({ f: (v: string) => (v === "a" ? "x" : v), g: () => "" })).toBe("A");
   expect(render({ f: (v: string) => (v === "a" ? "" : "y"), g: () => "b" })).toBe("B");
 });
+
+test("@{{ and @{!! print their braces and contents as they are", () => {
+  const render = compile(`<p>@{{ name }} {{ name }} @{!! raw !!} {!! raw !!}</p>`);
+  expect(render({ name: "Ada", raw: "<b>" })).toBe("<p>{{ name }} Ada {!! raw !!} <b></p>");
+});
+
+test("@verbatim leaves its contents alone", () => {
+  const render = compile(`@verbatim<span v-text="{{ msg }}">@if(x)</span>@endverbatim{{ msg }}`);
+  expect(render({ msg: "hi" })).toBe(`<span v-text="{{ msg }}">@if(x)</span>hi`);
+});
+
+test("@verbatim without @endverbatim is an error", () => {
+  expect(() => compile("@verbatim {{ a }}")).toThrow("@endverbatim");
+});
+
+test("@stack prints what is pushed after it, in the same template", () => {
+  const render = compile(`[@stack('s')]@push('s')late@endpush`);
+  expect(render({})).toBe("[late]");
+});

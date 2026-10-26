@@ -1,3 +1,5 @@
+import { findSectionEnd } from "./compiler.ts";
+
 /**
  * Resolve `@extends` into a single template source.
  *
@@ -21,7 +23,6 @@ export function resolveLayouts(
 const TOP_LEVEL = /@(section|push|prepend|use|import|let)\s*\(/g;
 
 const END: Record<string, string> = {
-  section: "@endsection",
   push: "@endpush",
   prepend: "@endprepend",
 };
@@ -44,13 +45,15 @@ function childDirectives(source: string): string {
 
     // `@section('title', 'Home')` has a value and no `@endsection`.
     const inline = name === "section" && /^\(\s*(['"])[^'"]+\1\s*,/.test(body.slice(open, close + 1));
-    const end = END[name];
-
     let stop = close + 1;
-    if (end && !inline) {
-      const endAt = body.indexOf(end, stop);
+    if (name === "section" && !inline) {
+      const end = findSectionEnd(body, stop);
+      if (!end) break;
+      stop = end.at + end.length;
+    } else if (END[name]) {
+      const endAt = body.indexOf(END[name]!, stop);
       if (endAt === -1) break;
-      stop = endAt + end.length;
+      stop = endAt + END[name]!.length;
     }
 
     kept += body.slice(match.index, stop);
