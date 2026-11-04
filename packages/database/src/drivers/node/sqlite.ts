@@ -191,8 +191,11 @@ export function connectSqlite(options: SqliteOptions = {}): Connection {
   };
 
   const sqliteTx = createTransactionApi({
+    // IMMEDIATE takes the write lock up front. A plain BEGIN starts as a reader, and when another
+    // connection to the same file commits before this one writes, SQLite refuses the upgrade at
+    // once with "database is locked" and never waits for the busy timeout.
     begin: () => {
-      stmt("BEGIN").run();
+      stmt("BEGIN IMMEDIATE").run();
     },
     commit: () => {
       stmt("COMMIT").run();
