@@ -41,7 +41,9 @@ export async function testDrivers(): Promise<TestDriver[]> {
   }
   const my = Bun.env.BUNYAD_TEST_MYSQL_URL;
   if (my && /^mysql:\/\//i.test(my)) {
-    const connection = connectMysql({ url: my, tls: { rejectUnauthorized: false } });
+    // Every test file opens its own connection and none closes it, so keep each pool small:
+    // with the default of 10 the run exhausts MySQL's 151 connections and later tests fail.
+    const connection = connectMysql({ url: my, tls: { rejectUnauthorized: false }, max: 2 });
     if (await reachable(connection)) drivers.push({ name: "mysql", connection });
   }
   return drivers;

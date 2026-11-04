@@ -12,7 +12,7 @@ if (Bun.env.BUNYAD_TEST_POSTGRES_URL && /^postgres/i.test(Bun.env.BUNYAD_TEST_PO
   all.push({ name: "postgres", connection: connectPostgres({ url: Bun.env.BUNYAD_TEST_POSTGRES_URL, max: 2 }) });
 }
 if (Bun.env.BUNYAD_TEST_MYSQL_URL && /^mysql:/i.test(Bun.env.BUNYAD_TEST_MYSQL_URL)) {
-  all.push({ name: "mysql", connection: connectMysql({ url: Bun.env.BUNYAD_TEST_MYSQL_URL, tls: { rejectUnauthorized: false } }) });
+  all.push({ name: "mysql", connection: connectMysql({ url: Bun.env.BUNYAD_TEST_MYSQL_URL, tls: { rejectUnauthorized: false }, max: 2 }) });
 }
 afterAll(async () => {
   for (const { connection } of all) {
