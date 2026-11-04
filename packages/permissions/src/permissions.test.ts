@@ -60,7 +60,7 @@ async function drivers(): Promise<Driver[]> {
   const pg = Bun.env.BUNYAD_TEST_POSTGRES_URL;
   if (pg && /^(postgres|postgresql):\/\//i.test(pg)) list.push({ name: "postgres", connection: connectPostgres({ url: pg, max: 2 }) });
   const my = Bun.env.BUNYAD_TEST_MYSQL_URL;
-  if (my && /^mysql:\/\//i.test(my)) list.push({ name: "mysql", connection: connectMysql({ url: my, tls: { rejectUnauthorized: false } }) });
+  if (my && /^mysql:\/\//i.test(my)) list.push({ name: "mysql", connection: connectMysql({ url: my, tls: { rejectUnauthorized: false }, max: 2 }) });
   return list;
 }
 
