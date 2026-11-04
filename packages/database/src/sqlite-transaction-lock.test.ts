@@ -18,13 +18,13 @@ test(`a SQLite transaction holds the write lock from its first statement`, async
       // Only a read so far. A deferred transaction would not block the other connection yet, and
       // would later fail its own first write once that connection committed.
       await first.get("SELECT COUNT(*) AS n FROM locks");
-      expect(() => second.runSync("INSERT INTO locks (id) VALUES (1)")).toThrow(/locked/);
+      await expect(second.run("INSERT INTO locks (id) VALUES (1)")).rejects.toThrow(/locked/);
     });
 
-    second.runSync("INSERT INTO locks (id) VALUES (1)");
+    await second.run("INSERT INTO locks (id) VALUES (1)");
   } finally {
-    first.raw.close();
-    second.raw.close();
+    (first.raw as { close(): void }).close();
+    (second.raw as { close(): void }).close();
     rmSync(dir, { recursive: true, force: true });
   }
 });
