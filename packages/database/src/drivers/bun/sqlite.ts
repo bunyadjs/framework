@@ -167,7 +167,9 @@ export function connectSqlite(options: SqliteOptions = {}): Connection {
   };
 
     const sqliteTx = createTransactionApi({
-      begin: () => { stmt("BEGIN").run(); },
+      // IMMEDIATE takes the write lock up front; a deferred BEGIN fails at its first write with
+      // "database is locked" when another connection committed meanwhile, ignoring the busy timeout.
+      begin: () => { stmt("BEGIN IMMEDIATE").run(); },
       commit: () => { stmt("COMMIT").run(); },
       rollback: () => { stmt("ROLLBACK").run(); },
       savepoint: (name) => { stmt(`SAVEPOINT ${name}`).run(); },
