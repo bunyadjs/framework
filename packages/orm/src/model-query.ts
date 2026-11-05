@@ -116,6 +116,135 @@ function mqMutObj<T extends Record<string, unknown>>(obj: T): T {
   return obj === (MQ_EMPTY_OBJ as unknown as T) ? ({} as T) : obj;
 }
 
+/** Creation order of where conditions, shared across every kind (plain, IN, null, …). */
+let mqWhereSeq = 0;
+function nextWhereSeq(): number {
+  return ++mqWhereSeq;
+}
+
+type WhereLists = {
+  wheres?: ReadonlyArray<any> | null;
+  whereIns?: ReadonlyArray<any> | null;
+  whereNulls?: ReadonlyArray<any> | null;
+  whereBetweens?: ReadonlyArray<any> | null;
+  whereColumns?: ReadonlyArray<any> | null;
+  whereRaws?: ReadonlyArray<any> | null;
+  whereLikes?: ReadonlyArray<any> | null;
+  dateWheres?: ReadonlyArray<any> | null;
+};
+
+/**
+ * Apply every kind of where condition onto a QueryBuilder in the order the caller
+ * wrote them, so `whereIn(...).orWhereNull(...)` stays `IN … OR NULL`. Conditions
+ * without a sequence number keep the old per-kind order.
+ */
+function applyWhereLists(q: QueryBuilder, lists: WhereLists): QueryBuilder {
+  const steps: Array<{ seq: number; run: (q: QueryBuilder) => QueryBuilder }> = [];
+  for (const w of lists.wheres ?? []) {
+    steps.push({
+      seq: w.seq ?? 0,
+      run: (q) => {
+        if (w.op === "__null__") {
+          return w.boolean === "or" ? q.orWhereNull(w.column) : q.whereNull(w.column);
+        }
+        if (w.op === "__notnull__") {
+          return w.boolean === "or"
+            ? q.orWhereNotNull(w.column)
+            : q.whereNotNull(w.column);
+        }
+        return w.boolean === "or"
+          ? q.orWhere(w.column, w.op, w.value)
+          : q.where(w.column, w.op, w.value);
+      },
+    });
+  }
+  for (const w of lists.whereIns ?? []) {
+    steps.push({
+      seq: w.seq ?? 0,
+      run: (q) =>
+        w.boolean === "or"
+          ? w.not
+            ? q.orWhereNotIn(w.column, w.values)
+            : q.orWhereIn(w.column, w.values)
+          : w.not
+            ? q.whereNotIn(w.column, w.values)
+            : q.whereIn(w.column, w.values),
+    });
+  }
+  for (const w of lists.whereNulls ?? []) {
+    steps.push({
+      seq: w.seq ?? 0,
+      run: (q) =>
+        w.boolean === "or"
+          ? w.not
+            ? q.orWhereNotNull(w.column)
+            : q.orWhereNull(w.column)
+          : w.not
+            ? q.whereNotNull(w.column)
+            : q.whereNull(w.column),
+    });
+  }
+  for (const w of lists.whereBetweens ?? []) {
+    steps.push({
+      seq: w.seq ?? 0,
+      run: (q) =>
+        w.boolean === "or"
+          ? w.not
+            ? q.orWhereNotBetween(w.column, w.values)
+            : q.orWhereBetween(w.column, w.values)
+          : w.not
+            ? q.whereNotBetween(w.column, w.values)
+            : q.whereBetween(w.column, w.values),
+    });
+  }
+  for (const w of lists.whereColumns ?? []) {
+    steps.push({
+      seq: w.seq ?? 0,
+      run: (q) =>
+        w.boolean === "or"
+          ? q.orWhereColumn(w.first, w.op, w.second)
+          : q.whereColumn(w.first, w.op, w.second),
+    });
+  }
+  for (const w of lists.whereRaws ?? []) {
+    steps.push({
+      seq: w.seq ?? 0,
+      run: (q) =>
+        w.boolean === "or"
+          ? q.orWhereRaw(w.sql, w.bindings)
+          : q.whereRaw(w.sql, w.bindings),
+    });
+  }
+  for (const w of lists.whereLikes ?? []) {
+    steps.push({
+      seq: w.seq ?? 0,
+      run: (q) =>
+        w.boolean === "or"
+          ? w.not
+            ? q.orWhereNotLike(w.column, w.value, w.caseSensitive)
+            : q.orWhereLike(w.column, w.value, w.caseSensitive)
+          : w.not
+            ? q.whereNotLike(w.column, w.value, w.caseSensitive)
+            : q.whereLike(w.column, w.value, w.caseSensitive),
+    });
+  }
+  for (const w of lists.dateWheres ?? []) {
+    steps.push({
+      seq: w.seq ?? 0,
+      run: (q) => {
+        if (w.kind === "date") return q.whereDate(w.column, w.op, w.value);
+        if (w.kind === "year") return q.whereYear(w.column, w.op, Number(w.value));
+        if (w.kind === "month") return q.whereMonth(w.column, w.op, Number(w.value));
+        return q.whereDay(w.column, w.op, Number(w.value));
+      },
+    });
+  }
+  // Array.prototype.sort is stable: equal (or missing) sequence numbers keep list order.
+  steps.sort((a, b) => a.seq - b.seq);
+  for (const step of steps) q = step.run(q);
+  return q;
+}
+
 /** Compiled simple-SELECT SQL keyed by constraint fingerprint (per model). */
 const simpleSelectSqlCache = new WeakMap<ModelClass, Map<string, string>>();
 /** Compiled parent+EXISTS SELECT SQL (whereHas fast path). */
@@ -163,40 +292,47 @@ export class ModelQuery<
   TResult extends "model" | "row" = "model",
 > {
   #wheres: Array<{
+    seq?: number;
     column: string;
     op: string;
     value: unknown;
     boolean: "and" | "or";
   }> = MQ_EMPTY as any;
   #whereIns: Array<{
+    seq?: number;
     column: string;
     values: unknown[];
     not: boolean;
     boolean: "and" | "or";
   }> = MQ_EMPTY as any;
   #whereNulls: Array<{
+    seq?: number;
     column: string;
     not: boolean;
     boolean: "and" | "or";
   }> = MQ_EMPTY as any;
   #whereBetweens: Array<{
+    seq?: number;
     column: string;
     values: [unknown, unknown];
     not: boolean;
     boolean: "and" | "or";
   }> = MQ_EMPTY as any;
   #whereColumns: Array<{
+    seq?: number;
     first: string;
     op: string;
     second: string;
     boolean: "and" | "or";
   }> = MQ_EMPTY as any;
   #whereRaws: Array<{
+    seq?: number;
     sql: string;
     bindings: unknown[];
     boolean: "and" | "or";
   }> = MQ_EMPTY as any;
   #whereLikes: Array<{
+    seq?: number;
     column: string;
     value: string;
     not: boolean;
@@ -204,6 +340,7 @@ export class ModelQuery<
     boolean: "and" | "or";
   }> = MQ_EMPTY as any;
   #dateWheres: Array<{
+    seq?: number;
     column: string;
     op: string;
     value: DateInput | string;
@@ -1130,7 +1267,7 @@ export class ModelQuery<
       return this;
     }
     if (value === undefined) {
-      (this.#wheres = mqMut(this.#wheres)).push({
+      (this.#wheres = mqMut(this.#wheres)).push({ seq: nextWhereSeq(),
         column: columnOrCallback,
         op: "=",
         value: opOrValue,
@@ -1153,7 +1290,7 @@ export class ModelQuery<
       ) {
         this.#simple = false;
       }
-      (this.#wheres = mqMut(this.#wheres)).push({
+      (this.#wheres = mqMut(this.#wheres)).push({ seq: nextWhereSeq(),
         column: columnOrCallback,
         op,
         value,
@@ -1181,7 +1318,7 @@ export class ModelQuery<
       return this;
     }
     if (value === undefined) {
-      (this.#wheres = mqMut(this.#wheres)).push({
+      (this.#wheres = mqMut(this.#wheres)).push({ seq: nextWhereSeq(),
         column: columnOrCallback,
         op: "=",
         value: opOrValue,
@@ -1204,7 +1341,7 @@ export class ModelQuery<
       ) {
         this.#simple = false;
       }
-      (this.#wheres = mqMut(this.#wheres)).push({
+      (this.#wheres = mqMut(this.#wheres)).push({ seq: nextWhereSeq(),
         column: columnOrCallback,
         op,
         value,
@@ -1216,30 +1353,30 @@ export class ModelQuery<
 
   whereIn(column: ColumnHint<T>, values: unknown[]): this {
     this.#simple = false;
-    (this.#whereIns = mqMut(this.#whereIns)).push({ column, values, not: false, boolean: "and" });
+    (this.#whereIns = mqMut(this.#whereIns)).push({ seq: nextWhereSeq(), column, values, not: false, boolean: "and" });
     return this;
   }
 
   orWhereIn(column: string, values: unknown[]): this {
     this.#simple = false;
-    (this.#whereIns = mqMut(this.#whereIns)).push({ column, values, not: false, boolean: "or" });
+    (this.#whereIns = mqMut(this.#whereIns)).push({ seq: nextWhereSeq(), column, values, not: false, boolean: "or" });
     return this;
   }
 
   whereNotIn(column: string, values: unknown[]): this {
     this.#simple = false;
-    (this.#whereIns = mqMut(this.#whereIns)).push({ column, values, not: true, boolean: "and" });
+    (this.#whereIns = mqMut(this.#whereIns)).push({ seq: nextWhereSeq(), column, values, not: true, boolean: "and" });
     return this;
   }
 
   orWhereNotIn(column: string, values: unknown[]): this {
     this.#simple = false;
-    (this.#whereIns = mqMut(this.#whereIns)).push({ column, values, not: true, boolean: "or" });
+    (this.#whereIns = mqMut(this.#whereIns)).push({ seq: nextWhereSeq(), column, values, not: true, boolean: "or" });
     return this;
   }
 
   whereNull(column: ColumnHint<T>): this {
-    (this.#wheres = mqMut(this.#wheres)).push({
+    (this.#wheres = mqMut(this.#wheres)).push({ seq: nextWhereSeq(),
       column,
       op: "__null__",
       value: null,
@@ -1249,7 +1386,7 @@ export class ModelQuery<
   }
 
   orWhereNull(column: string): this {
-    (this.#wheres = mqMut(this.#wheres)).push({
+    (this.#wheres = mqMut(this.#wheres)).push({ seq: nextWhereSeq(),
       column,
       op: "__null__",
       value: null,
@@ -1259,7 +1396,7 @@ export class ModelQuery<
   }
 
   whereNotNull(column: ColumnHint<T>): this {
-    (this.#wheres = mqMut(this.#wheres)).push({
+    (this.#wheres = mqMut(this.#wheres)).push({ seq: nextWhereSeq(),
       column,
       op: "__notnull__",
       value: null,
@@ -1269,7 +1406,7 @@ export class ModelQuery<
   }
 
   orWhereNotNull(column: string): this {
-    (this.#wheres = mqMut(this.#wheres)).push({
+    (this.#wheres = mqMut(this.#wheres)).push({ seq: nextWhereSeq(),
       column,
       op: "__notnull__",
       value: null,
@@ -1280,7 +1417,7 @@ export class ModelQuery<
 
   whereBetween(column: string, values: [unknown, unknown]): this {
     this.#simple = false;
-    (this.#whereBetweens = mqMut(this.#whereBetweens)).push({
+    (this.#whereBetweens = mqMut(this.#whereBetweens)).push({ seq: nextWhereSeq(),
       column,
       values,
       not: false,
@@ -1291,7 +1428,7 @@ export class ModelQuery<
 
   orWhereBetween(column: string, values: [unknown, unknown]): this {
     this.#simple = false;
-    (this.#whereBetweens = mqMut(this.#whereBetweens)).push({
+    (this.#whereBetweens = mqMut(this.#whereBetweens)).push({ seq: nextWhereSeq(),
       column,
       values,
       not: false,
@@ -1302,7 +1439,7 @@ export class ModelQuery<
 
   whereNotBetween(column: string, values: [unknown, unknown]): this {
     this.#simple = false;
-    (this.#whereBetweens = mqMut(this.#whereBetweens)).push({
+    (this.#whereBetweens = mqMut(this.#whereBetweens)).push({ seq: nextWhereSeq(),
       column,
       values,
       not: true,
@@ -1313,7 +1450,7 @@ export class ModelQuery<
 
   orWhereNotBetween(column: string, values: [unknown, unknown]): this {
     this.#simple = false;
-    (this.#whereBetweens = mqMut(this.#whereBetweens)).push({
+    (this.#whereBetweens = mqMut(this.#whereBetweens)).push({ seq: nextWhereSeq(),
       column,
       values,
       not: true,
@@ -1327,7 +1464,7 @@ export class ModelQuery<
   whereColumn(first: string, opOrSecond: string, second?: string): this {
     if (second === undefined) {
       this.#simple = false;
-      (this.#whereColumns = mqMut(this.#whereColumns)).push({
+      (this.#whereColumns = mqMut(this.#whereColumns)).push({ seq: nextWhereSeq(),
         first,
         op: "=",
         second: opOrSecond,
@@ -1335,7 +1472,7 @@ export class ModelQuery<
       });
     } else {
       this.#simple = false;
-      (this.#whereColumns = mqMut(this.#whereColumns)).push({
+      (this.#whereColumns = mqMut(this.#whereColumns)).push({ seq: nextWhereSeq(),
         first,
         op: opOrSecond,
         second,
@@ -1350,7 +1487,7 @@ export class ModelQuery<
   orWhereColumn(first: string, opOrSecond: string, second?: string): this {
     if (second === undefined) {
       this.#simple = false;
-      (this.#whereColumns = mqMut(this.#whereColumns)).push({
+      (this.#whereColumns = mqMut(this.#whereColumns)).push({ seq: nextWhereSeq(),
         first,
         op: "=",
         second: opOrSecond,
@@ -1358,7 +1495,7 @@ export class ModelQuery<
       });
     } else {
       this.#simple = false;
-      (this.#whereColumns = mqMut(this.#whereColumns)).push({
+      (this.#whereColumns = mqMut(this.#whereColumns)).push({ seq: nextWhereSeq(),
         first,
         op: opOrSecond,
         second,
@@ -1370,19 +1507,19 @@ export class ModelQuery<
 
   whereRaw(sql: string, bindings: unknown[] = []): this {
     this.#simple = false;
-    (this.#whereRaws = mqMut(this.#whereRaws)).push({ sql, bindings, boolean: "and" });
+    (this.#whereRaws = mqMut(this.#whereRaws)).push({ seq: nextWhereSeq(), sql, bindings, boolean: "and" });
     return this;
   }
 
   orWhereRaw(sql: string, bindings: unknown[] = []): this {
     this.#simple = false;
-    (this.#whereRaws = mqMut(this.#whereRaws)).push({ sql, bindings, boolean: "or" });
+    (this.#whereRaws = mqMut(this.#whereRaws)).push({ seq: nextWhereSeq(), sql, bindings, boolean: "or" });
     return this;
   }
 
   whereLike(column: string, value: string, caseSensitive = false): this {
     this.#simple = false;
-    (this.#whereLikes = mqMut(this.#whereLikes)).push({
+    (this.#whereLikes = mqMut(this.#whereLikes)).push({ seq: nextWhereSeq(),
       column,
       value,
       not: false,
@@ -1394,7 +1531,7 @@ export class ModelQuery<
 
   orWhereLike(column: string, value: string, caseSensitive = false): this {
     this.#simple = false;
-    (this.#whereLikes = mqMut(this.#whereLikes)).push({
+    (this.#whereLikes = mqMut(this.#whereLikes)).push({ seq: nextWhereSeq(),
       column,
       value,
       not: false,
@@ -1406,7 +1543,7 @@ export class ModelQuery<
 
   whereNotLike(column: string, value: string, caseSensitive = false): this {
     this.#simple = false;
-    (this.#whereLikes = mqMut(this.#whereLikes)).push({
+    (this.#whereLikes = mqMut(this.#whereLikes)).push({ seq: nextWhereSeq(),
       column,
       value,
       not: true,
@@ -1418,7 +1555,7 @@ export class ModelQuery<
 
   orWhereNotLike(column: string, value: string, caseSensitive = false): this {
     this.#simple = false;
-    (this.#whereLikes = mqMut(this.#whereLikes)).push({
+    (this.#whereLikes = mqMut(this.#whereLikes)).push({ seq: nextWhereSeq(),
       column,
       value,
       not: true,
@@ -1439,13 +1576,13 @@ export class ModelQuery<
     const op = value === undefined ? "=" : String(opOrValue);
     const raw = (value === undefined ? opOrValue : value) as DateInput;
     this.#simple = false;
-    (this.#dateWheres = mqMut(this.#dateWheres)).push({ column, op, value: raw, kind: "date" });
+    (this.#dateWheres = mqMut(this.#dateWheres)).push({ seq: nextWhereSeq(), column, op, value: raw, kind: "date" });
     return this;
   }
 
   whereYear(column: string, value: number): this {
     this.#simple = false;
-    (this.#dateWheres = mqMut(this.#dateWheres)).push({
+    (this.#dateWheres = mqMut(this.#dateWheres)).push({ seq: nextWhereSeq(),
       column,
       op: "=",
       value: String(value),
@@ -1456,7 +1593,7 @@ export class ModelQuery<
 
   whereMonth(column: string, value: number): this {
     this.#simple = false;
-    (this.#dateWheres = mqMut(this.#dateWheres)).push({
+    (this.#dateWheres = mqMut(this.#dateWheres)).push({ seq: nextWhereSeq(),
       column,
       op: "=",
       value: String(value),
@@ -1467,7 +1604,7 @@ export class ModelQuery<
 
   whereDay(column: string, value: number): this {
     this.#simple = false;
-    (this.#dateWheres = mqMut(this.#dateWheres)).push({
+    (this.#dateWheres = mqMut(this.#dateWheres)).push({ seq: nextWhereSeq(),
       column,
       op: "=",
       value: String(value),
@@ -2325,84 +2462,16 @@ export class ModelQuery<
 
   /** Apply this query's wheres onto a QueryBuilder (exists subqueries). */
   applyConstraintsTo(q: QueryBuilder): QueryBuilder {
-
-    for (const w of this.#wheres) {
-      if (w.op === "__null__") {
-        q =
-          w.boolean === "or" ? q.orWhereNull(w.column) : q.whereNull(w.column);
-        continue;
-      }
-      if (w.op === "__notnull__") {
-        q =
-          w.boolean === "or"
-            ? q.orWhereNotNull(w.column)
-            : q.whereNotNull(w.column);
-        continue;
-      }
-      q =
-        w.boolean === "or"
-          ? q.orWhere(w.column, w.op, w.value)
-          : q.where(w.column, w.op, w.value);
-    }
-    for (const w of this.#whereIns) {
-      if (w.boolean === "or") {
-        q = w.not
-          ? q.orWhereNotIn(w.column, w.values)
-          : q.orWhereIn(w.column, w.values);
-      } else {
-        q = w.not
-          ? q.whereNotIn(w.column, w.values)
-          : q.whereIn(w.column, w.values);
-      }
-    }
-    for (const w of this.#whereNulls) {
-      if (w.boolean === "or") {
-        q = w.not ? q.orWhereNotNull(w.column) : q.orWhereNull(w.column);
-      } else {
-        q = w.not ? q.whereNotNull(w.column) : q.whereNull(w.column);
-      }
-    }
-    for (const w of this.#whereBetweens) {
-      if (w.boolean === "or") {
-        q = w.not
-          ? q.orWhereNotBetween(w.column, w.values)
-          : q.orWhereBetween(w.column, w.values);
-      } else {
-        q = w.not
-          ? q.whereNotBetween(w.column, w.values)
-          : q.whereBetween(w.column, w.values);
-      }
-    }
-    for (const w of this.#whereColumns) {
-      q =
-        w.boolean === "or"
-          ? q.orWhereColumn(w.first, w.op, w.second)
-          : q.whereColumn(w.first, w.op, w.second);
-    }
-    for (const w of this.#whereRaws) {
-      q =
-        w.boolean === "or"
-          ? q.orWhereRaw(w.sql, w.bindings)
-          : q.whereRaw(w.sql, w.bindings);
-    }
-    for (const w of this.#whereLikes) {
-      if (w.boolean === "or") {
-        q = w.not
-          ? q.orWhereNotLike(w.column, w.value, w.caseSensitive)
-          : q.orWhereLike(w.column, w.value, w.caseSensitive);
-      } else {
-        q = w.not
-          ? q.whereNotLike(w.column, w.value, w.caseSensitive)
-          : q.whereLike(w.column, w.value, w.caseSensitive);
-      }
-    }
-    for (const w of this.#dateWheres) {
-      if (w.kind === "date") q = q.whereDate(w.column, w.op, w.value);
-      else if (w.kind === "year") q = q.whereYear(w.column, w.op, Number(w.value));
-      else if (w.kind === "month")
-        q = q.whereMonth(w.column, w.op, Number(w.value));
-      else q = q.whereDay(w.column, w.op, Number(w.value));
-    }
+    q = applyWhereLists(q, {
+      wheres: this.#wheres,
+      whereIns: this.#whereIns,
+      whereNulls: this.#whereNulls,
+      whereBetweens: this.#whereBetweens,
+      whereColumns: this.#whereColumns,
+      whereRaws: this.#whereRaws,
+      whereLikes: this.#whereLikes,
+      dateWheres: this.#dateWheres,
+    });
 
     for (const constraint of this.#hasConstraints) {
       q = this.#applyHasConstraint(q, constraint);
@@ -2682,100 +2751,16 @@ export class ModelQuery<
     }
 
     return (q: QueryBuilder) => {
-      if (wheres) {
-        for (const w of wheres) {
-          if (w.op === "__null__") {
-            q =
-              w.boolean === "or" ? q.orWhereNull(w.column) : q.whereNull(w.column);
-            continue;
-          }
-          if (w.op === "__notnull__") {
-            q =
-              w.boolean === "or"
-                ? q.orWhereNotNull(w.column)
-                : q.whereNotNull(w.column);
-            continue;
-          }
-          q =
-            w.boolean === "or"
-              ? q.orWhere(w.column, w.op, w.value)
-              : q.where(w.column, w.op, w.value);
-        }
-      }
-      if (whereIns) {
-        for (const w of whereIns) {
-          if (w.boolean === "or") {
-            q = w.not
-              ? q.orWhereNotIn(w.column, w.values)
-              : q.orWhereIn(w.column, w.values);
-          } else {
-            q = w.not
-              ? q.whereNotIn(w.column, w.values)
-              : q.whereIn(w.column, w.values);
-          }
-        }
-      }
-      if (whereNulls) {
-        for (const w of whereNulls) {
-          if (w.boolean === "or") {
-            q = w.not ? q.orWhereNotNull(w.column) : q.orWhereNull(w.column);
-          } else {
-            q = w.not ? q.whereNotNull(w.column) : q.whereNull(w.column);
-          }
-        }
-      }
-      if (whereBetweens) {
-        for (const w of whereBetweens) {
-          if (w.boolean === "or") {
-            q = w.not
-              ? q.orWhereNotBetween(w.column, w.values)
-              : q.orWhereBetween(w.column, w.values);
-          } else {
-            q = w.not
-              ? q.whereNotBetween(w.column, w.values)
-              : q.whereBetween(w.column, w.values);
-          }
-        }
-      }
-      if (whereColumns) {
-        for (const w of whereColumns) {
-          q =
-            w.boolean === "or"
-              ? q.orWhereColumn(w.first, w.op, w.second)
-              : q.whereColumn(w.first, w.op, w.second);
-        }
-      }
-      if (whereRaws) {
-        for (const w of whereRaws) {
-          q =
-            w.boolean === "or"
-              ? q.orWhereRaw(w.sql, w.bindings)
-              : q.whereRaw(w.sql, w.bindings);
-        }
-      }
-      if (whereLikes) {
-        for (const w of whereLikes) {
-          if (w.boolean === "or") {
-            q = w.not
-              ? q.orWhereNotLike(w.column, w.value, w.caseSensitive)
-              : q.orWhereLike(w.column, w.value, w.caseSensitive);
-          } else {
-            q = w.not
-              ? q.whereNotLike(w.column, w.value, w.caseSensitive)
-              : q.whereLike(w.column, w.value, w.caseSensitive);
-          }
-        }
-      }
-      if (dateWheres) {
-        for (const w of dateWheres) {
-          if (w.kind === "date") q = q.whereDate(w.column, w.op, w.value);
-          else if (w.kind === "year")
-            q = q.whereYear(w.column, w.op, Number(w.value));
-          else if (w.kind === "month")
-            q = q.whereMonth(w.column, w.op, Number(w.value));
-          else q = q.whereDay(w.column, w.op, Number(w.value));
-        }
-      }
+      applyWhereLists(q, {
+        wheres,
+        whereIns,
+        whereNulls,
+        whereBetweens,
+        whereColumns,
+        whereRaws,
+        whereLikes,
+        dateWheres,
+      });
     };
   }
 
@@ -2809,7 +2794,7 @@ export class ModelQuery<
 
     if (usesSoftDeletes(meta.related)) {
       const delCol = deletedAtColumn(meta.related);
-      (this.#wheres = mqMut(this.#wheres)).push({
+      (this.#wheres = mqMut(this.#wheres)).push({ seq: nextWhereSeq(),
         column: `${relatedAlias}.${delCol}`,
         op: "__null__",
         value: null,
