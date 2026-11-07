@@ -158,7 +158,6 @@ test("registerFrameworkProviders except skips session and views", async () => {
     });
     registerFrameworkProviders(app, {
       except: [
-        "dump",
         "view",
         "filesystems",
         "session",

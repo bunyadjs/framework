@@ -2,11 +2,7 @@ import { inspect } from "node:util";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Collection } from "./collection.ts";
 import { DdException } from "./dd-exception.ts";
-import {
-  renderDdHtmlPage,
-  resolveDumpValues,
-  serializeDumpValue,
-} from "./var-dumper.ts";
+import { renderDdHtmlPage, resolveDumpValues } from "./var-dumper.ts";
 
 export { DdException } from "./dd-exception.ts";
 
@@ -79,83 +75,6 @@ export function filled(value: unknown): boolean {
   return !blank(value);
 }
 
-function envBag(): Record<string, string | undefined> {
-  return typeof Bun !== "undefined" && Bun.env
-    ? (Bun.env as Record<string, string | undefined>)
-    : (process.env as Record<string, string | undefined>);
-}
-
-/** Control-plane ingest URL injected by Flock workers (`FLOCK_DUMP_URL` or `FLOCK_DUMP_SOCKET`). */
-export function flockDumpUrl(): string | undefined {
-  const bag = envBag();
-  const url = bag.FLOCK_DUMP_URL || bag.FLOCK_DUMP_SOCKET;
-  return url ? url : undefined;
-}
-
-export type FlockIngestKind =
-  | "dump"
-  | "dd"
-  | "query"
-  | "job"
-  | "view"
-  | "http"
-  | "log";
-
-function callerLocation(): { file?: string; line?: number } {
-  const stack = new Error().stack ?? "";
-  for (const line of stack.split("\n").slice(2)) {
-    if (line.includes("helpers.ts") || line.includes("node:internal")) {
-      continue;
-    }
-    const match = line.match(/\(?([^\s()]+):(\d+):\d+\)?/);
-    if (match) {
-      return { file: match[1], line: Number(match[2]) };
-    }
-  }
-  return {};
-}
-
-/** POST debug events when `FLOCK_DUMP_URL` is set. Skip stack walking on hot paths (`locate: false`). */
-export function flockIngest(
-  kind: FlockIngestKind,
-  payload: Record<string, unknown> = {},
-  options: { locate?: boolean } = {},
-): Promise<void> {
-  const url = flockDumpUrl();
-  if (!url || !url.startsWith("http")) {
-    return Promise.resolve();
-  }
-  const loc = options.locate === false ? {} : callerLocation();
-  const body = {
-    kind,
-    createdAt: new Date().toISOString(),
-    site: envBag().FLOCK_SITE,
-    file: loc.file,
-    line: loc.line,
-    ...payload,
-  };
-  return fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  })
-    .then(() => undefined)
-    .catch(() => undefined);
-}
-
-/** POST dump/dd payloads to Flock when `FLOCK_DUMP_URL` is set. */
-export async function postFlockDump(
-  kind: "dump" | "dd",
-  values: unknown[],
-): Promise<void> {
-  const resolved = await resolveDumpValues(values);
-  const serialized = resolved.map((value) => serializeDumpValue(value));
-  return flockIngest(kind, {
-    value: serialized.length === 1 ? serialized[0] : serialized,
-    html: renderDdHtmlPage(resolved),
-  });
-}
-
 function printDump(values: unknown[]): void {
   for (const value of values) {
     console.log(
@@ -172,7 +91,6 @@ function printDump(values: unknown[]): void {
 /** `dump` — print values and continue. */
 export function dump(...values: unknown[]): void {
   printDump(values);
-  void postFlockDump("dump", values);
 }
 
 /**
@@ -183,7 +101,6 @@ export function dump(...values: unknown[]): void {
  */
 export function dd(...values: unknown[]): never {
   printDump(values);
-  void postFlockDump("dd", values);
   if (forceThrow || httpDdEnabled || httpDdDepth > 0 || ddStorage.getStore()) {
     throw new DdException(values);
   }

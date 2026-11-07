@@ -61,7 +61,6 @@
   "DeferProp",
   "DiscordProvider",
   "Dispatcher",
-  "DumpServiceProvider",
   "Event",
   "EventFake",
   "EventServiceProvider",

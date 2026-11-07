@@ -9,7 +9,6 @@ import {
   filled,
   dump,
   dd,
-  postFlockDump,
   DdException,
   useDdThrow,
   runWithDdThrow,
@@ -181,73 +180,6 @@ test("now today env dump dd", () => {
       return false;
     }),
   ).toBe(true);
-});
-
-test("dump and dd POST to FLOCK_DUMP_URL", async () => {
-  const posts: Array<{ url: string; body: string }> = [];
-  const originalFetch = globalThis.fetch;
-  process.env.FLOCK_DUMP_URL = "http://127.0.0.1:7979/v1/ingest";
-  process.env.FLOCK_SITE = "shop";
-  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-    posts.push({ url: String(input), body: String(init?.body ?? "") });
-    return new Response("{}", { status: 200 });
-  }) as typeof fetch;
-  try {
-    dump({ hello: 1 });
-    await postFlockDump("dump", [{ hello: 1 }]);
-    useDdThrow(true);
-    try {
-      dd("boom");
-    } catch {
-      // expected
-    } finally {
-      useDdThrow(false);
-    }
-    await Bun.sleep(30);
-    expect(posts.length).toBeGreaterThan(0);
-    expect(posts[0]?.url).toBe("http://127.0.0.1:7979/v1/ingest");
-    expect(posts.some((p) => p.body.includes("hello"))).toBe(true);
-    expect(posts.some((p) => p.body.includes('"kind":"dd"'))).toBe(true);
-    expect(posts.some((p) => p.body.includes("shop"))).toBe(true);
-  } finally {
-    globalThis.fetch = originalFetch;
-    delete process.env.FLOCK_DUMP_URL;
-    delete process.env.FLOCK_SITE;
-  }
-});
-
-test("postFlockDump awaits promises so Flock gets the resolved value", async () => {
-  const posts: string[] = [];
-  const originalFetch = globalThis.fetch;
-  process.env.FLOCK_DUMP_URL = "http://127.0.0.1:7979/v1/ingest";
-  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
-    posts.push(String(init?.body ?? ""));
-    return new Response("{}", { status: 200 });
-  }) as typeof fetch;
-  try {
-    await postFlockDump("dd", [Promise.resolve({ name: "Ada", id: 1 })]);
-    expect(posts[0]).toContain("Ada");
-    expect(posts[0]).toContain('"kind":"dd"');
-    expect(posts[0]).toContain("sf-dump");
-  } finally {
-    globalThis.fetch = originalFetch;
-    delete process.env.FLOCK_DUMP_URL;
-  }
-});
-
-test("serializeDumpValue uses getAttributes on models", async () => {
-  const { serializeDumpValue } = await import("./var-dumper.ts");
-  const model = {
-    constructor: { name: "User" },
-    getAttributes() {
-      return { id: 1, name: "Ada" };
-    },
-  };
-  expect(serializeDumpValue(model)).toEqual({
-    __class: "User",
-    id: 1,
-    name: "Ada",
-  });
 });
 
 test("dd and dump are installed on globalThis", async () => {

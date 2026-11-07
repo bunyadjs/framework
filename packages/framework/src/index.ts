@@ -713,7 +713,6 @@ export {
   type BootFrameworkOptions,
   type FrameworkProviderName,
   DatabaseServiceProvider,
-  DumpServiceProvider,
   EventServiceProvider,
   ViewServiceProvider,
   CacheServiceProvider,

@@ -256,14 +256,7 @@ export async function newProject(rawArgs: string[]): Promise<void> {
   if (existsSync(resolve(target, "database/migrations"))) {
     console.log(`  ${launcher} migrate`);
   }
-  const hint = flockServedHint(appName, target);
-  if (hint) {
-    // Flock serves the app but does not run the asset watchers.
-    if (pkgJson.scripts?.build) console.log("  bun run build");
-    console.log(`  ${hint}`);
-  } else {
-    console.log(pkgJson.scripts?.dev ? "  bun run dev" : `  ${launcher} serve`);
-  }
+  console.log(pkgJson.scripts?.dev ? "  bun run dev" : `  ${launcher} serve`);
 }
 
 /** Swap the folder layout of a copied kit for the classic one: remove what only the folder layout has, then lay the overlay over it. */
@@ -358,25 +351,4 @@ async function makeStandalone(target: string): Promise<void> {
       await Bun.write(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`);
     }
   }
-}
-
-/** When Flock is installed, new apps in a parked folder are served at name.test. */
-export function flockServedHint(appName: string, target = process.cwd()): string | null {
-  const home =
-    process.env.FLOCK_HOME ??
-    (process.platform === "darwin"
-      ? `${process.env.HOME}/Library/Application Support/Flock`
-      : process.platform === "win32"
-        ? `${process.env.APPDATA}\\Flock`
-        : `${process.env.HOME}/.local/share/flock`);
-  const parked = process.env.FLOCK_PARK ?? `${process.env.HOME}/Flock`;
-  const hasFlock =
-    Boolean(process.env.FLOCK_CONTROL_URL) || existsSync(`${home}/config/flock.json`);
-  if (!hasFlock) {
-    return null;
-  }
-  if (target.startsWith(parked) || existsSync(`${home}/config/flock.json`)) {
-    return `open http://${appName}.test   # Flock`;
-  }
-  return `flock link ${appName} && open http://${appName}.test`;
 }

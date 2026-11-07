@@ -26,9 +26,6 @@ export {
   filled,
   dump,
   dd,
-  postFlockDump,
-  flockDumpUrl,
-  flockIngest,
   tap,
   value,
   withValue,
@@ -48,7 +45,7 @@ export {
   rescue,
   rescueAsync,
 } from "./helpers.ts";
-export { dumpHtml, renderDdHtmlPage, serializeDumpValue, type DumpTheme } from "./var-dumper.ts";
+export { dumpHtml, renderDdHtmlPage, type DumpTheme } from "./var-dumper.ts";
 export { installGlobals } from "./globals.ts";
 export {
   Pipeline,
