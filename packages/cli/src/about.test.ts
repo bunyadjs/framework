@@ -15,9 +15,7 @@ test("about --json prints runtime information", async () => {
   const parsed = JSON.parse(logs.join("\n")) as {
     application: { name: string };
     runtime: { bun: string };
-    flock: { dumpUrl: string | null };
   };
   expect(parsed.application.name.length).toBeGreaterThan(0);
   expect(parsed.runtime.bun.length).toBeGreaterThan(0);
-  expect("dumpUrl" in parsed.flock).toBe(true);
 });

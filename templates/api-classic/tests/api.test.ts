@@ -17,7 +17,6 @@ test("boots token JSON without a session", async () => {
   expect(client.app.providerIsLoaded("DatabaseServiceProvider")).toBe(true);
   expect(client.app.providerIsLoaded("MailServiceProvider")).toBe(true);
   expect(client.app.providerIsLoaded("FilesystemServiceProvider")).toBe(true);
-  expect(client.app.providerIsLoaded("DumpServiceProvider")).toBe(true);
   expect(client.app.providerIsLoaded("QueueServiceProvider")).toBe(true);
   expect(client.app.providerIsLoaded("NotificationServiceProvider")).toBe(true);
   expect(client.app.providerIsLoaded("BroadcastServiceProvider")).toBe(true);

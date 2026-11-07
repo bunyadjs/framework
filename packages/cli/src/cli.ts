@@ -1299,10 +1299,6 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
         platform: process.platform,
         arch: process.arch,
       },
-      flock: {
-        dumpUrl: process.env.FLOCK_DUMP_URL ?? null,
-        site: process.env.FLOCK_SITE ?? null,
-      },
     };
     if (asJson) {
       console.log(JSON.stringify(info, null, 2));
@@ -1311,9 +1307,6 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
     console.log(`${info.application.name} ${info.application.version}`);
     console.log(`Environment: ${info.application.environment}`);
     console.log(`Bun: ${info.runtime.bun} (${info.runtime.platform}/${info.runtime.arch})`);
-    if (info.flock.dumpUrl) {
-      console.log(`Flock dumps: ${info.flock.dumpUrl}`);
-    }
   },
 
   ...makeCommands,
