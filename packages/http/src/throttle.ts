@@ -7,6 +7,7 @@ import {
   type RateLimiter,
 } from "./rate-limiter.ts";
 import { aliasMiddleware, taggedMiddleware } from "./middleware-alias.ts";
+import { withHeaders } from "./response-headers.ts";
 
 export type ThrottleOptions = {
   /** Max attempts per window (default 60). Ignored when using a named limiter. */
@@ -36,13 +37,9 @@ function withRateHeaders(
   response: Response,
   result: RateLimitResult,
 ): Response {
-  const headers = new Headers(response.headers);
-  headers.set("X-RateLimit-Limit", String(result.limit));
-  headers.set("X-RateLimit-Remaining", String(result.remaining));
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
+  return withHeaders(response, (headers) => {
+    headers.set("X-RateLimit-Limit", String(result.limit));
+    headers.set("X-RateLimit-Remaining", String(result.remaining));
   });
 }
 
@@ -108,6 +105,8 @@ export function throttle(
           return worst ? withRateHeaders(response, worst) : response;
         }
 
+        // Every limit is counted, and the request is blocked as soon as one of them is full.
+        let tightest: RateLimitResult | undefined;
         for (const limit of limits) {
           if (limit.isUnlimited()) continue;
           const key = `named:${name}:${limit.key || request.ip()}`;
@@ -117,9 +116,9 @@ export function throttle(
             limit.decaySeconds,
           )) as RateLimitResult;
           if (!result.allowed) return blockedResponse(limit, result);
-          const response = await next();
-          return withRateHeaders(response, result);
+          if (!tightest || result.remaining < tightest.remaining) tightest = result;
         }
+        if (tightest) return withRateHeaders(await next(), tightest);
 
         return next();
       },

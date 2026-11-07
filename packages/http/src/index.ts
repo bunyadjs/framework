@@ -156,6 +156,7 @@ export {
   type RateLimitResult,
   type RateLimiterCache,
   type NamedLimiter,
+  type RateLimiterOptions,
 } from "./rate-limiter.ts";
 export { throttle, type ThrottleOptions } from "./throttle.ts";
 export {

@@ -1,5 +1,6 @@
 import { Request as BunyadRequest, type Request } from "./request.ts";
 import type { Middleware, Next } from "./pipeline.ts";
+import { withHeaders } from "./response-headers.ts";
 
 export type CorsConfig = {
   /** Path patterns relative to the app root (`api/*`, `*`). Empty = no CORS. */
@@ -234,25 +235,6 @@ function addVary(headers: Headers): void {
     headers.set("Vary", "Origin");
   } else if (current.trim() !== "*" && !/(^|,)\s*origin\s*(,|$)/i.test(current)) {
     headers.set("Vary", `${current}, Origin`);
-  }
-}
-
-/**
- * Change a response's headers in place when it allows that (anything built with `new Response`),
- * and copy it only when it does not (`fetch()` results, `Response.redirect()`).
- */
-function withHeaders(response: Response, change: (headers: Headers) => void): Response {
-  try {
-    change(response.headers);
-    return response;
-  } catch {
-    const headers = new Headers(response.headers);
-    change(headers);
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
   }
 }
 

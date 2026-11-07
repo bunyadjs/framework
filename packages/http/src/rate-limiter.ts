@@ -103,7 +103,7 @@ export type RateLimiterCache = {
 };
 
 /**
- * `Limit::perMinute(60)->by($key)`.
+ * `Limit.perMinute(60).by(key)`: how many attempts a key gets in a period.
  */
 export class Limit {
   key = "";
@@ -155,8 +155,9 @@ export class Limit {
     return Limit.perHour(10).by(request.ip());
   }
 
-  by(key: string | number): this {
-    this.key = String(key);
+  /** The key this limit counts under. Several parts (an email and an address) are joined into one key. */
+  by(...parts: Array<string | number>): this {
+    this.key = parts.map(String).join("|");
     return this;
   }
 
@@ -193,6 +194,19 @@ export type NamedLimiter = (
 
 const CACHE_PREFIX = "bunyad:rate:";
 
+export type RateLimiterOptions = {
+  /**
+   * Most keys the in-process store remembers (default 100,000). When it is full, keys that have run
+   * out are dropped first, then those that would be forgotten soonest, so memory stays bounded
+   * however many distinct clients arrive.
+   */
+  maxKeys?: number;
+};
+
+const DEFAULT_MAX_KEYS = 100_000;
+/** After clearing a full store, make room for this share of new keys, so a sweep is not needed on every write. */
+const EVICT_TO = 0.75;
+
 /**
  * Sliding-window rate limiter (weighted two-window counter), so a client can
  * not burst `2 × max` across a window boundary.
@@ -201,7 +215,43 @@ const CACHE_PREFIX = "bunyad:rate:";
 export class RateLimiter {
   readonly #buckets = new Map<string, Bucket>();
   readonly #named = new Map<string, NamedLimiter>();
+  readonly #maxKeys: number;
   #cache: RateLimiterCache | undefined;
+
+  constructor(options: RateLimiterOptions = {}) {
+    this.#maxKeys = Math.max(1, Math.floor(options.maxKeys ?? DEFAULT_MAX_KEYS));
+  }
+
+  /** Number of keys the in-process store holds. */
+  get size(): number {
+    return this.#buckets.size;
+  }
+
+  /**
+   * Make room: drop keys that carry no weight any more, then those that would be forgotten soonest,
+   * down to {@link EVICT_TO} of the limit. Choosing by remaining memory time (not by last use) keeps a
+   * client that is blocked for an hour while a flood of one-off keys in short windows comes and goes.
+   */
+  #makeRoom(now: number): void {
+    if (this.#buckets.size <= this.#maxKeys) return;
+    for (const [key, bucket] of this.#buckets) {
+      if (clearMs(bucket, now) <= 0) this.#buckets.delete(key);
+    }
+    const target = Math.floor(this.#maxKeys * EVICT_TO);
+    let surplus = this.#buckets.size - target;
+    if (surplus <= 0) return;
+    // The surplus-th smallest remaining time is the cutoff; everything at or under it goes.
+    const times = new Float64Array(this.#buckets.size);
+    let n = 0;
+    for (const bucket of this.#buckets.values()) times[n++] = clearMs(bucket, now);
+    const cutoff = times.sort()[surplus - 1]!;
+    for (const [key, bucket] of this.#buckets) {
+      if (surplus > 0 && clearMs(bucket, now) <= cutoff) {
+        this.#buckets.delete(key);
+        surplus -= 1;
+      }
+    }
+  }
 
   /** Back the limiter with Cache so workers share counters. */
   use(cache: RateLimiterCache | undefined): this {
@@ -209,7 +259,7 @@ export class RateLimiter {
     return this;
   }
 
-  /** Register a named limiter (`RateLimiter::for('api', ...)`). */
+  /** Register a named limiter: `limiter.for("api", (request) => Limit.perMinute(60).by(request.ip()))`. */
   for(name: string, callback: NamedLimiter): this {
     this.#named.set(name, callback);
     return this;
@@ -319,13 +369,15 @@ export class RateLimiter {
     maxAttempts: number,
     decaySeconds: number,
   ): RateLimitResult {
+    const now = Date.now();
     const { bucket, result } = this.#record(
       this.#buckets.get(key),
       maxAttempts,
       decaySeconds,
-      Date.now(),
+      now,
     );
     this.#buckets.set(key, bucket);
+    this.#makeRoom(now);
     return result;
   }
 
