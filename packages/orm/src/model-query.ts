@@ -1,7 +1,7 @@
 /**
  * Fluent query builder returned by Model.query() / newQuery().
  */
-import type { Connection, DateInput, QueryBuilder } from "@bunyad/database";
+import type { Connection, DateInput, QueryBuilder, SqlFragment, LikeOptions } from "@bunyad/database";
 import {
   DatabaseManager as Db,
   CursorPaginator,
@@ -9,10 +9,11 @@ import {
   Paginator,
   dateTimeForStorage,
   hasQueryListeners,
+  rawParts,
   resolvePaginatorPage,
   wrapSqlName,
 } from "@bunyad/database";
-import { Collection, LazyCollection } from "@bunyad/common";
+import { Collection, LazyCollection, escapeLike } from "@bunyad/common";
 import { OrmCollection } from "./orm-collection.ts";
 import {
   bootIfNotBooted,
@@ -221,11 +222,11 @@ function applyWhereLists(q: QueryBuilder, lists: WhereLists): QueryBuilder {
       run: (q) =>
         w.boolean === "or"
           ? w.not
-            ? q.orWhereNotLike(w.column, w.value, w.caseSensitive)
-            : q.orWhereLike(w.column, w.value, w.caseSensitive)
+            ? q.orWhereNotLike(w.column, w.value, w.caseSensitive, w.escaped === true)
+            : q.orWhereLike(w.column, w.value, w.caseSensitive, w.escaped === true)
           : w.not
-            ? q.whereNotLike(w.column, w.value, w.caseSensitive)
-            : q.whereLike(w.column, w.value, w.caseSensitive),
+            ? q.whereNotLike(w.column, w.value, w.caseSensitive, w.escaped === true)
+            : q.whereLike(w.column, w.value, w.caseSensitive, w.escaped === true),
     });
   }
   for (const w of lists.dateWheres ?? []) {
@@ -337,6 +338,8 @@ export class ModelQuery<
     value: string;
     not: boolean;
     caseSensitive: boolean;
+    /** `value` was built with `escapeLike`, so the statement names its escape character. */
+    escaped?: boolean;
     boolean: "and" | "or";
   }> = MQ_EMPTY as any;
   #dateWheres: Array<{
@@ -348,7 +351,7 @@ export class ModelQuery<
   }> = MQ_EMPTY as any;
   #orders: Array<
     | { column: string; direction: "asc" | "desc" }
-    | { raw: string }
+    | { raw: string; bindings?: unknown[] }
   > = MQ_EMPTY as any;
   #selectColumns: string[] | null = null;
   #addSelectColumns: string[] = MQ_EMPTY as any;
@@ -1224,8 +1227,18 @@ export class ModelQuery<
   }
 
   /** `groupByRaw($sql, $bindings)`. */
-  groupByRaw(sql: string, bindings: unknown[] = []): this {
-    return this.#extra((q) => void (q as unknown as { groupByRaw(s: string, b: unknown[]): unknown }).groupByRaw(sql, bindings));
+  groupByRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
+    const raw = rawParts(sql, bindings);
+    return this.#extra((q) => void q.groupByRaw(raw.sql, raw.bindings));
+  }
+
+  /**
+   * A join written out in full (`"INNER JOIN t ON t.a = x.a AND t.label = ?"`) with its bindings, or
+   * a `sql` fragment. It comes after the joins added with `join` / `leftJoin`.
+   */
+  joinRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
+    const raw = rawParts(sql, bindings);
+    return this.#extra((q) => void q.joinRaw(raw.sql, raw.bindings));
   }
 
   /** `join` (hydrated models still from the base table). */
@@ -1505,15 +1518,17 @@ export class ModelQuery<
     return this;
   }
 
-  whereRaw(sql: string, bindings: unknown[] = []): this {
+  whereRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
     this.#simple = false;
-    (this.#whereRaws = mqMut(this.#whereRaws)).push({ seq: nextWhereSeq(), sql, bindings, boolean: "and" });
+    const raw = rawParts(sql, bindings);
+    (this.#whereRaws = mqMut(this.#whereRaws)).push({ seq: nextWhereSeq(), sql: raw.sql, bindings: raw.bindings, boolean: "and" });
     return this;
   }
 
-  orWhereRaw(sql: string, bindings: unknown[] = []): this {
+  orWhereRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
     this.#simple = false;
-    (this.#whereRaws = mqMut(this.#whereRaws)).push({ seq: nextWhereSeq(), sql, bindings, boolean: "or" });
+    const raw = rawParts(sql, bindings);
+    (this.#whereRaws = mqMut(this.#whereRaws)).push({ seq: nextWhereSeq(), sql: raw.sql, bindings: raw.bindings, boolean: "or" });
     return this;
   }
 
@@ -1563,6 +1578,76 @@ export class ModelQuery<
       boolean: "or",
     });
     return this;
+  }
+
+  #literalLike(
+    column: string,
+    pattern: string,
+    not: boolean,
+    boolean: "and" | "or",
+    options: LikeOptions,
+  ): this {
+    this.#simple = false;
+    (this.#whereLikes = mqMut(this.#whereLikes)).push({ seq: nextWhereSeq(),
+      column,
+      value: pattern,
+      not,
+      caseSensitive: options.caseSensitive === true,
+      escaped: true,
+      boolean,
+    });
+    return this;
+  }
+
+  /** The column contains `term`, taken literally (`%`, `_` and `\` in it are ordinary characters). */
+  whereContains(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `%${escapeLike(term)}%`, false, "and", options);
+  }
+
+  orWhereContains(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `%${escapeLike(term)}%`, false, "or", options);
+  }
+
+  whereNotContains(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `%${escapeLike(term)}%`, true, "and", options);
+  }
+
+  orWhereNotContains(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `%${escapeLike(term)}%`, true, "or", options);
+  }
+
+  /** The column starts with `term`, taken literally. Can use an index on a plain column. */
+  whereStartsWith(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `${escapeLike(term)}%`, false, "and", options);
+  }
+
+  orWhereStartsWith(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `${escapeLike(term)}%`, false, "or", options);
+  }
+
+  whereNotStartsWith(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `${escapeLike(term)}%`, true, "and", options);
+  }
+
+  orWhereNotStartsWith(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `${escapeLike(term)}%`, true, "or", options);
+  }
+
+  /** The column ends with `term`, taken literally. */
+  whereEndsWith(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `%${escapeLike(term)}`, false, "and", options);
+  }
+
+  orWhereEndsWith(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `%${escapeLike(term)}`, false, "or", options);
+  }
+
+  whereNotEndsWith(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `%${escapeLike(term)}`, true, "and", options);
+  }
+
+  orWhereNotEndsWith(column: string, term: string, options: LikeOptions = {}): this {
+    return this.#literalLike(column, `%${escapeLike(term)}`, true, "or", options);
   }
 
   /** `whereDate` — same on SQLite / Postgres / MySQL. */
@@ -1625,9 +1710,10 @@ export class ModelQuery<
     return this;
   }
 
-  selectRaw(expression: string, bindings: unknown[] = []): this {
+  selectRaw(expression: string | SqlFragment, bindings: unknown[] = []): this {
     this.#simple = false;
-    (this.#selectRaws = mqMut(this.#selectRaws)).push({ expression, bindings });
+    const raw = rawParts(expression, bindings);
+    (this.#selectRaws = mqMut(this.#selectRaws)).push({ expression: raw.sql, bindings: raw.bindings });
     return this;
   }
 
@@ -1646,15 +1732,19 @@ export class ModelQuery<
     return this.orderBy(column, "desc");
   }
 
-  orderByRaw(sql: string): this {
+  /** `orderByRaw($sql, $bindings)`, or a `sql` fragment. */
+  orderByRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
     this.#simple = false;
-    (this.#orders = mqMut(this.#orders)).push({ raw: sql });
+    const raw = rawParts(sql, bindings);
+    (this.#orders = mqMut(this.#orders)).push(
+      raw.bindings.length > 0 ? { raw: raw.sql, bindings: raw.bindings } : { raw: raw.sql },
+    );
     return this;
   }
 
   /** Alias for `orderByRaw`. */
-  orderBySql(sql: string): this {
-    return this.orderByRaw(sql);
+  orderBySql(sql: string | SqlFragment, bindings: unknown[] = []): this {
+    return this.orderByRaw(sql, bindings);
   }
 
   reorder(column?: string, direction: "asc" | "desc" = "asc"): this {
@@ -1689,9 +1779,10 @@ export class ModelQuery<
     return this;
   }
 
-  havingRaw(sql: string, bindings: unknown[] = []): this {
+  havingRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
     this.#simple = false;
-    (this.#havingRaws = mqMut(this.#havingRaws)).push({ sql, bindings });
+    const raw = rawParts(sql, bindings);
+    (this.#havingRaws = mqMut(this.#havingRaws)).push({ sql: raw.sql, bindings: raw.bindings });
     return this;
   }
 
@@ -2171,6 +2262,11 @@ export class ModelQuery<
    */
   #canHasExistsSelect(): boolean {
     if (this.#hasConstraints.length === 0) return false;
+    // This path compiles its own statement and has no place for values bound in an ORDER BY.
+    for (const o of this.#orders) {
+      if ("raw" in o && o.raw === "__inRandomOrder__") continue;
+      if ("bindings" in o && o.bindings !== undefined && o.bindings.length > 0) return false;
+    }
     for (const c of this.#hasConstraints) {
       if (c.existsSql === undefined) return false;
     }
@@ -2331,7 +2427,7 @@ export class ModelQuery<
         q =
           o.raw === "__inRandomOrder__"
             ? q.inRandomOrder()
-            : q.orderByRaw(o.raw);
+            : q.orderByRaw(o.raw, o.bindings ?? []);
       } else q = q.orderBy(o.column, o.direction);
     }
 
@@ -3874,6 +3970,7 @@ export class ModelQuery<
     cursor: string | null = null,
     options: { path?: string; cursorName?: string } = {},
   ): Promise<CursorPaginator<T>> {
+    // The model's limit is applied here, so the query builder must not apply its own on top.
     const page = await this.#buildQuery().cursorPaginate(
       perPage,
       cursor,

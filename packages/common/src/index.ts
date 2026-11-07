@@ -56,7 +56,7 @@ export {
   type PipeObject,
   type PipeClass,
 } from "./pipeline.ts";
-export { Str, Stringable } from "./str.ts";
+export { Str, Stringable, escapeLike } from "./str.ts";
 export { Arr } from "./arr.ts";
 
 // Install `dd` / `dump` / `collect` on globalThis.

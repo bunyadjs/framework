@@ -10,11 +10,25 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Escape `%`, `_` and the escape character so a `LIKE` pattern built from user text matches that
+ * text literally. Pair it with `ESCAPE '\\'` (the query builder's `whereContains`,
+ * `whereStartsWith` and `whereEndsWith` do both). Another escape character can be given, and
+ * named in the `ESCAPE` clause, for databases that read a backslash in a string specially.
+ */
+export function escapeLike(value: string, escapeChar = "\\"): string {
+  const pattern = new RegExp(`[${escapeChar === "\\" ? "\\\\" : escapeRegExp(escapeChar)}%_]`, "g");
+  return String(value).replace(pattern, (char) => `${escapeChar}${char}`);
+}
+
 export const Str = {
   /** `Str::of` — returns a thin chainable wrapper. */
   of(value: string): Stringable {
     return new Stringable(String(value ?? ""));
   },
+
+  /** Escape `%`, `_` and `\` for use in a `LIKE` pattern (with `ESCAPE '\'`). */
+  escapeLike,
 
   lower(value: string): string {
     return String(value).toLowerCase();

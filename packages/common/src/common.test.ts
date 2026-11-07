@@ -436,3 +436,14 @@ test("dataSet refuses paths that reach Object.prototype", () => {
     delete (Object.prototype as Record<string, unknown>).polluted;
   }
 });
+
+test("escapeLike makes %, _ and the escape character match themselves", async () => {
+  const { escapeLike, Str } = await import("./index.ts");
+  expect(escapeLike("50%_off\\")).toBe("50\\%\\_off\\\\");
+  expect(Str.escapeLike("a_b")).toBe("a\\_b");
+  expect(escapeLike("plain")).toBe("plain");
+  expect(escapeLike("")).toBe("");
+  // another escape character
+  expect(escapeLike("a_b!c%", "!")).toBe("a!_b!!c!%");
+  expect(escapeLike("back\\slash", "!")).toBe("back\\slash");
+});
