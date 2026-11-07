@@ -9,6 +9,7 @@ export { Collection, collect, type CollectionKey } from "./collection.ts";
 export { LazyCollection } from "./lazy-collection.ts";
 export { Fluent } from "./fluent.ts";
 export { Crypt, resolveAppKey } from "./crypt.ts";
+export { hashEquals } from "./hash-equals.ts";
 export {
   runWithPaginatorRequest,
   getPaginatorRequest,

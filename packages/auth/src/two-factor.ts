@@ -1,5 +1,5 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { Crypt } from "@bunyad/common";
+import { createHash, createHmac, randomBytes } from "node:crypto";
+import { Crypt, hashEquals } from "@bunyad/common";
 import { renderSVG } from "uqr";
 
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -60,7 +60,7 @@ export function verifyTotp(
   const key = base32Decode(secret);
   const current = Math.floor(timestamp / 1000 / STEP_SECONDS);
   for (let step = current - window; step <= current + window; step += 1) {
-    if (safeEqual(hotp(key, step), code)) return step;
+    if (hashEquals(hotp(key, step), code)) return step;
   }
   return false;
 }
@@ -121,7 +121,7 @@ export const TwoFactor = {
   /** Accept a recovery code and swap it for a new one. */
   async useRecoveryCode(user: TwoFactorUser, code: string): Promise<boolean> {
     const given = code.trim();
-    if (!user.recoveryCodes().some((stored) => safeEqual(stored, given))) return false;
+    if (!user.recoveryCodes().some((stored) => hashEquals(stored, given))) return false;
     await user.replaceRecoveryCode(given);
     return true;
   },
@@ -198,12 +198,6 @@ function hotp(key: Buffer, counter: number): string {
   const offset = digest[digest.length - 1]! & 0x0f;
   const binary = digest.readUInt32BE(offset) & 0x7fffffff;
   return String(binary % 10 ** DIGITS).padStart(DIGITS, "0");
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  return left.length === right.length && timingSafeEqual(left, right);
 }
 
 function base32Encode(bytes: Uint8Array): string {

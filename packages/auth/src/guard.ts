@@ -1,4 +1,5 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { hashEquals } from "@bunyad/common";
 import type { Request } from "@bunyad/http";
 import {
   abort,
@@ -33,26 +34,19 @@ function hashRememberToken(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
-/** Constant-time compare of stored digest vs cookie plaintext (hashes cookie first). */
-function rememberTokenMatches(stored: string, plain: string): boolean {
-  const a = Buffer.from(stored, "utf8");
-  const b = Buffer.from(hashRememberToken(plain), "utf8");
-  if (a.length !== b.length) {
-    // Legacy plaintext fallback (pre-hash rows): compare equal-length padded buffers safely.
-    if (a.length === Buffer.byteLength(plain, "utf8")) {
-      try {
-        return timingSafeEqual(a, Buffer.from(plain, "utf8"));
-      } catch {
-        return false;
-      }
-    }
-    return false;
-  }
-  try {
-    return timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
+/** A stored remember-me value that is already a digest (SHA-256, hex). */
+const DIGEST = /^[0-9a-f]{64}$/;
+
+/**
+ * Constant-time compare of stored digest vs cookie plaintext (hashes cookie first).
+ * Rows stored before the digest was introduced hold the plaintext itself, and only those are
+ * compared as plaintext: a stored digest must never be accepted as the cookie value, or anyone
+ * who read the table could sign in with it.
+ */
+export function rememberTokenMatches(stored: string, plain: string): boolean {
+  const hashed = hashEquals(stored, hashRememberToken(plain));
+  const legacy = !DIGEST.test(stored) && hashEquals(stored, plain);
+  return hashed || legacy;
 }
 
 /**
