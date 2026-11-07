@@ -1,4 +1,4 @@
-import { Collection, LazyCollection, collect, escapeLike } from "@bunyad/common";
+import { Collection, LazyCollection, clampPerPage, collect, escapeLike } from "@bunyad/common";
 import { rawParts, type SqlFragment } from "./sql.ts";
 import type { Connection } from "./connection.ts";
 import type { DriverName } from "./dialect.ts";
@@ -1977,16 +1977,19 @@ export class QueryBuilder {
     pageName?: string,
     page?: number,
   ): Promise<LengthAwarePaginator<Record<string, unknown>>>;
-  /** Backward-compatible Bunyad shape: `paginate(perPage, page, options)`. */
+  /**
+   * Backward-compatible Bunyad shape: `paginate(perPage, page, options)`.
+   * The page size is limited to `getMaxPerPage()`; `{ unbounded: true }` lifts the limit (an export).
+   */
   async paginate(
     perPage?: number,
     page?: number,
-    options?: { path?: string; columns?: string[] },
+    options?: { path?: string; columns?: string[]; unbounded?: boolean },
   ): Promise<LengthAwarePaginator<Record<string, unknown>>>;
   async paginate(
     perPage = 15,
     columnsOrPage: string[] | number = ["*"],
-    pageNameOrOptions: string | { path?: string; columns?: string[] } = "page",
+    pageNameOrOptions: string | { path?: string; columns?: string[]; unbounded?: boolean } = "page",
     page?: number,
   ): Promise<LengthAwarePaginator<Record<string, unknown>>> {
     const legacy = typeof columnsOrPage === "number";
@@ -2001,7 +2004,9 @@ export class QueryBuilder {
         ? pageNameOrOptions
         : "page",
     );
-    const size = Math.max(1, Math.floor(Number(perPage)) || 15);
+    const size = clampPerPage(perPage, {
+      limit: legacy && typeof pageNameOrOptions === "object" && pageNameOrOptions.unbounded ? Infinity : undefined,
+    });
     const total = await this.count();
     const q = this.clone().forPage(currentPage, size);
     if (columns) q.select(...columns);
@@ -2028,12 +2033,12 @@ export class QueryBuilder {
   async simplePaginate(
     perPage?: number,
     page?: number,
-    options?: { path?: string },
+    options?: { path?: string; unbounded?: boolean },
   ): Promise<Paginator<Record<string, unknown>>>;
   async simplePaginate(
     perPage = 15,
     columnsOrPage: string[] | number = ["*"],
-    pageNameOrOptions: string | { path?: string } = "page",
+    pageNameOrOptions: string | { path?: string; unbounded?: boolean } = "page",
     page?: number,
   ): Promise<Paginator<Record<string, unknown>>> {
     const legacy = typeof columnsOrPage === "number";
@@ -2044,7 +2049,9 @@ export class QueryBuilder {
         ? pageNameOrOptions
         : "page",
     );
-    const size = Math.max(1, Math.floor(Number(perPage)) || 15);
+    const size = clampPerPage(perPage, {
+      limit: legacy && typeof pageNameOrOptions === "object" && pageNameOrOptions.unbounded ? Infinity : undefined,
+    });
     const q = this.clone()
       .offset((currentPage - 1) * size)
       .limit(size + 1);
@@ -2072,14 +2079,14 @@ export class QueryBuilder {
   async cursorPaginate(
     perPage?: number,
     cursor?: string | null,
-    options?: { path?: string; cursorName?: string },
+    options?: { path?: string; cursorName?: string; unbounded?: boolean },
   ): Promise<CursorPaginator<Record<string, unknown>>>;
   async cursorPaginate(
     perPage = 15,
     columnsOrCursor: string[] | string | null = ["*"],
     cursorNameOrOptions:
       | string
-      | { path?: string; cursorName?: string } = "cursor",
+      | { path?: string; cursorName?: string; unbounded?: boolean } = "cursor",
     cursor?: string | null,
   ): Promise<CursorPaginator<Record<string, unknown>>> {
     const legacy = !Array.isArray(columnsOrCursor);
@@ -2093,7 +2100,7 @@ export class QueryBuilder {
       !legacy && typeof cursorNameOrOptions === "string"
         ? cursorNameOrOptions
         : options.cursorName;
-    const size = Math.max(1, Math.floor(Number(perPage)) || 15);
+    const size = clampPerPage(perPage, { limit: options.unbounded ? Infinity : undefined });
     const q = this.clone();
     if (columns) q.select(...columns);
     if (q.#orders.length === 0) {

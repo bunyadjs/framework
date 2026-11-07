@@ -13,7 +13,7 @@ import {
   resolvePaginatorPage,
   wrapSqlName,
 } from "@bunyad/database";
-import { Collection, LazyCollection, escapeLike } from "@bunyad/common";
+import { Collection, LazyCollection, clampPerPage, escapeLike } from "@bunyad/common";
 import { OrmCollection } from "./orm-collection.ts";
 import {
   bootIfNotBooted,
@@ -3753,15 +3753,19 @@ export class ModelQuery<
     return model;
   }
 
+  /**
+   * The page size is limited to the model's `static maxPerPage`, or the application-wide
+   * `getMaxPerPage()` (100 by default); `{ unbounded: true }` lifts the limit, for an export.
+   */
   async paginate(
     perPage = 15,
     page?: number,
-    options: { path?: string; pageName?: string } = {},
+    options: { path?: string; pageName?: string; unbounded?: boolean } = {},
   ): Promise<LengthAwarePaginator<T>> {
     const total = await this.#countQuery().count();
 
     const currentPage = resolvePaginatorPage(page, options.pageName);
-    const size = Math.max(1, Math.floor(Number(perPage)) || 15);
+    const size = this.#pageSize(perPage, options.unbounded);
     const offset = (currentPage - 1) * size;
 
     const rows = await this.#buildQuery().limit(size).offset(offset).getRows();
@@ -3773,14 +3777,20 @@ export class ModelQuery<
     return new LengthAwarePaginator(items, total, size, currentPage, options);
   }
 
+  /** A requested page size, limited to this model's `maxPerPage` or the application-wide maximum. */
+  #pageSize(perPage: unknown, unbounded?: boolean): number {
+    const own = (this.model as unknown as { maxPerPage?: number }).maxPerPage;
+    return clampPerPage(perPage, { limit: unbounded ? Infinity : own });
+  }
+
   /** No total count; extra row is used to detect a next page. */
   async simplePaginate(
     perPage = 15,
     page?: number,
-    options: { path?: string; pageName?: string } = {},
+    options: { path?: string; pageName?: string; unbounded?: boolean } = {},
   ): Promise<Paginator<T>> {
     const currentPage = resolvePaginatorPage(page, options.pageName);
-    const size = Math.max(1, Math.floor(Number(perPage)) || 15);
+    const size = this.#pageSize(perPage, options.unbounded);
     const offset = (currentPage - 1) * size;
     const rows = await this.#buildQuery()
       .limit(size + 1)
@@ -3968,13 +3978,13 @@ export class ModelQuery<
   async cursorPaginate(
     perPage = 15,
     cursor: string | null = null,
-    options: { path?: string; cursorName?: string } = {},
+    options: { path?: string; cursorName?: string; unbounded?: boolean } = {},
   ): Promise<CursorPaginator<T>> {
     // The model's limit is applied here, so the query builder must not apply its own on top.
     const page = await this.#buildQuery().cursorPaginate(
-      perPage,
+      this.#pageSize(perPage, options.unbounded),
       cursor,
-      options,
+      { ...options, unbounded: true },
     );
     const items = await this.#hydrateRows(page.items);
     if (this.#eagerLoad.length > 0) {

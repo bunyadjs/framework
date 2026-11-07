@@ -1,5 +1,5 @@
 import type { RequestContract } from "@bunyad/contracts";
-import { Arr, Collection, Fluent, collect } from "@bunyad/common";
+import { Arr, Collection, Fluent, clampPerPage, collect } from "@bunyad/common";
 import { validate, ValidationException, type Rules } from "@bunyad/validation";
 import { UploadedFile } from "./uploaded-file.ts";
 import { decryptCookieValue } from "./cookie-encryption.ts";
@@ -291,6 +291,16 @@ export class Request implements RequestContract {
       return;
     }
     this.#json = {};
+  }
+
+  /**
+   * The page size asked for in `per_page` (or `perPage`), from 1 up to the application-wide
+   * limit (`getMaxPerPage()`, 100 by default; pass `limit` to use another one).
+   * Missing or non-numeric values give `defaultValue`.
+   */
+  pageSize(defaultValue = 15, limit?: number): number {
+    const asked = this.input("per_page") ?? this.input("perPage");
+    return clampPerPage(asked, { fallback: defaultValue, limit });
   }
 
   input(key: string, defaultValue?: unknown): unknown {

@@ -11,6 +11,13 @@ export { Fluent } from "./fluent.ts";
 export { Crypt, resolveAppKey } from "./crypt.ts";
 export { hashEquals } from "./hash-equals.ts";
 export {
+  DEFAULT_MAX_PER_PAGE,
+  DEFAULT_PER_PAGE,
+  clampPerPage,
+  getMaxPerPage,
+  setMaxPerPage,
+} from "./pagination-limits.ts";
+export {
   runWithPaginatorRequest,
   getPaginatorRequest,
   type PaginatorRequestLike,
