@@ -446,6 +446,35 @@ function coerceValidated(
   return value;
 }
 
+/** Extensions of types that have no signature in their bytes, so only the name can tell them. */
+const TEXT_EXTENSIONS = new Set(["txt", "csv", "tsv", "json", "md", "log"]);
+
+/** `jpeg` and `jpg` are one type; so are `htm` and `html`. */
+function canonicalExtension(ext: string): string {
+  return ext === "jpeg" ? "jpg" : ext === "htm" ? "html" : ext;
+}
+
+/** Byte detection on an upload that offers it (`UploadedFile` does); `null` for other objects. */
+function detection(value: object): {
+  mime(): Promise<string | null>;
+  extension(): Promise<string | null>;
+  safeSvg(): Promise<boolean>;
+} | null {
+  const file = value as {
+    detectedMimeType?: () => Promise<string | null>;
+    detectedExtension?: () => Promise<string | null>;
+    isSafeSvg?: () => Promise<boolean>;
+  };
+  if (typeof file.detectedMimeType !== "function" || typeof file.detectedExtension !== "function") {
+    return null;
+  }
+  return {
+    mime: () => file.detectedMimeType!(),
+    extension: () => file.detectedExtension!(),
+    safeSvg: async () => (typeof file.isSafeSvg === "function" ? file.isSafeSvg() : false),
+  };
+}
+
 function isUploadedFile(value: unknown): value is {
   size: number;
   mimeType?: string;
@@ -1303,22 +1332,60 @@ const rules: Record<string, RuleFn> = {
     if (!isUploadedFile(value)) return "file";
     if (value.isValid && !value.isValid()) return "file";
   },
-  /** Image MIME upload. */
-  image(value) {
+  /**
+   * An uploaded picture, judged by its bytes and not by the type the sender declared: PNG, JPEG,
+   * GIF, WebP, BMP, ICO or AVIF. SVG is refused unless `image:allow_svg` is given, and then it must
+   * also be free of script and embedded content. A value without byte detection (not an
+   * `UploadedFile`) falls back to its declared type.
+   */
+  async image(value, params) {
     if (isEmpty(value)) return;
     if (!isUploadedFile(value)) return "image";
-    const mime = value.mimeType ?? "";
-    if (!mime.startsWith("image/")) return "image";
+    const detect = detection(value);
+    if (!detect) {
+      if (!(value.mimeType ?? "").startsWith("image/")) return "image";
+      return;
+    }
+    const mime = await detect.mime();
+    if (mime === "image/svg+xml") {
+      if (!params.includes("allow_svg")) return "image";
+      if (!(await detect.safeSvg())) return "image";
+      return;
+    }
+    if (mime == null || !mime.startsWith("image/")) return "image";
   },
-  /** `mimes:jpg,png`. */
-  mimes(value, params) {
+  /**
+   * `mimes:jpg,png`: the extension for the type found in the file's bytes. A type with no signature
+   * (plain text, CSV, JSON) can only be told by its name, so it passes when its name is a listed text
+   * type (`txt`, `csv`, `tsv`, `json`, `md`, `log`); anything with a signature must match it.
+   */
+  async mimes(value, params) {
     if (isEmpty(value)) return;
     if (!isUploadedFile(value)) return "mimes";
-    const ext = (
-      value.clientOriginalExtension?.() ??
-      ""
-    ).toLowerCase();
-    if (!params.map((p) => p.toLowerCase()).includes(ext)) return "mimes";
+    const wanted = params.map((p) => canonicalExtension(p.toLowerCase()));
+    const detect = detection(value);
+    if (!detect) {
+      const ext = canonicalExtension((value.clientOriginalExtension?.() ?? "").toLowerCase());
+      if (!wanted.includes(ext)) return "mimes";
+      return;
+    }
+    const found = await detect.extension();
+    if (found != null) {
+      if (!wanted.includes(canonicalExtension(found))) return "mimes";
+      return;
+    }
+    const named = canonicalExtension((value.clientOriginalExtension?.() ?? "").toLowerCase());
+    // No signature to read: the name decides, but only a text type's name is believed.
+    if (!wanted.includes(named) || !TEXT_EXTENSIONS.has(named)) return "mimes";
+  },
+  /** `mimetypes:image/png,application/pdf`: the MIME type found in the file's bytes. */
+  async mimetypes(value, params) {
+    if (isEmpty(value)) return;
+    if (!isUploadedFile(value)) return "mimetypes";
+    const wanted = params.map((p) => p.trim().toLowerCase());
+    const detect = detection(value);
+    const found = detect ? await detect.mime() : (value.mimeType ?? "").toLowerCase();
+    if (found == null || !wanted.includes(found.toLowerCase())) return "mimetypes";
   },
   /**
    * `dimensions:min_width=100,min_height=100,max_width=…,ratio=3/2`.
@@ -1929,14 +1996,18 @@ export const Rule = {
   file(): string {
     return "file";
   },
-  image(): string {
-    return "image";
+  /** An uploaded picture by its bytes. `image({ allowSvg: true })` also allows a script-free SVG. */
+  image(options: { allowSvg?: boolean } = {}): string {
+    return options.allowSvg ? "image:allow_svg" : "image";
   },
   imageFile(): string {
     return "image";
   },
   mimes(...exts: string[]): string {
     return `mimes:${exts.join(",")}`;
+  },
+  mimetypes(...types: string[]): string {
+    return `mimetypes:${types.join(",")}`;
   },
   min(value: number): string {
     return `min:${value}`;

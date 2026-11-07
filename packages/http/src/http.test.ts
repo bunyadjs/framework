@@ -901,7 +901,8 @@ test("multipart request.file and UploadedFile.store", async () => {
   form.append("title", "Avatar");
   form.append(
     "avatar",
-    new File([new Uint8Array([1, 2, 3, 4])], "photo.png", {
+    // A real PNG signature: the `image` rule reads the bytes, not the declared type.
+    new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4])], "photo.png", {
       type: "image/png",
     }),
   );

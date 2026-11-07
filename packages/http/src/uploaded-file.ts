@@ -1,4 +1,10 @@
 import { basename } from "node:path";
+import { detectFileType, isSafeSvg, type DetectedFileType } from "@bunyad/common";
+
+/** How much of a file is read to tell what it is. */
+const DETECT_BYTES = 4096;
+/** The largest SVG that is read to check it is safe. */
+const MAX_SVG_BYTES = 1024 * 1024;
 
 /**
  * Uploaded file from multipart form data (`UploadedFile`).
@@ -7,6 +13,7 @@ export class UploadedFile {
   readonly #blob: Blob;
   readonly #clientOriginalName: string;
   readonly #error: string | null;
+  #detected: Promise<DetectedFileType | null> | undefined;
 
   constructor(blob: Blob, clientOriginalName: string, error: string | null = null) {
     this.#blob = blob;
@@ -32,7 +39,39 @@ export class UploadedFile {
     return this.getClientOriginalExtension();
   }
 
-  /** Client MIME type. */
+  /**
+   * What the file is, from its own bytes (only the first few kilobytes are read), or `null` for
+   * plain text and anything with no signature. Unlike {@link mimeType} and the file name, this is
+   * not something the sender can choose.
+   */
+  detectedType(): Promise<DetectedFileType | null> {
+    this.#detected ??= (this.#blob as Blob & { slice(start: number, end: number): Blob })
+      .slice(0, DETECT_BYTES)
+      .arrayBuffer()
+      .then((buffer: ArrayBuffer) => detectFileType(new Uint8Array(buffer)));
+    return this.#detected;
+  }
+
+  /** The MIME type found in the bytes (`image/png`), or `null`. See {@link detectedType}. */
+  async detectedMimeType(): Promise<string | null> {
+    return (await this.detectedType())?.mime ?? null;
+  }
+
+  /** The extension for the type found in the bytes (`png`), or `null`. Use it to name a stored file. */
+  async detectedExtension(): Promise<string | null> {
+    return (await this.detectedType())?.extension ?? null;
+  }
+
+  /**
+   * Whether the file is an SVG with no script, event handler, embedded page or entity in it.
+   * An SVG over 1 MB is not read and is not safe.
+   */
+  async isSafeSvg(): Promise<boolean> {
+    if (this.#blob.size > MAX_SVG_BYTES) return false;
+    return isSafeSvg(new Uint8Array(await this.#blob.arrayBuffer()));
+  }
+
+  /** The MIME type the client declared. Not trustworthy: see {@link detectedMimeType}. */
   get mimeType(): string {
     return this.#blob.type || "application/octet-stream";
   }
@@ -54,7 +93,7 @@ export class UploadedFile {
     return this.size;
   }
 
-  /** Extension of the client filename. */
+  /** Extension of the client filename. The sender chose it: see {@link detectedExtension}. */
   extension(): string {
     return this.getClientOriginalExtension();
   }
@@ -63,6 +102,10 @@ export class UploadedFile {
     return this.getClientOriginalExtension();
   }
 
+  /**
+   * The extension of the client filename (not a guess from the content, despite the name).
+   * Use {@link detectedExtension} to name a stored file by what it really is.
+   */
   guessExtension(): string {
     return this.getClientOriginalExtension();
   }

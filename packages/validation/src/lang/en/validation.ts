@@ -43,6 +43,7 @@ export const validationMessages: Record<
   file: "The :attribute must be a file.",
   image: "The :attribute must be an image.",
   mimes: "The :attribute must be a file of type: :values.",
+  mimetypes: "The :attribute must be a file of type: :values.",
   dimensions: "The :attribute has invalid image dimensions.",
   unique: "The :attribute has already been taken.",
   exists: "The selected :attribute is invalid.",
