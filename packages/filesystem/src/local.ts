@@ -1,29 +1,13 @@
 import type { Filesystem } from "@bunyad/contracts";
+import { mimeTypeForPath } from "./mime.ts";
 import { lstat, mkdir, readdir, realpath, rename, rm, stat, unlink } from "node:fs/promises";
-import { dirname, extname, join, relative, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { Disk } from "./disk.ts";
 
 export type LocalFilesystemOptions = {
   root: string;
   /** URL prefix for `url()`, e.g. `/storage` or `https://cdn.example/`. */
   url?: string;
-};
-
-const MIME_BY_EXT: Record<string, string> = {
-  ".txt": "text/plain",
-  ".html": "text/html",
-  ".htm": "text/html",
-  ".css": "text/css",
-  ".js": "text/javascript",
-  ".json": "application/json",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-  ".pdf": "application/pdf",
-  ".zip": "application/zip",
 };
 
 /**
@@ -265,7 +249,7 @@ export class LocalFilesystem extends Disk implements Filesystem {
   async mimeType(path: string): Promise<string> {
     const type = Bun.file((await this.#resolve(path))).type;
     if (type && type !== "application/octet-stream") return type;
-    return MIME_BY_EXT[extname(path).toLowerCase()] ?? "application/octet-stream";
+    return mimeTypeForPath(path);
   }
 
   url(path: string): string {

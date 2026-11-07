@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { fileHeaders, type SafeServeOptions } from "./safe-serving.ts";
 import type {
   Filesystem,
   FilesystemFileSource,
@@ -229,11 +230,18 @@ export abstract class Disk implements Filesystem {
     return this.response(path, name, headers, "attachment");
   }
 
+  /**
+   * A response for a stored file. Every file is sent with `X-Content-Type-Options: nosniff`, and a
+   * type that is not known to be inert (a page, an SVG, anything unknown) is sent as a download even
+   * when `inline` is asked for. Headers the caller passes win. See `fileHeaders` for the rules and
+   * `options` to relax them.
+   */
   async response(
     path: string,
     name?: string,
     headers: HeadersInitLike = {},
     disposition = "inline",
+    options: SafeServeOptions = {},
   ): Promise<Response> {
     const data = await this.get(path);
     const filename = name ?? path.split("/").pop() ?? "file";
@@ -241,8 +249,9 @@ export abstract class Disk implements Filesystem {
     if (!h.has("Content-Type")) {
       h.set("Content-Type", await this.mimeType(path));
     }
-    if (!h.has("Content-Disposition")) {
-      h.set("Content-Disposition", contentDisposition(disposition, filename));
+    const safe = fileHeaders(h.get("Content-Type")!, { ...options, filename, disposition });
+    for (const [key, value] of Object.entries(safe)) {
+      if (!h.has(key)) h.set(key, value);
     }
     return new Response(data, { headers: h });
   }
@@ -266,17 +275,4 @@ export abstract class Disk implements Filesystem {
     const pass = typeof condition === "function" ? condition(this) : condition;
     return this.when(!pass, callback, defaultCallback);
   }
-}
-
-/**
- * `Content-Disposition` value for a download name. The quoted name is a safe ASCII fallback;
- * names with quotes, backslashes, control or non-ASCII characters also get an encoded
- * `filename*` so the caller can never terminate the parameter and add their own.
- */
-function contentDisposition(disposition: string, filename: string): string {
-  const plain = /^[\x20-\x7e]*$/.test(filename) && !/["\\]/.test(filename);
-  if (plain) return `${disposition}; filename="${filename}"`;
-  const fallback = filename.replace(/[^A-Za-z0-9 ._-]/g, "_");
-  const encoded = encodeURIComponent(filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
-  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }
