@@ -9,9 +9,11 @@ import { Storage, StorageManager, getStorage, setStorage } from "@bunyad/filesys
 import {
   getCorsConfig,
   getRateLimiter,
+  getTrustedProxies,
   handleCors,
   Request,
   setCorsConfig,
+  setTrustedProxies,
 } from "@bunyad/http";
 import {
   FRAMEWORK_PROVIDERS,
@@ -227,7 +229,28 @@ describe("FilesystemServiceProvider", () => {
 });
 
 describe("HttpServiceProvider", () => {
-  afterEach(() => setCorsConfig(undefined));
+  afterEach(() => {
+    setCorsConfig(undefined);
+    setTrustedProxies([]);
+    delete process.env.TRUSTED_PROXIES;
+  });
+
+  test("trusted proxies come from config/http, then from TRUSTED_PROXIES, else stay empty", () => {
+    makeApp().register(HttpServiceProvider);
+    expect(getTrustedProxies()).toEqual([]);
+
+    process.env.TRUSTED_PROXIES = "10.0.0.0/8, ::1";
+    makeApp().register(HttpServiceProvider);
+    expect(getTrustedProxies()).toEqual(["10.0.0.0/8", "::1"]);
+
+    makeApp({ http: { trusted_proxies: ["192.0.2.1"] } }).register(HttpServiceProvider);
+    expect(getTrustedProxies()).toEqual(["192.0.2.1"]);
+
+    setTrustedProxies([]);
+    process.env.TRUSTED_PROXIES = "*";
+    makeApp().register(HttpServiceProvider);
+    expect(getTrustedProxies()).toBe("*");
+  });
 
   test("register installs a fresh rate limiter and the cors config from the app", () => {
     const before = getRateLimiter();
