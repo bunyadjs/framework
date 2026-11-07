@@ -159,6 +159,7 @@ export {
   type RateLimiterOptions,
 } from "./rate-limiter.ts";
 export { throttle, type ThrottleOptions } from "./throttle.ts";
+export { secureHeaders, applySecureHeaders, type SecureHeadersConfig } from "./secure-headers.ts";
 export {
   handleCors,
   applyCors,
