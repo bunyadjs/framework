@@ -277,7 +277,11 @@ export class RateLimiter {
 
   /** Take `amount` off the key's attempts. */
   decrement(key: string, amount = 1): MaybePromise<number> {
-    return this.#store.increment(key, -amount);
+    const store = this.#store;
+    // A key that is not there stays not there: a cache would make it without an expiry.
+    return then(store.get(key), (current) =>
+      current === undefined ? 0 : store.increment(key, -amount),
+    );
   }
 
   /** Hits recorded for a key in the current window. */
@@ -316,8 +320,8 @@ export class RateLimiter {
    * so requests arriving together cannot all pass a check made before any of them was counted. A
    * blocked attempt is counted too, which does not extend the window.
    *
-   * Callback form: `attempt(key, max, callback, decaySeconds?)` runs the callback only when the
-   * attempt is allowed.
+   * Callback form: `attempt(key, max, callback, decaySeconds?)` checks `tooManyAttempts`, then counts
+   * a hit, then runs the callback; when the key is spent it runs nothing and counts nothing.
    */
   attempt(
     key: string,
@@ -328,8 +332,11 @@ export class RateLimiter {
     if (typeof decaySecondsOrCallback === "function") {
       const callback = decaySecondsOrCallback;
       return (async () => {
-        const hits = await this.hit(key, decaySeconds);
-        if (hits > maxAttempts) return this.#blocked(key, maxAttempts);
+        // Check, count, then run: a spent key runs nothing and is not counted again.
+        if (await this.tooManyAttempts(key, maxAttempts)) {
+          return this.#blocked(key, maxAttempts);
+        }
+        await this.hit(key, decaySeconds);
         return callback();
       })();
     }

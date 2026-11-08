@@ -115,20 +115,22 @@ export class DatabaseCacheStore implements CacheStore {
     await this.put(key, value);
   }
 
-  /** SET-if-absent for `Cache.add` (insert-only when missing). */
+  /**
+   * SET-if-absent for `Cache.add`, in one statement: insert the row, or take over a row that has
+   * expired. Of several callers adding together, the database lets exactly one through.
+   */
   async add(key: string, value: unknown, seconds?: number): Promise<boolean> {
-    if ((await this.#readRow(key)) !== undefined) return false;
     const k = this.#key(key);
     const payload = JSON.stringify(value);
-    const expiration =
-      seconds === undefined
-        ? 0
-        : Math.floor(Date.now() / 1000) + Math.max(0, seconds);
-    await this.#db.run(
-      `INSERT INTO ${this.#table} (key, value, expiration) VALUES (?, ?, ?)`,
-      [k, payload, expiration],
+    const now = Math.floor(Date.now() / 1000);
+    const expiration = seconds === undefined ? 0 : now + Math.max(0, seconds);
+    const written = await this.#db.get<{ key: string }>(
+      `INSERT INTO ${this.#table} (key, value, expiration) VALUES (?, ?, ?) ` +
+        `ON CONFLICT (key) DO UPDATE SET value = excluded.value, expiration = excluded.expiration ` +
+        `WHERE ${this.#table}.expiration <> 0 AND ${this.#table}.expiration <= ? RETURNING key`,
+      [k, payload, expiration, now],
     );
-    return true;
+    return written != null;
   }
 
   async forget(key: string): Promise<boolean> {
@@ -157,31 +159,54 @@ export class DatabaseCacheStore implements CacheStore {
     return (await this.get(key)) !== undefined;
   }
 
+  /**
+   * Add to a counter without losing a concurrent add. A whole-number counter is changed by the
+   * database in one statement (`SET value = value + n`), which keeps its expiry. A new key is
+   * inserted only if nobody beat us to it, and a value that is not a whole number (a decimal, an
+   * object) is swapped only if it is still what we read.
+   */
   async increment(key: string, value = 1): Promise<number> {
-    const row = await this.#readRow(key);
-    let current: unknown;
-    if (row) {
+    const k = this.#key(key);
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const now = Math.floor(Date.now() / 1000);
+      if (Number.isInteger(value)) {
+        try {
+          const changed = await this.#db.get<{ value: string }>(
+            `UPDATE ${this.#table} SET value = CAST(CAST(value AS BIGINT) + CAST(? AS BIGINT) AS TEXT) ` +
+              `WHERE key = ? AND (expiration = 0 OR expiration > ?) ` +
+              `AND value = CAST(CAST(value AS BIGINT) AS TEXT) RETURNING value`,
+            [value, k, now],
+          );
+          if (changed) return Number(changed.value);
+        } catch {
+          // a stored value that cannot be read as a whole number: handled below
+        }
+      }
+
+      const row = await this.#readRow(key);
+      if (!row) {
+        const inserted = await this.#db.get<{ key: string }>(
+          `INSERT INTO ${this.#table} (key, value, expiration) VALUES (?, ?, 0) ON CONFLICT (key) DO NOTHING RETURNING key`,
+          [k, JSON.stringify(value)],
+        );
+        if (inserted) return value;
+        continue; // somebody created it first: add to theirs
+      }
+
+      let current: unknown;
       try {
         current = JSON.parse(row.value);
       } catch {
         current = undefined;
       }
-    }
-    const next = counterBase(current) + value;
-    const payload = JSON.stringify(next);
-    const k = this.#key(key);
-    if (row) {
-      await this.#db.run(
-        `UPDATE ${this.#table} SET value = ? WHERE key = ?`,
-        [payload, k],
+      const next = counterBase(current) + value;
+      const swapped = await this.#db.get<{ key: string }>(
+        `UPDATE ${this.#table} SET value = ? WHERE key = ? AND value = ? RETURNING key`,
+        [JSON.stringify(next), k, row.value],
       );
-    } else {
-      await this.#db.run(
-        `INSERT INTO ${this.#table} (key, value, expiration) VALUES (?, ?, ?)`,
-        [k, payload, 0],
-      );
+      if (swapped) return next;
     }
-    return next;
+    throw new Error(`Could not increment cache key [${key}]: too many concurrent changes.`);
   }
 
   async decrement(key: string, value = 1): Promise<number> {
