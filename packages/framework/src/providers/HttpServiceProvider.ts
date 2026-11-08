@@ -3,7 +3,6 @@ import {
   RateLimiter,
   handleCors,
   registerRateLimitPresets,
-  secureHeaders,
   setCorsConfig,
   setRateLimiter,
   setTrustedProxies,
@@ -11,7 +10,6 @@ import {
   type CorsConfig,
   type Middleware,
   type RateLimiterCache,
-  type SecureHeadersConfig,
 } from "@bunyad/http";
 
 function hasAlias(layer: Middleware, alias: string): boolean {
@@ -35,12 +33,6 @@ export type HttpConfig = {
   trusted_proxies?: string[] | "*";
   /** Believe `X-Real-IP` when there is no `X-Forwarded-For`, for a proxy known to set it. Default: false. */
   trust_real_ip?: boolean;
-  /**
-   * Security headers on every response (`X-Content-Type-Options`, `Referrer-Policy`,
-   * `X-Frame-Options`, and `Strict-Transport-Security` over https). `false` switches them off;
-   * an object changes them (see `SecureHeadersConfig`). Default: on.
-   */
-  secure_headers?: SecureHeadersConfig | boolean;
 };
 
 /** `"10.0.0.0/8, ::1"` or `"*"` from an environment variable. */
@@ -77,10 +69,6 @@ export class HttpServiceProvider extends ServiceProvider {
     const stack = this.app.getMiddleware();
     const layers: Middleware[] = [];
     if (!stack.some((layer) => hasAlias(layer, "cors"))) layers.push(handleCors());
-    const secure = this.app.config.get<HttpConfig>("http")?.secure_headers;
-    if (secure !== false && !stack.some((layer) => hasAlias(layer, "secure-headers"))) {
-      layers.push(secureHeaders(typeof secure === "object" ? secure : undefined));
-    }
     if (layers.length > 0) this.app.middleware([...layers, ...stack]);
   }
 }

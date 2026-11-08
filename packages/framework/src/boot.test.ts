@@ -13,7 +13,6 @@ import {
   getTrustedProxies,
   handleCors,
   Request,
-  secureHeaders,
   setCorsConfig,
   setTrustedProxies,
 } from "@bunyad/http";
@@ -294,58 +293,26 @@ describe("HttpServiceProvider", () => {
     expect(getCorsConfig()).toMatchObject({ paths: ["api/*"], allowed_origins: ["https://a.test"] });
   });
 
-  test("boot puts cors, then the security headers, first in the global stack, exactly once", () => {
+  test("boot puts cors first in the global stack, exactly once", () => {
     const app = makeApp();
     const marker = { handle: (_r: unknown, next: () => Promise<Response>) => next() };
     app.middleware([marker as never]);
     new HttpServiceProvider(app).boot();
     const stack = app.getMiddleware();
-    expect(stack).toHaveLength(3);
+    expect(stack).toHaveLength(2);
     expect((stack[0] as { alias?: string }).alias).toBe("cors");
-    expect((stack[1] as { alias?: string }).alias).toBe("secure-headers");
-    expect(stack[2]).toBe(marker as never);
+    expect(stack[1]).toBe(marker as never);
 
     new HttpServiceProvider(app).boot();
-    expect(app.getMiddleware()).toHaveLength(3);
+    expect(app.getMiddleware()).toHaveLength(2);
   });
 
-  test("an app that already installed its own cors middleware keeps it, and still gets the security headers", () => {
+  test("an app that already installed its own cors middleware is left untouched", () => {
     const app = makeApp();
     const own = handleCors({ paths: ["x"] });
     app.middleware([own]);
     new HttpServiceProvider(app).boot();
-    const stack = app.getMiddleware();
-    expect((stack[0] as { alias?: string }).alias).toBe("secure-headers");
-    expect(stack[1]).toEqual(own);
-    expect(stack).toHaveLength(2);
-  });
-
-  test("an app that installed its own cors and security headers is left untouched", () => {
-    const app = makeApp();
-    const cors = handleCors({ paths: ["x"] });
-    const headers = secureHeaders({ preset: "api" });
-    app.middleware([cors, headers]);
-    new HttpServiceProvider(app).boot();
-    expect(app.getMiddleware()).toEqual([cors, headers]);
-  });
-
-  test("security headers can be switched off in config/http", () => {
-    const app = makeApp({ http: { secure_headers: false } });
-    new HttpServiceProvider(app).boot();
-    const stack = app.getMiddleware();
-    expect(stack).toHaveLength(1);
-    expect((stack[0] as { alias?: string }).alias).toBe("cors");
-  });
-
-  test("security headers take their settings from config/http", async () => {
-    const app = makeApp({ http: { secure_headers: { frameOptions: "DENY" } } });
-    new HttpServiceProvider(app).boot();
-    const layer = app.getMiddleware().find((l) => (l as { alias?: string }).alias === "secure-headers") as {
-      handle: Function;
-    };
-    const request = new Request(new globalThis.Request("http://localhost/"));
-    const response = (await layer.handle(request, async () => new Response("ok"))) as Response;
-    expect(response.headers.get("X-Frame-Options")).toBe("DENY");
+    expect(app.getMiddleware()).toEqual([own]);
   });
 
   test("boot shares rate limit state through the cache binding when present", () => {
