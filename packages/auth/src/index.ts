@@ -16,9 +16,7 @@ export {
 export { Hash, bcrypt, type HashOptions, type HashInfo } from "./hash.ts";
 export {
   Jwt,
-  JwtDenyList,
   type JwtAlgorithm,
-  type JwtDenyListCache,
   type JwtKeys,
   type JwtSignOptions,
   type JwtVerifyOptions,
@@ -148,5 +146,4 @@ export {
   setTwoFactorIssuer,
   type TwoFactorColumns,
   type TwoFactorAuthenticatableMethods,
-  type TotpReplayStore,
 } from "./two-factor.ts";

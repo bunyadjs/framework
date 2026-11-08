@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, test } from "bun:test";
-import { Jwt, JwtDenyList } from "./index.ts";
+import { Jwt } from "./index.ts";
 
 const KEY = "k".repeat(32);
 const now = () => Math.floor(Date.now() / 1000);
@@ -171,62 +171,6 @@ describe("Jwt.sign", () => {
   test("a key id goes in the header", () => {
     const token = Jwt.sign({}, KEY, { expiresIn: 60, keyId: "v2" });
     expect(JSON.parse(Buffer.from(token.split(".")[0]!, "base64url").toString()).kid).toBe("v2");
-  });
-});
-
-describe("JwtDenyList", () => {
-  function memoryCache() {
-    const data = new Map<string, { value: unknown; until: number | null }>();
-    return {
-      data,
-      async get<T>(key: string) {
-        const row = data.get(key);
-        if (!row) return undefined;
-        if (row.until !== null && row.until <= Date.now()) {
-          data.delete(key);
-          return undefined;
-        }
-        return row.value as T;
-      },
-      async put(key: string, value: unknown, seconds?: number) {
-        data.set(key, { value, until: seconds === undefined ? null : Date.now() + seconds * 1000 });
-      },
-    };
-  }
-
-  test("a revoked token is refused and others are not", async () => {
-    const list = new JwtDenyList(memoryCache());
-    await list.revoke("abc", now() + 600);
-    expect(await list.isRevoked("abc")).toBe(true);
-    expect(await list.isRevoked("other")).toBe(false);
-    await expect(list.assertNotRevoked({ jti: "abc" })).rejects.toThrow("revoked");
-    await expect(list.assertNotRevoked({ jti: "other" })).resolves.toBeUndefined();
-  });
-
-  test("a token without an id cannot be revoked, and is not mistaken for a revoked one", async () => {
-    const list = new JwtDenyList(memoryCache());
-    await expect(list.assertNotRevoked({})).resolves.toBeUndefined();
-    await expect(list.assertNotRevoked({ jti: 5 as never })).resolves.toBeUndefined();
-  });
-
-  test("an entry lives only as long as the token would have", async () => {
-    const cache = memoryCache();
-    const list = new JwtDenyList(cache);
-    await list.revoke("short", now() + 30);
-    const row = cache.data.get([...cache.data.keys()][0]!)!;
-    expect(row.until! - Date.now()).toBeLessThanOrEqual(31_000);
-    // a token that has already expired needs no entry
-    await list.revoke("gone", now() - 5);
-    expect(cache.data.size).toBe(1);
-  });
-
-  test("a key prefix keeps lists apart", async () => {
-    const cache = memoryCache();
-    const a = new JwtDenyList(cache, { prefix: "a:" });
-    const b = new JwtDenyList(cache, { prefix: "b:" });
-    await a.revoke("id", now() + 60);
-    expect(await a.isRevoked("id")).toBe(true);
-    expect(await b.isRevoked("id")).toBe(false);
   });
 });
 

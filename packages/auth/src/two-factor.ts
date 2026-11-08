@@ -82,34 +82,8 @@ export function generateRecoveryCode(): string {
   return `${chars.slice(0, 10)}-${chars.slice(10)}`;
 }
 
-/**
- * Remembers which authenticator codes were used, so one code can't be used twice.
- *
- * `claim` is called with a key made from the user's secret (a hash, never the secret) and the time
- * step the code belongs to; it returns true for the first caller and false for any later one. The
- * default store lives in this process, so it forgets on restart and does not know what another
- * server instance accepted. An app that runs several instances sets a shared store with
- * `TwoFactor.useReplayStore`, for example one that claims `${key}:${step}` with the cache's atomic
- * add (`cache.add(name, true, 120)`).
- */
-export type TotpReplayStore = {
-  claim(key: string, step: number): boolean | Promise<boolean>;
-};
-
-/** Last accepted time step per secret, in this process. */
-function memoryReplayStore(): TotpReplayStore {
-  const usedSteps = new Map<string, number>();
-  return {
-    claim(key, step) {
-      // no await between the check and the write, so two codes cannot both pass
-      if ((usedSteps.get(key) ?? -1) >= step) return false;
-      usedSteps.set(key, step);
-      return true;
-    },
-  };
-}
-
-let replayStore: TotpReplayStore = memoryReplayStore();
+/** Last accepted time step per secret, so a code can't be used twice. */
+const usedSteps = new Map<string, number>();
 
 /**
  * Enable, confirm, disable, and check two-factor authentication for a user
@@ -150,12 +124,9 @@ export const TwoFactor = {
     const step = verifyTotp(secret, code.replace(/\s/g, ""));
     if (step === false) return false;
     const key = createHash("sha256").update(secret).digest("hex");
-    return await replayStore.claim(key, step);
-  },
-
-  /** Where used authenticator codes are remembered; pass nothing to go back to the in-process default. */
-  useReplayStore(store?: TotpReplayStore): void {
-    replayStore = store ?? memoryReplayStore();
+    if ((usedSteps.get(key) ?? -1) >= step) return false;
+    usedSteps.set(key, step);
+    return true;
   },
 
   /** Accept a recovery code and swap it for a new one. */
