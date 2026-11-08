@@ -1232,15 +1232,6 @@ export class ModelQuery<
     return this.#extra((q) => void q.groupByRaw(raw.sql, raw.bindings));
   }
 
-  /**
-   * A join written out in full (`"INNER JOIN t ON t.a = x.a AND t.label = ?"`) with its bindings, or
-   * a `sql` fragment. It comes after the joins added with `join` / `leftJoin`.
-   */
-  joinRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
-    const raw = rawParts(sql, bindings);
-    return this.#extra((q) => void q.joinRaw(raw.sql, raw.bindings));
-  }
-
   /** `join` (hydrated models still from the base table). */
   join(table: string, first: string, op: string, second: string): this {
     this.#simple = false;

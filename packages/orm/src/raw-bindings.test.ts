@@ -168,18 +168,6 @@ describe.each(drivers.map((d) => [d.name, d] as const))("raw SQL with bindings (
     });
   });
 
-  describe("joinRaw", () => {
-    test("bindings are bound and keep their place before the where bindings", async () => {
-      const rows = await RbItem.newQuery()
-        .selectRaw("rb_items.id AS id, rb_items.name AS name")
-        .joinRaw("INNER JOIN rb_tags t ON t.item_id = rb_items.id AND t.label = ?", ["hot"])
-        .whereRaw("rb_items.qty >= ?", [16])
-        .orderByRaw("rb_items.id")
-        .get();
-      expect(ids(rows)).toEqual([4]);
-    });
-  });
-
   describe("a sql fragment is accepted by every raw method", () => {
     test("whereRaw, orWhereRaw, selectRaw, havingRaw", async () => {
       const where = await RbItem.newQuery()

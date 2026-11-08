@@ -5,7 +5,7 @@ import { escapeLike } from "@bunyad/common";
  *
  * Every value written into the `sql` template becomes a placeholder and travels in `bindings`, so
  * user text and ids never become part of the statement. Every raw method of the query builder
- * (`whereRaw`, `selectRaw`, `orderByRaw`, `groupByRaw`, `havingRaw`, `joinRaw`) accepts a fragment
+ * (`whereRaw`, `selectRaw`, `orderByRaw`, `groupByRaw`, `havingRaw`) accepts a fragment
  * in place of a string:
  *
  * ```ts

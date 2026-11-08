@@ -50,12 +50,10 @@ type JoinCondition = {
 };
 
 type Join = {
-  type: "inner" | "left" | "right" | "cross" | "raw";
+  type: "inner" | "left" | "right" | "cross";
   table: string;
   clauses?: JoinCondition[];
   bindings?: unknown[];
-  /** The whole join text, for `joinRaw`. */
-  sql?: string;
 };
 
 /** Chainable join callback builder (`on` / `orOn` / `where` / `orWhere`). */
@@ -918,16 +916,6 @@ export class QueryBuilder {
 
   crossJoin(table: string): this {
     this.#joins.push({ type: "cross", table });
-    return this;
-  }
-
-  /**
-   * A join written out in full (`"INNER JOIN t ON t.a = x.a AND t.label = ?"`), with its bindings,
-   * or a `sql` fragment. Joins keep the order they were added in.
-   */
-  joinRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
-    const raw = rawParts(sql, bindings);
-    this.#joins.push({ type: "raw", table: "", sql: raw.sql, bindings: raw.bindings });
     return this;
   }
 
@@ -2590,7 +2578,6 @@ export class QueryBuilder {
     const joinSql = this.#joins
       .map((j) => {
         if (j.bindings?.length) joinParams.push(...j.bindings);
-        if (j.type === "raw") return ` ${j.sql}`;
         if (j.type === "cross") return ` CROSS JOIN ${j.table}`;
         const kind =
           j.type === "left"

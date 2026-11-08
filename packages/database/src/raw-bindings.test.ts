@@ -58,17 +58,6 @@ describe.each(connections)("query builder raw bindings (%s)", (_name, c) => {
     expect((await grouped.get()).all()).toHaveLength(2);
   });
 
-  test("joinRaw keeps its place among joins and its bindings ahead of the where bindings", async () => {
-    const rows = await table("qbr_a")
-      .selectRaw("qbr_a.id AS id")
-      .join("qbr_b", "qbr_b.a_id", "=", "qbr_a.id")
-      .joinRaw("INNER JOIN qbr_b AS b2 ON b2.a_id = qbr_a.id AND b2.label = ?", ["x"])
-      .whereRaw("qbr_a.n >= ?", [2])
-      .orderByRaw("qbr_a.id")
-      .get();
-    expect(ids(rows.all())).toEqual([2]);
-  });
-
   test("a fragment and bindings together are refused, and a non-fragment object is too", () => {
     expect(() => table("qbr_a").whereRaw(sql`n > ${1}`, [2])).toThrow(/inside the sql/);
     expect(() => table("qbr_a").whereRaw({ nope: true } as never)).toThrow(/string or a sql/);
