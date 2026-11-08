@@ -23,6 +23,13 @@ export type PasswordTokenRepository = {
   /** Create and store a token; returns the plain-text token. */
   create(email: string): Promise<string>;
   exists(email: string, token: string): Promise<boolean>;
+  /**
+   * Use the token up: true for exactly one caller when `token` is valid and has not expired, false
+   * for every other (a second request with the same link, a wrong token, an expired one). Must be
+   * atomic, so that two requests arriving together cannot both succeed. A store without it falls
+   * back to `exists` then `delete`, which can let both through.
+   */
+  consume?(email: string, token: string): Promise<boolean>;
   delete(email: string): Promise<void>;
   recentlyCreatedToken(email: string): Promise<boolean>;
 };
@@ -108,6 +115,19 @@ export class MemoryPasswordTokenRepository implements PasswordTokenRepository {
     return hashTokensEqual(row.token, token);
   }
 
+  async consume(email: string, token: string): Promise<boolean> {
+    // No await between the check and the delete, so no other request can run in between.
+    const row = this.#rows.get(email.toLowerCase());
+    if (!row) return false;
+    if (Math.floor(Date.now() / 1000) - row.created_at > this.#expireSeconds) {
+      this.#rows.delete(email.toLowerCase());
+      return false;
+    }
+    if (!hashTokensEqual(row.token, token)) return false;
+    this.#rows.delete(email.toLowerCase());
+    return true;
+  }
+
   async delete(email: string): Promise<void> {
     this.#rows.delete(email.toLowerCase());
   }
@@ -188,6 +208,19 @@ export class DatabasePasswordTokenRepository implements PasswordTokenRepository 
     return hashTokensEqual(row.token, token);
   }
 
+  /**
+   * One statement removes the row only when the hashed token matches and it is still fresh, and
+   * says whether it did: of two requests with the same link, the database lets one delete it.
+   */
+  async consume(email: string, token: string): Promise<boolean> {
+    const cutoff = Math.floor(Date.now() / 1000) - this.#expireSeconds;
+    const row = await this.#db.get<{ email: string }>(
+      `DELETE FROM ${this.#table} WHERE email = ? AND token = ? AND created_at >= ? RETURNING email`,
+      [email.toLowerCase(), hashToken(token), cutoff],
+    );
+    return row != null;
+  }
+
   async delete(email: string): Promise<void> {
     await this.#db.run(`DELETE FROM ${this.#table} WHERE email = ?`, [
       email.toLowerCase(),
@@ -252,6 +285,14 @@ export class PasswordBroker {
     const { email, password } = credentials;
     const user = await this.#retrieveByCredentials(email);
     if (!user) return INVALID_USER;
+
+    // Claim the link before applying the password: of two requests with the same link only one gets
+    // here. If applying then fails the link is spent and a new one has to be requested.
+    if (this.#tokens.consume) {
+      if (!(await this.#tokens.consume(email, credentials.token))) return INVALID_TOKEN;
+      await callback(user, password);
+      return PASSWORD_RESET;
+    }
 
     await callback(user, password);
     await this.#tokens.delete(email);
