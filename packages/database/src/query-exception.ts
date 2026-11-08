@@ -66,6 +66,11 @@ export class QueryException extends Error {
   declare readonly bindings: unknown[];
   readonly sqlState: string | null;
 
+  /** The values bound to the statement (also `error.bindings`). */
+  getBindings(): unknown[] {
+    return this.bindings;
+  }
+
   constructor(message: string, options: QueryExceptionOptions = {}) {
     const sqlState = options.sqlState ?? sqlStateOf(options.cause);
     const sql = options.sql ?? "";

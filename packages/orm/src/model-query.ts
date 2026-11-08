@@ -1225,8 +1225,7 @@ export class ModelQuery<
 
   /** `groupByRaw($sql, $bindings)`. */
   groupByRaw(sql: string, bindings: unknown[] = []): this {
-    const raw = { sql, bindings };
-    return this.#extra((q) => void q.groupByRaw(raw.sql, raw.bindings));
+    return this.#extra((q) => void q.groupByRaw(sql, bindings));
   }
 
   /** `join` (hydrated models still from the base table). */
@@ -1508,15 +1507,13 @@ export class ModelQuery<
 
   whereRaw(sql: string, bindings: unknown[] = []): this {
     this.#simple = false;
-    const raw = { sql, bindings };
-    (this.#whereRaws = mqMut(this.#whereRaws)).push({ seq: nextWhereSeq(), sql: raw.sql, bindings: raw.bindings, boolean: "and" });
+    (this.#whereRaws = mqMut(this.#whereRaws)).push({ seq: nextWhereSeq(), sql, bindings, boolean: "and" });
     return this;
   }
 
   orWhereRaw(sql: string, bindings: unknown[] = []): this {
     this.#simple = false;
-    const raw = { sql, bindings };
-    (this.#whereRaws = mqMut(this.#whereRaws)).push({ seq: nextWhereSeq(), sql: raw.sql, bindings: raw.bindings, boolean: "or" });
+    (this.#whereRaws = mqMut(this.#whereRaws)).push({ seq: nextWhereSeq(), sql, bindings, boolean: "or" });
     return this;
   }
 
@@ -1630,8 +1627,7 @@ export class ModelQuery<
 
   selectRaw(expression: string, bindings: unknown[] = []): this {
     this.#simple = false;
-    const raw = { sql: expression, bindings };
-    (this.#selectRaws = mqMut(this.#selectRaws)).push({ expression: raw.sql, bindings: raw.bindings });
+    (this.#selectRaws = mqMut(this.#selectRaws)).push({ expression, bindings });
     return this;
   }
 
@@ -1650,12 +1646,11 @@ export class ModelQuery<
     return this.orderBy(column, "desc");
   }
 
-  /** `orderByRaw($sql, $bindings)`, or a `sql` fragment. */
+  /** `orderByRaw($sql, $bindings)`. */
   orderByRaw(sql: string, bindings: unknown[] = []): this {
     this.#simple = false;
-    const raw = { sql, bindings };
     (this.#orders = mqMut(this.#orders)).push(
-      raw.bindings.length > 0 ? { raw: raw.sql, bindings: raw.bindings } : { raw: raw.sql },
+      bindings.length > 0 ? { raw: sql, bindings } : { raw: sql },
     );
     return this;
   }
@@ -1699,8 +1694,7 @@ export class ModelQuery<
 
   havingRaw(sql: string, bindings: unknown[] = []): this {
     this.#simple = false;
-    const raw = { sql, bindings };
-    (this.#havingRaws = mqMut(this.#havingRaws)).push({ sql: raw.sql, bindings: raw.bindings });
+    (this.#havingRaws = mqMut(this.#havingRaws)).push({ sql, bindings });
     return this;
   }
 
@@ -3888,7 +3882,6 @@ export class ModelQuery<
     cursor: string | null = null,
     options: { path?: string; cursorName?: string } = {},
   ): Promise<CursorPaginator<T>> {
-    // The model's limit is applied here, so the query builder must not apply its own on top.
     const page = await this.#buildQuery().cursorPaginate(
       perPage,
       cursor,

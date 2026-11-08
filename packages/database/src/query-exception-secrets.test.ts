@@ -14,6 +14,7 @@ test("bound values stay out of logs and serialised errors, but stay readable for
   expect(error.message).not.toContain("s3cret-password-hash");
 
   expect(error.bindings).toEqual(["s3cret-password-hash"]);
+  expect(error.getBindings()).toEqual(["s3cret-password-hash"]);
   expect(error.sql).toBe("INSERT INTO users (password) VALUES (?)");
 });
 

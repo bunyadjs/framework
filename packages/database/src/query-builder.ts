@@ -217,12 +217,11 @@ export class QueryBuilder {
     return this;
   }
 
-  /** `selectRaw($expression, $bindings)`, or a `sql` fragment. */
+  /** `selectRaw($expression, $bindings)`. */
   selectRaw(expression: string, bindings: unknown[] = []): this {
-    const raw = { sql: expression, bindings };
     this.#columns = this.#columns ?? [];
-    this.#columns.push(raw.sql);
-    this.#selectBindings.push(...raw.bindings);
+    this.#columns.push(expression);
+    this.#selectBindings.push(...bindings);
     return this;
   }
 
@@ -544,23 +543,21 @@ export class QueryBuilder {
   }
 
   whereRaw(sql: string, bindings: unknown[] = []): this {
-    const raw = { sql, bindings };
     this.#wheres.push({
       boolean: "and",
       type: "raw",
-      sql: raw.sql,
-      params: raw.bindings,
+      sql,
+      params: bindings,
     });
     return this;
   }
 
   orWhereRaw(sql: string, bindings: unknown[] = []): this {
-    const raw = { sql, bindings };
     this.#wheres.push({
       boolean: "or",
       type: "raw",
-      sql: raw.sql,
-      params: raw.bindings,
+      sql,
+      params: bindings,
     });
     return this;
   }
@@ -1197,10 +1194,9 @@ export class QueryBuilder {
     return this.orderBy(column, "desc");
   }
 
-  /** `orderByRaw($sql, $bindings)`, or a `sql` fragment. */
+  /** `orderByRaw($sql, $bindings)`. */
   orderByRaw(sql: string, bindings: unknown[] = []): this {
-    const raw = { sql, bindings };
-    this.#orders.push({ raw: raw.sql, rawBindings: raw.bindings });
+    this.#orders.push({ raw: sql, rawBindings: bindings });
     return this;
   }
 
@@ -1241,11 +1237,10 @@ export class QueryBuilder {
     return this;
   }
 
-  /** `groupByRaw($sql, $bindings)`, or a `sql` fragment. */
+  /** `groupByRaw($sql, $bindings)`. */
   groupByRaw(sql: string, bindings: unknown[] = []): this {
-    const raw = { sql, bindings };
-    this.#groups.push(raw.sql);
-    this.#groupBindings.push(...raw.bindings);
+    this.#groups.push(sql);
+    this.#groupBindings.push(...bindings);
     return this;
   }
 
@@ -1268,14 +1263,12 @@ export class QueryBuilder {
   }
 
   havingRaw(sql: string, bindings: unknown[] = []): this {
-    const raw = { sql, bindings };
-    this.#havings.push({ type: "raw", boolean: "and", sql: raw.sql, params: raw.bindings });
+    this.#havings.push({ type: "raw", boolean: "and", sql, params: bindings });
     return this;
   }
 
   orHavingRaw(sql: string, bindings: unknown[] = []): this {
-    const raw = { sql, bindings };
-    this.#havings.push({ type: "raw", boolean: "or", sql: raw.sql, params: raw.bindings });
+    this.#havings.push({ type: "raw", boolean: "or", sql, params: bindings });
     return this;
   }
 
@@ -1946,7 +1939,7 @@ export class QueryBuilder {
     pageName?: string,
     page?: number,
   ): Promise<Paginator<Record<string, unknown>>>;
-  /** Backward-compatible Bunyad shape: `simplePaginate(perPage, page, options)`. Limited like `paginate`. */
+  /** Backward-compatible Bunyad shape: `simplePaginate(perPage, page, options)`. */
   async simplePaginate(
     perPage?: number,
     page?: number,
@@ -1990,7 +1983,7 @@ export class QueryBuilder {
     cursorName?: string,
     cursor?: string | null,
   ): Promise<CursorPaginator<Record<string, unknown>>>;
-  /** Backward-compatible Bunyad shape: `cursorPaginate(perPage, cursor, options)`. Limited like `paginate`. */
+  /** Backward-compatible Bunyad shape: `cursorPaginate(perPage, cursor, options)`. */
   async cursorPaginate(
     perPage?: number,
     cursor?: string | null,
