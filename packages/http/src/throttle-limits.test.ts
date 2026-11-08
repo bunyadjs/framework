@@ -2,7 +2,10 @@ import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import { Limit, RateLimiter, Request, throttle } from "./index.ts";
 
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 
 function from(ip: string): Request {
   const request = new Request(new globalThis.Request("http://localhost/login"));
@@ -58,7 +61,9 @@ describe("a named limiter that returns several limits", () => {
 
   test("the response reports the tightest limit", async () => {
     const { mw } = limited();
-    const response = await mw.handle(from("10.0.0.1"), async () => json({ ok: true }));
+    const response = await mw.handle(from("10.0.0.1"), async () =>
+      json({ ok: true }),
+    );
     // 2 per client and 3 shared: after one request the client has 1 left, the shared limit has 2.
     expect(response.headers.get("X-RateLimit-Remaining")).toBe("1");
     expect(response.headers.get("X-RateLimit-Limit")).toBe("2");
@@ -68,8 +73,12 @@ describe("a named limiter that returns several limits", () => {
     const limiter = new RateLimiter();
     limiter.for("mixed", () => [Limit.none(), Limit.perMinute(1).by("k")]);
     const mw = throttle("mixed", 1, { limiter });
-    expect((await mw.handle(from("10.0.0.1"), async () => json({}))).status).toBe(200);
-    expect((await mw.handle(from("10.0.0.1"), async () => json({}))).status).toBe(429);
+    expect(
+      (await mw.handle(from("10.0.0.1"), async () => json({}))).status,
+    ).toBe(200);
+    expect(
+      (await mw.handle(from("10.0.0.1"), async () => json({}))).status,
+    ).toBe(429);
   });
 
   test("a custom blocked response is used", async () => {
@@ -99,65 +108,70 @@ describe("rate headers", () => {
   });
 
   test("are added to a response that cannot be changed, by copying it", async () => {
-    const response = await mw.handle(from("10.0.0.1"), async () => Response.redirect("https://example.test/next", 302));
+    const response = await mw.handle(from("10.0.0.1"), async () =>
+      Response.redirect("https://example.test/next", 302),
+    );
     expect(response.status).toBe(302);
     expect(response.headers.get("X-RateLimit-Limit")).toBe("5");
   });
 
   test("the body of the handler's response is untouched", async () => {
-    const response = await mw.handle(from("10.0.0.1"), async () => json({ hello: "world" }));
+    const response = await mw.handle(from("10.0.0.1"), async () =>
+      json({ hello: "world" }),
+    );
     expect(await response.json()).toEqual({ hello: "world" });
   });
 });
 
 describe("limit keys", () => {
-  test("by() takes several parts and joins them", () => {
-    expect(Limit.perMinute(5).by("a@b.co", "10.0.0.1").key).toBe("a@b.co|10.0.0.1");
+  test("by() sets the key", () => {
     expect(Limit.perMinute(5).by("single").key).toBe("single");
     expect(Limit.perMinute(5).by(42).key).toBe("42");
   });
 });
 
-describe("memory", () => {
-  test("the number of remembered keys stays under the limit however many distinct keys arrive", () => {
-    const limiter = new RateLimiter({ maxKeys: 1_000 });
-    for (let i = 0; i < 20_000; i += 1) limiter.attempt(`ip:${i}`, 5, 60);
-    expect(limiter.size).toBeLessThanOrEqual(1_000);
-    expect(limiter.size).toBeGreaterThan(0);
-  });
-
-  test("by default the limit is 100,000 keys", () => {
+describe("process-local counters", () => {
+  test("counting is by key, and a blocked attempt is counted without moving the window", () => {
     const limiter = new RateLimiter();
-    for (let i = 0; i < 100_500; i += 1) limiter.attempt(`ip:${i}`, 5, 60);
-    expect(limiter.size).toBeLessThanOrEqual(100_000);
-  });
-
-  test("keys that have run out are dropped first, and keys in use survive a flood", () => {
-    setSystemTime(new Date("2026-01-01T00:00:00Z"));
-    const limiter = new RateLimiter({ maxKeys: 100 });
-    // An early client is blocked.
-    for (let i = 0; i < 5; i += 1) limiter.attempt("blocked-client", 5, 3600);
-    expect((limiter.attempt("blocked-client", 5, 3600) as { allowed: boolean }).allowed).toBe(false);
-    // A flood of one-off short-lived keys arrives later.
-    setSystemTime(new Date("2026-01-01T00:10:00Z"));
-    for (let i = 0; i < 2_000; i += 1) limiter.attempt(`flood:${i}`, 5, 1);
-    setSystemTime(new Date("2026-01-01T00:20:00Z"));
-    for (let i = 0; i < 2_000; i += 1) limiter.attempt(`flood2:${i}`, 5, 1);
-    expect(limiter.size).toBeLessThanOrEqual(100);
-    // The blocked client is still blocked: expired one-off keys were dropped before it.
-    expect((limiter.attempt("blocked-client", 5, 3600) as { allowed: boolean }).allowed).toBe(false);
-  });
-
-  test("counting is unchanged", () => {
-    const limiter = new RateLimiter({ maxKeys: 50 });
-    const results = Array.from({ length: 4 }, () => limiter.attempt("k", 3, 60) as { allowed: boolean });
+    const results = Array.from(
+      { length: 4 },
+      () => limiter.attempt("k", 3, 60) as { allowed: boolean },
+    );
     expect(results.map((r) => r.allowed)).toEqual([true, true, true, false]);
+    expect(limiter.attempts("k")).toBe(4);
+    expect(limiter.attempts("other")).toBe(0);
+  });
+
+  test("a key whose window has ended counts as new", () => {
+    setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    const limiter = new RateLimiter();
+    for (let i = 0; i < 5; i += 1) limiter.attempt("blocked-client", 5, 60);
+    expect(
+      (limiter.attempt("blocked-client", 5, 60) as { allowed: boolean })
+        .allowed,
+    ).toBe(false);
+    setSystemTime(new Date("2026-01-01T00:01:01Z"));
+    expect(limiter.attempts("blocked-client")).toBe(0);
+    expect(
+      (limiter.attempt("blocked-client", 5, 60) as { allowed: boolean })
+        .allowed,
+    ).toBe(true);
+  });
+
+  test("keys that are never asked for again are swept out as new ones arrive", () => {
+    setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    const limiter = new RateLimiter();
+    for (let i = 0; i < 3_000; i += 1) limiter.attempt(`ip:${i}`, 5, 1);
+    setSystemTime(new Date("2026-01-01T01:00:00Z"));
+    for (let i = 0; i < 3_000; i += 1) limiter.attempt(`later:${i}`, 5, 1);
+    // an old key is simply new again
+    expect(limiter.attempts("ip:0")).toBe(0);
   });
 
   test("flush forgets everything", () => {
     const limiter = new RateLimiter();
     limiter.attempt("a", 5, 60);
     limiter.flush();
-    expect(limiter.size).toBe(0);
+    expect(limiter.attempts("a")).toBe(0);
   });
 });

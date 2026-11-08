@@ -1367,33 +1367,72 @@ test("response download file and noContent", async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-test("RateLimiter shares counters via Cache.use (multi-worker)", async () => {
+/** A cache like the real one: entries expire, and `add` and `increment` happen in one step. */
+function memoryCache() {
   const data = new Map<string, { value: unknown; expiresAt?: number }>();
-  const backend = {
+  const live = (key: string) => {
+    const row = data.get(key);
+    if (row && row.expiresAt !== undefined && Date.now() >= row.expiresAt) {
+      data.delete(key);
+      return undefined;
+    }
+    return row;
+  };
+  return {
     async get<T>(key: string): Promise<T | undefined> {
-      const row = data.get(key);
-      if (!row) return undefined;
-      if (row.expiresAt !== undefined && Date.now() >= row.expiresAt) {
-        data.delete(key);
-        return undefined;
-      }
-      return row.value as T;
+      return live(key)?.value as T | undefined;
     },
     async put(key: string, value: unknown, seconds?: number): Promise<void> {
-      data.set(key, {
-        value,
-        expiresAt:
-          seconds !== undefined ? Date.now() + seconds * 1000 : undefined,
-      });
+      data.set(key, { value, expiresAt: seconds !== undefined ? Date.now() + seconds * 1000 : undefined });
+    },
+    async add(key: string, value: unknown, seconds?: number): Promise<boolean> {
+      if (live(key)) return false;
+      data.set(key, { value, expiresAt: seconds !== undefined ? Date.now() + seconds * 1000 : undefined });
+      return true;
+    },
+    async increment(key: string, amount = 1): Promise<number> {
+      const row = live(key);
+      const next = Number(row?.value ?? 0) + amount;
+      data.set(key, { value: next, expiresAt: row?.expiresAt });
+      return next;
     },
     async forget(key: string): Promise<boolean> {
       return data.delete(key);
     },
   };
+}
+
+test("RateLimiter shares counters via Cache.use (multi-worker)", async () => {
+  const backend = memoryCache();
   const a = new RateLimiter().use(backend);
   const b = new RateLimiter().use(backend);
   await a.hit("shared-key", 60);
   expect(await b.attempts("shared-key")).toBe(1);
+});
+
+test("RateLimiter workers on one cache never lose a hit, however many arrive together", async () => {
+  const backend = memoryCache();
+  const workers = [new RateLimiter().use(backend), new RateLimiter().use(backend), new RateLimiter().use(backend)];
+  await Promise.all(Array.from({ length: 90 }, (_, i) => workers[i % 3]!.hit("busy", 60)));
+  expect(await workers[0]!.attempts("busy")).toBe(90);
+
+  // and the limit is exact however many attempts arrive together
+  const results = (await Promise.all(
+    Array.from({ length: 200 }, (_, i) => workers[i % 3]!.attempt("capped", 5, 60)),
+  )) as RateLimitResult[];
+  expect(results.filter((r) => r.allowed)).toHaveLength(5);
+  expect(results.filter((r) => !r.allowed)).toHaveLength(195);
+  expect(await workers[1]!.tooManyAttempts("capped", 5)).toBe(true);
+});
+
+test("RateLimiter first hits that start a window together all count", async () => {
+  const backend = memoryCache();
+  const workers = [new RateLimiter().use(backend), new RateLimiter().use(backend)];
+  const counts = await Promise.all(
+    Array.from({ length: 40 }, (_, i) => workers[i % 2]!.hit("fresh", 60)),
+  );
+  expect([...counts].sort((a, b) => Number(a) - Number(b))).toEqual(Array.from({ length: 40 }, (_, i) => i + 1));
+  expect(await workers[0]!.attempts("fresh")).toBe(40);
 });
 
 test("RateLimiter process-local Map when Cache is not bound", () => {
@@ -1448,31 +1487,31 @@ test("Limit.after counts only matching responses and blocks before the handler o
   expect(handled).toBe(before);
 });
 
-test("RateLimiter slides: no 2x burst across a window boundary", () => {
+test("RateLimiter counts in a fixed window that starts on the first hit", () => {
   const realNow = Date.now;
   let now = 1_000_000;
   Date.now = () => now;
   try {
     const limiter = new RateLimiter();
-    const hit = () => limiter.attempt("burst", 5, 60) as RateLimitResult;
+    const hit = () => limiter.attempt("window", 5, 60) as RateLimitResult;
 
-    // Spend the whole limit; the window opens on the first hit.
     for (let i = 0; i < 5; i++) expect(hit().allowed).toBe(true);
+    const blocked = hit();
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.retryAfter).toBeGreaterThan(0);
+    expect(blocked.retryAfter).toBeLessThanOrEqual(60);
+    // a blocked attempt is counted, and does not move the end of the window
+    expect(limiter.attempts("window")).toBe(6);
+
+    // still inside the window
+    now += 59_000;
     expect(hit().allowed).toBe(false);
 
-    // A fixed window would reset here and allow 5 more immediately.
-    now += 61_000;
-    expect(hit().allowed).toBe(false);
-
-    // Capacity returns gradually as the previous window's weight decays.
-    now += 12_000;
+    // the window ends and the count starts again
+    now += 2_000;
+    expect(limiter.attempts("window")).toBe(0);
     expect(hit().allowed).toBe(true);
-    expect(hit().allowed).toBe(false);
-
-    // A full idle window clears everything.
-    now += 120_000;
-    expect(limiter.attempts("burst")).toBe(0);
-    expect(hit().allowed).toBe(true);
+    expect(limiter.attempts("window")).toBe(1);
   } finally {
     Date.now = realNow;
   }
