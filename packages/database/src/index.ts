@@ -28,6 +28,7 @@ export {
 } from "./read-write-connection.ts";
 export { afterCommit } from "./after-commit.ts";
 export { sql, isSqlFragment, rawParts, type SqlFragment } from "./sql.ts";
+export { Counter, type CounterConnection, type CounterOptions } from "./counter.ts";
 export {
   createTransactionApi,
   isRetryableTransactionError,
