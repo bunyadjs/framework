@@ -2,18 +2,41 @@
 
 All `@bunyad/*` packages and `create-bunyad` share one version number and are released together. See [docs/STABILITY.md](docs/STABILITY.md) for what each stage promises and [docs/UPGRADING.md](docs/UPGRADING.md) for how to move between releases.
 
-## Unreleased
+## 0.2.0-beta.4
+
+Published under the `beta` npm tag. A security and correctness release for the HTTP, auth, cache, validation and database packages. Several behaviours changed; the steps are in [docs/UPGRADING.md](docs/UPGRADING.md).
+
+### Security
+
+- **`request.ip()` believes only what a trusted proxy wrote.** It walks `X-Forwarded-For` from the right and skips trusted proxies, so entries the client wrote on the left are never used. `trusted_proxies` (or `TRUSTED_PROXIES`) takes exact addresses, `10.0.0.` prefixes and CIDR ranges, IPv4 and IPv6, and is compiled once (20,000 lookups against 200 ranges: 3,207 ms to 47 ms). `X-Real-IP` is never believed. One client has one spelling of its address, so varying it cannot give a client extra rate-limit keys.
+- **A password reset link works once, even when requests arrive together.** Five simultaneous resets with one link all used to apply. Expired links are removed whenever a new one is made.
+- **A recovery code is single-use under concurrency**, by a compare-and-swap on the stored list.
+- **`Jwt.decode` refuses an `exp` or `nbf` that is not a number.** A text expiry such as `"tomorrow"` used to be ignored, so the token never expired. A token that is not valid yet is refused.
+- **Uploads are judged by their bytes.** `image`, `mimes` and the new `mimetypes` rule read the file, not the type or name the sender gave; `image` refuses SVG unless `image:allow_svg`. `mimes` accepts every name a container type can carry (a ZIP as `docx` or `xlsx`, old office files, MP4-family files), detects MP3 without a tag, QuickTime, M4A and HEIC, and no longer reads a CSV that starts with `BM` as a BMP.
+- **`hashEquals`** in `@bunyad/common` compares two secrets in constant time. One-time codes, recovery codes and the remember-me value use it.
+- **Bound values stay out of logs.** `QueryException.bindings` is not enumerable, so logging or serialising the error does not print passwords or tokens; `getBindings()` reads them.
 
 ### Fixed
 
+- **Rate limiting.** A named limiter that returned several limits applied only the first; all are applied now. Counting is in fixed windows on the cache (a counter and a window timer per key), the response headers are added in place with no `Response` copy, and `attempt(key, max, decay)` records the hit first so simultaneous requests cannot all pass a check made before any was counted.
+- **Redis cache store.** `add` is one `SET … EX … NX` and `increment` is one `INCRBY`. `increment` used to read, add and write back (300 increments from three connections produced a count of 1), and `add` could leave a key with no expiry.
+- **Database cache store.** `add` and `increment` are single atomic statements; forty simultaneous attempts used to throw on a unique key. The file store is documented as single-process. `decrement` no longer creates a key that is not there.
+- **Raw query methods bind their values.** `orderByRaw` and `groupByRaw` dropped theirs (SQLite silently ordered wrongly, PostgreSQL raised `there is no parameter $1`); `whereRaw`, `orWhereRaw`, `selectRaw`, `orderBySql` and `havingRaw` bind too, in statement order.
+- **SQLite column types.** `decimal` is `NUMERIC` and `float` and `double` are `REAL` (they were `TEXT`), so comparing, `ORDER BY`, `MAX`, `MIN` and `BETWEEN` work by value. Existing tables keep their column types until rebuilt.
 - **Views: a child view's sections and pushes now reach the layout wherever it prints them.** The child renders first, as in Laravel, and its sections are read by `@yield` in the layout, in a partial the layout includes and in a component. Before, `@yield` only worked in the layout's own source, so a `scripts` or `styles` partial included by the layout printed nothing; a `@push` written outside a `@section` was dropped without a message; and a `@stack` in `<head>` could not receive a push from the page. Text a child writes outside its sections is still not printed. `@section('title', 'Users')` sets a short section. `resolveLayouts()` now returns the child's sections and pushes followed by the layout, with `@yield` resolved when the view renders.
 - **Views: `@stack` prints what was pushed anywhere in the render.** It printed only what had been pushed before it, so a partial included after the stack could not add to it. Stacks are now filled when the render ends, as in Laravel. `@prepend` still goes first.
 - **A public page can tell who is signed in.** `request.user` was only set by the `auth` and `guest` middleware, so `@auth` on a page outside them, such as the Views, Live and SaaS welcome pages, always showed the guest branch. `@bunyad/auth` exports `optionalAuth()`, which loads the user if there is one and lets guests through, and those three starters have it in their `web` group.
 
 ### Added
 
+- **`cache.headers` middleware.** `cache.headers:no_store`, `cache.headers:public;max_age=300;etag` and the other options (`private`, `s_maxage`, `must_revalidate`, `no_cache`, `immutable`, `stale_while_revalidate`, …). It changes only `GET` and `HEAD` responses that have a body; with `etag` it answers `304` when the request already has the tag.
+- **`QueryException.getBindings()`.**
 - **Views: `@for`.** `@for (i = 0; i < 10; i++)` … `@endfor` loops with a counter, as in Blade. It printed as plain text before, with no error.
 - **Views: Laravel's escapes for front-end `{{ }}`.** `@{{ name }}` and `@{!! html !!}` print the braces and what is inside as they are, and `@verbatim … @endverbatim` leaves a block uncompiled. `@stop` ends a `@section` like `@endsection`. `@bunyad/view` exports `withStacks`, which compiled views call.
+
+### Changed
+
+- **`UploadedFile.getMimeType()`, `guessExtension()` and `extension()` read the file's bytes and are async**, returning a string or `null` when the bytes name no type. `getClientMimeType()` and `getClientOriginalExtension()` are what the sender said. They returned the sender's values before.
 
 ## 0.2.0-beta.3
 
