@@ -68,21 +68,40 @@ describe("handleCors", () => {
 
 test("routeMayMatch is conservative: a {param} segment could be anything", async () => {
   const { handleCors } = await import("./cors.ts");
-  const cors = handleCors({ paths: ["api/*", "auth/csrf-cookie"] }) as { appliesTo: (r: { uri: string }) => boolean };
+  const cors = handleCors({ paths: ["api/*", "auth/csrf-cookie"] }) as {
+    appliesTo: (r: { uri: string }) => boolean;
+  };
   expect(cors.appliesTo({ uri: "/api/users/{id}" })).toBe(true);
   expect(cors.appliesTo({ uri: "/api" })).toBe(true);
   expect(cors.appliesTo({ uri: "/auth/csrf-cookie" })).toBe(true);
   expect(cors.appliesTo({ uri: "/{tenant}/orders" })).toBe(true);
   expect(cors.appliesTo({ uri: "/users/{id}" })).toBe(false);
   expect(cors.appliesTo({ uri: "/" })).toBe(false);
-  expect((handleCors({ paths: [] }) as { appliesTo: (r: { uri: string }) => boolean }).appliesTo({ uri: "/api/x" })).toBe(false);
-  expect((handleCors({ paths: ["*"] }) as { appliesTo: (r: { uri: string }) => boolean }).appliesTo({ uri: "/anything" })).toBe(true);
+  expect(
+    (
+      handleCors({ paths: [] }) as {
+        appliesTo: (r: { uri: string }) => boolean;
+      }
+    ).appliesTo({ uri: "/api/x" }),
+  ).toBe(false);
+  expect(
+    (
+      handleCors({ paths: ["*"] }) as {
+        appliesTo: (r: { uri: string }) => boolean;
+      }
+    ).appliesTo({ uri: "/anything" }),
+  ).toBe(true);
 });
 
 // --- safe defaults, origin matching, Vary -----------------------------------------------------
 
 import { afterEach } from "bun:test";
-import { applyCors, corsPreflight, getCorsConfig, isOriginAllowed } from "./cors.ts";
+import {
+  applyCors,
+  corsPreflight,
+  getCorsConfig,
+  isOriginAllowed,
+} from "./cors.ts";
 
 afterEach(() => setCorsConfig(undefined));
 
@@ -103,50 +122,54 @@ async function run(
   ) as Response;
 }
 
-describe("safe defaults", () => {
-  test("with no configuration no origin is allowed", async () => {
+describe("defaults", () => {
+  test("with no configuration any origin is allowed on api paths, without credentials", async () => {
     setCorsConfig(undefined);
-    const response = await run("GET", "https://evil.example");
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    const response = await run("GET", "https://app.test");
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(response.headers.get("Access-Control-Allow-Credentials")).toBeNull();
-    const preflight = await run("OPTIONS", "https://evil.example");
-    expect(preflight.status).toBe(403);
+    // other paths are left alone
+    const other = await run(
+      "GET",
+      "https://app.test",
+      undefined,
+      "http://localhost/page",
+    );
+    expect(other.headers.get("Access-Control-Allow-Origin")).toBeNull();
   });
 
-  test("a wildcard origin together with credentials is refused when the config is set", () => {
-    expect(() => setCorsConfig({ allowed_origins: ["*"], supports_credentials: true })).toThrow(
-      /credentials/i,
-    );
-    expect(() => handleCors({ allowed_origins: ["*"], supports_credentials: true })).toThrow(
-      /credentials/i,
-    );
-    // The same wildcard without credentials is fine.
-    expect(() => setCorsConfig({ allowed_origins: ["*"] })).not.toThrow();
-    // A wildcard mixed into a pattern list is a pattern, not "any origin".
-    expect(() =>
-      setCorsConfig({ allowed_origins: ["https://*.example.com"], supports_credentials: true }),
-    ).not.toThrow();
-  });
-
-  test("preflight answers are cached for 600 seconds unless configured", async () => {
-    const response = await run("OPTIONS", "https://app.test", { allowed_origins: ["https://app.test"] });
-    expect(response.headers.get("Access-Control-Max-Age")).toBe("600");
+  test("preflight answers are not cached unless max_age is set", async () => {
     const none = await run("OPTIONS", "https://app.test", {
       allowed_origins: ["https://app.test"],
-      max_age: 0,
     });
     expect(none.headers.get("Access-Control-Max-Age")).toBeNull();
+    const cached = await run("OPTIONS", "https://app.test", {
+      allowed_origins: ["https://app.test"],
+      max_age: 600,
+    });
+    expect(cached.headers.get("Access-Control-Max-Age")).toBe("600");
   });
 });
 
 describe("Vary: Origin", () => {
-  const config = { allowed_origins: ["https://app.test"], supports_credentials: true };
+  const config = {
+    allowed_origins: ["https://app.test"],
+    supports_credentials: true,
+  };
 
   test("is sent for allowed, rejected and origin-less requests, and on preflights", async () => {
-    expect((await run("GET", "https://app.test", config)).headers.get("Vary")).toContain("Origin");
-    expect((await run("GET", "https://evil.example", config)).headers.get("Vary")).toContain("Origin");
-    expect((await run("GET", null, config)).headers.get("Vary")).toContain("Origin");
-    expect((await run("OPTIONS", "https://app.test", config)).headers.get("Vary")).toContain("Origin");
+    expect(
+      (await run("GET", "https://app.test", config)).headers.get("Vary"),
+    ).toContain("Origin");
+    expect(
+      (await run("GET", "https://evil.example", config)).headers.get("Vary"),
+    ).toContain("Origin");
+    expect((await run("GET", null, config)).headers.get("Vary")).toContain(
+      "Origin",
+    );
+    expect(
+      (await run("OPTIONS", "https://app.test", config)).headers.get("Vary"),
+    ).toContain("Origin");
     const rejected = await run("OPTIONS", "https://evil.example", config);
     expect(rejected.status).toBe(403);
     expect(rejected.headers.get("Vary")).toContain("Origin");
@@ -160,7 +183,9 @@ describe("Vary: Origin", () => {
   });
 
   test("is not added for a plain wildcard, where the answer never depends on the origin", async () => {
-    const response = await run("GET", "https://anyone.test", { allowed_origins: ["*"] });
+    const response = await run("GET", "https://anyone.test", {
+      allowed_origins: ["*"],
+    });
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(response.headers.get("Vary")).toBeNull();
   });
@@ -201,11 +226,21 @@ describe("origin matching", () => {
 
   test("a port is exact, `*` means any port or none", () => {
     const exact = { allowed_origins: ["http://localhost:3000"] };
-    expect(isOriginAllowed("http://localhost:3000", undefined, exact)).toBe("http://localhost:3000");
-    expect(isOriginAllowed("http://localhost:3001", undefined, exact)).toBeNull();
+    expect(isOriginAllowed("http://localhost:3000", undefined, exact)).toBe(
+      "http://localhost:3000",
+    );
+    expect(
+      isOriginAllowed("http://localhost:3001", undefined, exact),
+    ).toBeNull();
     expect(isOriginAllowed("http://localhost", undefined, exact)).toBeNull();
 
-    const any = { allowed_origins: ["http://localhost:*", "http://[::1]:*", "http://*.localhost:*"] };
+    const any = {
+      allowed_origins: [
+        "http://localhost:*",
+        "http://[::1]:*",
+        "http://*.localhost:*",
+      ],
+    };
     for (const ok of [
       "http://localhost",
       "http://localhost:5173",
@@ -214,45 +249,89 @@ describe("origin matching", () => {
     ]) {
       expect(isOriginAllowed(ok, undefined, any)).toBe(ok);
     }
-    for (const bad of ["http://localhost.evil.com", "http://evillocalhost:3000", "https://localhost:3000"]) {
+    for (const bad of [
+      "http://localhost.evil.com",
+      "http://evillocalhost:3000",
+      "https://localhost:3000",
+    ]) {
       expect(isOriginAllowed(bad, undefined, any)).toBeNull();
     }
   });
 
   test("exact origins and the `null` origin", () => {
-    const config = { allowed_origins: ["https://app.test", "tauri://localhost"] };
-    expect(isOriginAllowed("tauri://localhost", undefined, config)).toBe("tauri://localhost");
-    expect(isOriginAllowed("https://app.test", undefined, config)).toBe("https://app.test");
-    expect(isOriginAllowed("https://app.test.evil.com", undefined, config)).toBeNull();
+    const config = {
+      allowed_origins: ["https://app.test", "tauri://localhost"],
+    };
+    expect(isOriginAllowed("tauri://localhost", undefined, config)).toBe(
+      "tauri://localhost",
+    );
+    expect(isOriginAllowed("https://app.test", undefined, config)).toBe(
+      "https://app.test",
+    );
+    expect(
+      isOriginAllowed("https://app.test.evil.com", undefined, config),
+    ).toBeNull();
     expect(isOriginAllowed("null", undefined, config)).toBeNull();
-    expect(isOriginAllowed("null", undefined, { allowed_origins: ["null"] })).toBe("null");
+    expect(
+      isOriginAllowed("null", undefined, { allowed_origins: ["null"] }),
+    ).toBe("null");
   });
 
   test("regex patterns still work, invalid ones are ignored", () => {
-    const config = { allowed_origins_patterns: ["^https://[a-z]+\\.shop\\.test$", "([unclosed"] };
-    expect(isOriginAllowed("https://abc.shop.test", undefined, config)).toBe("https://abc.shop.test");
-    expect(isOriginAllowed("https://ab1.shop.test", undefined, config)).toBeNull();
+    const config = {
+      allowed_origins: [],
+      allowed_origins_patterns: [
+        "^https://[a-z]+\\.shop\\.test$",
+        "([unclosed",
+      ],
+    };
+    expect(isOriginAllowed("https://abc.shop.test", undefined, config)).toBe(
+      "https://abc.shop.test",
+    );
+    expect(
+      isOriginAllowed("https://ab1.shop.test", undefined, config),
+    ).toBeNull();
   });
 
   test("a callback decides when the list does not", () => {
     const config = {
       allowed_origins: ["https://app.test"],
-      allowed_origins_callback: (origin: string) => origin.endsWith(".trusted.test"),
+      allowed_origins_callback: (origin: string) =>
+        origin.endsWith(".trusted.test"),
     };
-    expect(isOriginAllowed("https://app.test", undefined, config)).toBe("https://app.test");
-    expect(isOriginAllowed("https://x.trusted.test", undefined, config)).toBe("https://x.trusted.test");
-    expect(isOriginAllowed("https://x.evil.test", undefined, config)).toBeNull();
+    expect(isOriginAllowed("https://app.test", undefined, config)).toBe(
+      "https://app.test",
+    );
+    expect(isOriginAllowed("https://x.trusted.test", undefined, config)).toBe(
+      "https://x.trusted.test",
+    );
+    expect(
+      isOriginAllowed("https://x.evil.test", undefined, config),
+    ).toBeNull();
   });
 
   test("a plain wildcard allows any origin and answers `*`", () => {
-    expect(isOriginAllowed("https://anything.test", undefined, { allowed_origins: ["*"] })).toBe("*");
+    expect(
+      isOriginAllowed("https://anything.test", undefined, {
+        allowed_origins: ["*"],
+      }),
+    ).toBe("*");
   });
 });
 
 describe("private network access", () => {
   test("is only answered when switched on and asked for", async () => {
-    const asked = { Origin: "https://app.test", "Access-Control-Request-Private-Network": "true" };
-    const off = await run("OPTIONS", "https://app.test", { allowed_origins: ["https://app.test"] }, undefined, asked);
+    const asked = {
+      Origin: "https://app.test",
+      "Access-Control-Request-Private-Network": "true",
+    };
+    const off = await run(
+      "OPTIONS",
+      "https://app.test",
+      { allowed_origins: ["https://app.test"] },
+      undefined,
+      asked,
+    );
     expect(off.headers.get("Access-Control-Allow-Private-Network")).toBeNull();
     const on = await run(
       "OPTIONS",
@@ -266,13 +345,23 @@ describe("private network access", () => {
 });
 
 describe("programmatic use (responses built outside the middleware)", () => {
-  const config = { allowed_origins: ["https://app.test"], supports_credentials: true, allow_private_network: true };
+  const config = {
+    allowed_origins: ["https://app.test"],
+    supports_credentials: true,
+    allow_private_network: true,
+  };
 
   test("applyCors adds the headers to a response", async () => {
-    const request = req("GET", "http://localhost/anything", { Origin: "https://app.test" });
+    const request = req("GET", "http://localhost/anything", {
+      Origin: "https://app.test",
+    });
     const response = applyCors(request, new Response("hi"), config);
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://app.test");
-    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://app.test",
+    );
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
+      "true",
+    );
     expect(response.headers.get("Vary")).toContain("Origin");
     expect(await response.text()).toBe("hi");
   });
@@ -284,8 +373,13 @@ describe("programmatic use (responses built outside the middleware)", () => {
     });
     const response = corsPreflight(request, config);
     expect(response.status).toBe(204);
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://app.test");
-    const denied = corsPreflight(req("OPTIONS", "http://localhost/x", { Origin: "https://evil.test" }), config);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://app.test",
+    );
+    const denied = corsPreflight(
+      req("OPTIONS", "http://localhost/x", { Origin: "https://evil.test" }),
+      config,
+    );
     expect(denied.status).toBe(403);
   });
 
@@ -296,23 +390,36 @@ describe("programmatic use (responses built outside the middleware)", () => {
     });
     expect(corsPreflight(raw, config).status).toBe(204);
     const response = applyCors(raw, new Response("x"), config);
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://app.test");
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://app.test",
+    );
   });
 
   test("an immutable response (as returned by fetch) is copied, not mutated", async () => {
     const immutable = Response.redirect("https://app.test/next", 302);
-    const request = req("GET", "http://localhost/anything", { Origin: "https://app.test" });
+    const request = req("GET", "http://localhost/anything", {
+      Origin: "https://app.test",
+    });
     const response = applyCors(request, immutable, config);
     expect(response.status).toBe(302);
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://app.test");
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://app.test",
+    );
   });
 });
 
 describe("speed", () => {
   test("matching is compiled once: many checks against many patterns stay fast", () => {
-    const patterns = Array.from({ length: 50 }, (_, i) => `^https://tenant${i}\\.example\\.com$`);
+    const patterns = Array.from(
+      { length: 50 },
+      (_, i) => `^https://tenant${i}\\.example\\.com$`,
+    );
     const config = {
-      allowed_origins: ["https://*.shop.test", "http://localhost:*", ...Array.from({ length: 50 }, (_, i) => `https://app${i}.test`)],
+      allowed_origins: [
+        "https://*.shop.test",
+        "http://localhost:*",
+        ...Array.from({ length: 50 }, (_, i) => `https://app${i}.test`),
+      ],
       allowed_origins_patterns: patterns,
     };
     setCorsConfig(config);

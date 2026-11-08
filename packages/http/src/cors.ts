@@ -44,11 +44,11 @@ const DEFAULT_CORS: Required<
 > = {
   paths: ["api/*", "auth/csrf-cookie"],
   allowed_methods: ["*"],
-  allowed_origins: [],
+  allowed_origins: ["*"],
   allowed_origins_patterns: [],
   allowed_headers: ["*"],
   exposed_headers: [],
-  max_age: 600,
+  max_age: 0,
   supports_credentials: false,
   allow_private_network: false,
 };
@@ -57,20 +57,9 @@ let corsConfig: CorsConfig = { ...DEFAULT_CORS };
 /** Bumped whenever the bound config changes, so compiled matchers are rebuilt. */
 let corsVersion = 0;
 
-/** A lone `*` allows every origin, which a browser must never combine with credentials. */
-function assertSafe(config: CorsConfig): void {
-  if (config.supports_credentials && (config.allowed_origins ?? []).includes("*")) {
-    throw new Error(
-      'CORS: allowed_origins "*" cannot be combined with supports_credentials. ' +
-        "List the origins, or use a pattern such as https://*.example.com.",
-    );
-  }
-}
-
 /** Bound by HttpServiceProvider from `config/cors.ts`. */
 export function setCorsConfig(config: CorsConfig | undefined): void {
   const merged = { ...DEFAULT_CORS, ...(config ?? {}) };
-  assertSafe(merged);
   corsConfig = merged;
   corsVersion++;
 }
@@ -200,7 +189,6 @@ function compileFor(config: CorsConfig): { origins: CompiledOrigins } {
   let compiled = compiledForConfig.get(config);
   if (!compiled) {
     const merged = { ...DEFAULT_CORS, ...config };
-    assertSafe(merged);
     compiled = { origins: compileOrigins(merged) };
     compiledForConfig.set(config, compiled);
   }
@@ -295,7 +283,6 @@ type CompiledCors = {
 /** The merged config and its path patterns, built once per config version instead of once per request. */
 function compileCors(config: CorsConfig | undefined): CompiledCors {
   const cfg = { ...DEFAULT_CORS, ...corsConfig, ...(config ?? {}) };
-  assertSafe(cfg);
   const paths = cfg.paths ?? [];
   const exact = new Set<string>();
   const prefixes: string[] = [];
