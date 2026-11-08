@@ -148,4 +148,5 @@ export {
   setTwoFactorIssuer,
   type TwoFactorColumns,
   type TwoFactorAuthenticatableMethods,
+  type TotpReplayStore,
 } from "./two-factor.ts";

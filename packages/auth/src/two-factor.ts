@@ -22,12 +22,23 @@ export type TwoFactorAuthenticatableMethods = {
   hasEnabledTwoFactorAuthentication(): boolean;
   twoFactorSecret(): string;
   recoveryCodes(): string[];
-  replaceRecoveryCode(code: string): Promise<void>;
+  /** Swap `code` for a new one; false when another request already used it. */
+  replaceRecoveryCode(code: string): Promise<boolean | void>;
   twoFactorQrCodeUrl(): string;
   twoFactorQrCodeSvg(): string;
 };
 
 type TwoFactorUser = TwoFactorColumns & TwoFactorAuthenticatableMethods;
+
+/** The part of an ORM model class the compare-and-swap uses (any model with `where(...).update(...)`). */
+type ModelWithWhere = {
+  where?: (
+    column: string,
+    value: unknown,
+  ) => {
+    where(column: string, value: unknown): { update(values: Record<string, unknown>): Promise<number> };
+  };
+};
 
 let issuer = process.env.APP_NAME ?? "Bunyad";
 
@@ -71,8 +82,34 @@ export function generateRecoveryCode(): string {
   return `${chars.slice(0, 10)}-${chars.slice(10)}`;
 }
 
-/** Last accepted time step per secret, so a code can't be used twice. */
-const usedSteps = new Map<string, number>();
+/**
+ * Remembers which authenticator codes were used, so one code can't be used twice.
+ *
+ * `claim` is called with a key made from the user's secret (a hash, never the secret) and the time
+ * step the code belongs to; it returns true for the first caller and false for any later one. The
+ * default store lives in this process, so it forgets on restart and does not know what another
+ * server instance accepted. An app that runs several instances sets a shared store with
+ * `TwoFactor.useReplayStore`, for example one that claims `${key}:${step}` with the cache's atomic
+ * add (`cache.add(name, true, 120)`).
+ */
+export type TotpReplayStore = {
+  claim(key: string, step: number): boolean | Promise<boolean>;
+};
+
+/** Last accepted time step per secret, in this process. */
+function memoryReplayStore(): TotpReplayStore {
+  const usedSteps = new Map<string, number>();
+  return {
+    claim(key, step) {
+      // no await between the check and the write, so two codes cannot both pass
+      if ((usedSteps.get(key) ?? -1) >= step) return false;
+      usedSteps.set(key, step);
+      return true;
+    },
+  };
+}
+
+let replayStore: TotpReplayStore = memoryReplayStore();
 
 /**
  * Enable, confirm, disable, and check two-factor authentication for a user
@@ -113,17 +150,20 @@ export const TwoFactor = {
     const step = verifyTotp(secret, code.replace(/\s/g, ""));
     if (step === false) return false;
     const key = createHash("sha256").update(secret).digest("hex");
-    if ((usedSteps.get(key) ?? -1) >= step) return false;
-    usedSteps.set(key, step);
-    return true;
+    return await replayStore.claim(key, step);
+  },
+
+  /** Where used authenticator codes are remembered; pass nothing to go back to the in-process default. */
+  useReplayStore(store?: TotpReplayStore): void {
+    replayStore = store ?? memoryReplayStore();
   },
 
   /** Accept a recovery code and swap it for a new one. */
   async useRecoveryCode(user: TwoFactorUser, code: string): Promise<boolean> {
     const given = code.trim();
     if (!user.recoveryCodes().some((stored) => hashEquals(stored, given))) return false;
-    await user.replaceRecoveryCode(given);
-    return true;
+    // false means a request that arrived at the same time got the code first
+    return (await user.replaceRecoveryCode(given)) !== false;
   },
 };
 
@@ -159,11 +199,29 @@ const twoFactorMethods: TwoFactorAuthenticatableMethods & ThisType<TwoFactorUser
   },
 
   async replaceRecoveryCode(code: string) {
+    const before = this.two_factor_recovery_codes;
     const codes = this.recoveryCodes().map((stored) =>
       stored === code ? generateRecoveryCode() : stored,
     );
-    this.two_factor_recovery_codes = encryptCodes(codes);
+    const after = encryptCodes(codes);
+
+    // Write the new list only where the stored list is still the one this copy read: of several
+    // requests that present the same code, the database lets exactly one make the swap.
+    const model = this.constructor as ModelWithWhere;
+    if (typeof model.where === "function" && before != null) {
+      const changed = await model
+        .where("id", this.id)
+        .where("two_factor_recovery_codes", before)
+        .update({ two_factor_recovery_codes: after });
+      if (!(Number(changed) > 0)) return false;
+      this.two_factor_recovery_codes = after;
+      return true;
+    }
+
+    // A model without `where`/`update` cannot do the swap in one step: replace and save.
+    this.two_factor_recovery_codes = after;
     await this.save();
+    return true;
   },
 
   twoFactorQrCodeUrl() {

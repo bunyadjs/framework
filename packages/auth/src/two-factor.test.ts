@@ -75,3 +75,49 @@ test("enable, confirm, reuse, recovery codes, and disable", async () => {
   expect(user.hasEnabledTwoFactorAuthentication()).toBe(false);
   expect(user.recoveryCodes()).toEqual([]);
 });
+
+test("an authenticator code works once, also across two instances sharing a replay store", async () => {
+  const user = new FakeUser();
+  await TwoFactor.enable(user);
+  const secret = user.twoFactorSecret();
+  const code = totp(secret, Date.now());
+
+  // a store shared by two "instances", claiming each (key, step) once like an atomic cache add
+  const claimed = new Set<string>();
+  const seen: Array<{ key: string; step: number }> = [];
+  TwoFactor.useReplayStore({
+    async claim(key, step) {
+      seen.push({ key, step });
+      const id = `${key}:${step}`;
+      if (claimed.has(id)) return false;
+      claimed.add(id);
+      return true;
+    },
+  });
+  try {
+    const results = await Promise.all([
+      TwoFactor.verify(user, code),
+      TwoFactor.verify(user, code),
+      TwoFactor.verify(user, code),
+    ]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+    // the key is a hash of the secret, never the secret
+    expect(seen[0]!.key).not.toContain(secret);
+    expect(seen[0]!.key).toMatch(/^[0-9a-f]{64}$/);
+    // a wrong code never reaches the store
+    const before = seen.length;
+    expect(await TwoFactor.verify(user, "000000")).toBe(false);
+    expect(seen).toHaveLength(before);
+  } finally {
+    TwoFactor.useReplayStore();
+  }
+});
+
+test("the default replay store refuses a reused code and an older one", async () => {
+  const user = new FakeUser();
+  await TwoFactor.enable(user);
+  const secret = user.twoFactorSecret();
+  const now = Date.now();
+  expect(await TwoFactor.verify(user, totp(secret, now))).toBe(true);
+  expect(await TwoFactor.verify(user, totp(secret, now))).toBe(false);
+});
