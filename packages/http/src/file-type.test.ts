@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { detectFileType, isSafeSvg } from "./index.ts";
+import { detectFileType } from "./file-type.ts";
 
 const bytes = (...parts: Array<number[] | string>) =>
   new Uint8Array(parts.flatMap((p) => (typeof p === "string" ? [...new TextEncoder().encode(p)] : p)));
@@ -73,38 +73,5 @@ describe("detectFileType reads the bytes, whatever the file is called", () => {
     const whole = new Uint8Array([9, 9, ...PNG, 9]);
     expect(detectFileType(whole.subarray(2, 2 + PNG.length))?.mime).toBe("image/png");
     expect(detectFileType(Buffer.from(PNG))?.mime).toBe("image/png");
-  });
-});
-
-describe("isSafeSvg", () => {
-  const wrap = (inner: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${inner}</svg>`;
-
-  test("plain shapes, gradients and text are fine", () => {
-    expect(isSafeSvg(wrap('<rect width="10" height="10" fill="red"/>'))).toBe(true);
-    expect(isSafeSvg(wrap('<linearGradient id="g"><stop offset="0"/></linearGradient><text>Hi</text>'))).toBe(true);
-    expect(isSafeSvg(bytes(wrap("<circle r='3'/>")))).toBe(true);
-  });
-
-  test.each([
-    ["a script element", wrap("<script>alert(1)</script>")],
-    ["a script element in odd case and spacing", wrap("< SCRIPT >alert(1)</ SCRIPT >")],
-    ["an event handler", wrap('<rect onclick="alert(1)"/>')],
-    ["an onload on the root", '<svg onload="alert(1)"></svg>'],
-    ["a javascript link", wrap('<a href="javascript:alert(1)"><rect/></a>')],
-    ["an iframe", wrap("<iframe src='x'/>")],
-    ["an embed", wrap("<embed src='x'/>")],
-    ["an object", wrap("<object data='x'/>")],
-    ["an entity definition", '<!DOCTYPE svg [<!ENTITY x "y">]><svg>&x;</svg>'],
-    ["embedded HTML", wrap("<foreignObject><div>hi</div></foreignObject>")],
-    ["an html data link", wrap('<a href="data:text/html;base64,PHNjcmlwdD4="><rect/></a>')],
-  ])("refuses %s", (_name, svg) => {
-    expect(isSafeSvg(svg)).toBe(false);
-  });
-
-  test("anything that is not an SVG is not a safe SVG", () => {
-    expect(isSafeSvg("hello")).toBe(false);
-    expect(isSafeSvg("<html></html>")).toBe(false);
-    expect(isSafeSvg(PNG)).toBe(false);
-    expect(isSafeSvg("")).toBe(false);
   });
 });

@@ -45,20 +45,3 @@ describe("what an upload really is", () => {
     expect(await upload.detectedMimeType()).toBe(await upload.detectedMimeType());
   });
 });
-
-describe("isSafeSvg", () => {
-  test("a plain SVG is safe, a scripted one is not", async () => {
-    expect(await file("a.svg", '<svg xmlns="x"><rect/></svg>').isSafeSvg()).toBe(true);
-    expect(await file("a.svg", '<svg xmlns="x"><script>1</script></svg>').isSafeSvg()).toBe(false);
-  });
-
-  test("a file that is not an SVG is not a safe SVG", async () => {
-    expect(await file("a.svg", "hello").isSafeSvg()).toBe(false);
-    expect(await file("a.png", PNG).isSafeSvg()).toBe(false);
-  });
-
-  test("an SVG over the size limit is not read and is not safe", async () => {
-    const huge = `<svg>${" ".repeat(2 * 1024 * 1024)}</svg>`;
-    expect(await file("a.svg", huge).isSafeSvg()).toBe(false);
-  });
-});

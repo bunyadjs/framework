@@ -82,24 +82,3 @@ export function detectFileType(bytes: Uint8Array): DetectedFileType | null {
   if (/^<\?xml/i.test(head)) return { mime: "application/xml", extension: "xml" };
   return null;
 }
-
-/** Anything in an SVG that runs code, embeds a page, or defines entities. */
-const SVG_UNSAFE =
-  /<\s*script\b|\son[a-z]+\s*=|javascript\s*:|<\s*(?:iframe|embed|object|foreignObject)\b|<!ENTITY|data\s*:\s*text\/html/i;
-
-/** The largest SVG that is read to be checked; a bigger one is not accepted. */
-const MAX_SVG_BYTES = 1024 * 1024;
-
-/**
- * Whether the content is an SVG with nothing in it that runs code or embeds a page: no script
- * element, event handler attribute, `javascript:` link, `iframe`/`embed`/`object`/`foreignObject`,
- * HTML data link or entity definition. Plain shapes, gradients and text pass. Anything that is not
- * an SVG, and anything over 1 MB, does not.
- */
-export function isSafeSvg(input: string | Uint8Array): boolean {
-  const size = typeof input === "string" ? input.length : input.length;
-  if (size === 0 || size > MAX_SVG_BYTES) return false;
-  const body = typeof input === "string" ? input : new TextDecoder("utf-8").decode(input);
-  const trimmed = body.replace(/^﻿/, "").trimStart();
-  return SVG_START.test(trimmed) && !SVG_UNSAFE.test(trimmed);
-}

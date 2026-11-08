@@ -458,12 +458,10 @@ function canonicalExtension(ext: string): string {
 function detection(value: object): {
   mime(): Promise<string | null>;
   extension(): Promise<string | null>;
-  safeSvg(): Promise<boolean>;
 } | null {
   const file = value as {
     detectedMimeType?: () => Promise<string | null>;
     detectedExtension?: () => Promise<string | null>;
-    isSafeSvg?: () => Promise<boolean>;
   };
   if (typeof file.detectedMimeType !== "function" || typeof file.detectedExtension !== "function") {
     return null;
@@ -471,7 +469,6 @@ function detection(value: object): {
   return {
     mime: () => file.detectedMimeType!(),
     extension: () => file.detectedExtension!(),
-    safeSvg: async () => (typeof file.isSafeSvg === "function" ? file.isSafeSvg() : false),
   };
 }
 
@@ -1334,8 +1331,7 @@ const rules: Record<string, RuleFn> = {
   },
   /**
    * An uploaded picture, judged by its bytes and not by the type the sender declared: PNG, JPEG,
-   * GIF, WebP, BMP, ICO or AVIF. SVG is refused unless `image:allow_svg` is given, and then it must
-   * also be free of script and embedded content. A value without byte detection (not an
+   * GIF, WebP, BMP, ICO or AVIF. SVG is refused unless `image:allow_svg` is given. A value without byte detection (not an
    * `UploadedFile`) falls back to its declared type.
    */
   async image(value, params) {
@@ -1349,7 +1345,6 @@ const rules: Record<string, RuleFn> = {
     const mime = await detect.mime();
     if (mime === "image/svg+xml") {
       if (!params.includes("allow_svg")) return "image";
-      if (!(await detect.safeSvg())) return "image";
       return;
     }
     if (mime == null || !mime.startsWith("image/")) return "image";

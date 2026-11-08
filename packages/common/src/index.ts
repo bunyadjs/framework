@@ -10,7 +10,6 @@ export { LazyCollection } from "./lazy-collection.ts";
 export { Fluent } from "./fluent.ts";
 export { Crypt, resolveAppKey } from "./crypt.ts";
 export { hashEquals } from "./hash-equals.ts";
-export { detectFileType, isSafeSvg, type DetectedFileType } from "./file-type.ts";
 export {
   DEFAULT_MAX_PER_PAGE,
   DEFAULT_PER_PAGE,

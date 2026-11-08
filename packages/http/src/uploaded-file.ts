@@ -1,10 +1,8 @@
 import { basename } from "node:path";
-import { detectFileType, isSafeSvg, type DetectedFileType } from "@bunyad/common";
+import { detectFileType, type DetectedFileType } from "./file-type.ts";
 
 /** How much of a file is read to tell what it is. */
 const DETECT_BYTES = 4096;
-/** The largest SVG that is read to check it is safe. */
-const MAX_SVG_BYTES = 1024 * 1024;
 
 /**
  * Uploaded file from multipart form data (`UploadedFile`).
@@ -44,7 +42,7 @@ export class UploadedFile {
    * plain text and anything with no signature. Unlike {@link mimeType} and the file name, this is
    * not something the sender can choose.
    */
-  detectedType(): Promise<DetectedFileType | null> {
+  #detectedType(): Promise<DetectedFileType | null> {
     this.#detected ??= (this.#blob as Blob & { slice(start: number, end: number): Blob })
       .slice(0, DETECT_BYTES)
       .arrayBuffer()
@@ -52,23 +50,14 @@ export class UploadedFile {
     return this.#detected;
   }
 
-  /** The MIME type found in the bytes (`image/png`), or `null`. See {@link detectedType}. */
+  /** The MIME type found in the bytes (`image/png`), or `null`. See {@link detectedMimeType}. */
   async detectedMimeType(): Promise<string | null> {
-    return (await this.detectedType())?.mime ?? null;
+    return (await this.#detectedType())?.mime ?? null;
   }
 
   /** The extension for the type found in the bytes (`png`), or `null`. Use it to name a stored file. */
   async detectedExtension(): Promise<string | null> {
-    return (await this.detectedType())?.extension ?? null;
-  }
-
-  /**
-   * Whether the file is an SVG with no script, event handler, embedded page or entity in it.
-   * An SVG over 1 MB is not read and is not safe.
-   */
-  async isSafeSvg(): Promise<boolean> {
-    if (this.#blob.size > MAX_SVG_BYTES) return false;
-    return isSafeSvg(new Uint8Array(await this.#blob.arrayBuffer()));
+    return (await this.#detectedType())?.extension ?? null;
   }
 
   /** The MIME type the client declared. Not trustworthy: see {@link detectedMimeType}. */

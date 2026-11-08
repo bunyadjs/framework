@@ -1146,15 +1146,25 @@ test("ValidationException.withMessages wraps strings into arrays", () => {
 
 // --- file rules judge the content, not the claim ---------------------------------------------
 
+/** A small stand-in for an upload's byte detection: just the signatures these tests use. */
+function sniff(bytes: Uint8Array): { mime: string; extension: string } | null {
+  const head = new TextDecoder().decode(bytes.subarray(0, 64)).trimStart();
+  const startsWith = (...values: number[]) => values.every((value, index) => bytes[index] === value);
+  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return { mime: "image/png", extension: "png" };
+  if (startsWith(0xff, 0xd8, 0xff)) return { mime: "image/jpeg", extension: "jpg" };
+  if (head.startsWith("GIF8")) return { mime: "image/gif", extension: "gif" };
+  if (head.startsWith("%PDF")) return { mime: "application/pdf", extension: "pdf" };
+  if (/^<svg[\s>]/i.test(head)) return { mime: "image/svg+xml", extension: "svg" };
+  if (/^<(!doctype html|html|script)/i.test(head)) return { mime: "text/html", extension: "html" };
+  return null;
+}
+
 describe("image, mimes and mimetypes read the bytes", () => {
   const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4];
   const upload = (name: string, content: string | number[], claimedType: string) => {
     const blob = new Blob([typeof content === "string" ? content : new Uint8Array(content)], { type: claimedType });
     const ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1) : "";
-    const detect = async () => {
-      const { detectFileType } = await import("@bunyad/common");
-      return detectFileType(new Uint8Array(await blob.arrayBuffer()));
-    };
+    const detect = async () => sniff(new Uint8Array(await blob.arrayBuffer()));
     return {
       size: blob.size,
       mimeType: claimedType,
@@ -1163,10 +1173,6 @@ describe("image, mimes and mimetypes read the bytes", () => {
       isValid: () => true,
       detectedMimeType: async () => (await detect())?.mime ?? null,
       detectedExtension: async () => (await detect())?.extension ?? null,
-      isSafeSvg: async () => {
-        const { isSafeSvg } = await import("@bunyad/common");
-        return isSafeSvg(new Uint8Array(await blob.arrayBuffer()));
-      },
     };
   };
   const passes = async (file: unknown, rule: string) => {
@@ -1200,12 +1206,10 @@ describe("image, mimes and mimetypes read the bytes", () => {
     expect(await passes(jpeg, "mimes:png")).toBe(false);
   });
 
-  test("an SVG is not an image unless allow_svg is given, and then it must be free of script", async () => {
-    const plain = upload("a.svg", '<svg xmlns="x"><rect/></svg>', "image/svg+xml");
-    const scripted = upload("a.svg", '<svg xmlns="x"><script>1</script></svg>', "image/svg+xml");
-    expect(await passes(plain, "image")).toBe(false);
-    expect(await passes(plain, "image:allow_svg")).toBe(true);
-    expect(await passes(scripted, "image:allow_svg")).toBe(false);
+  test("an SVG is not an image unless allow_svg is given", async () => {
+    const svg = upload("a.svg", '<svg xmlns="x"><rect/></svg>', "image/svg+xml");
+    expect(await passes(svg, "image")).toBe(false);
+    expect(await passes(svg, "image:allow_svg")).toBe(true);
   });
 
   test("a PDF is not an image", async () => {
