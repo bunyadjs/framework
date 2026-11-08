@@ -67,7 +67,14 @@ test("decimal precision and scale render per dialect", () => {
   };
   expect(dialectFor("postgres").columnSql(col)).toContain("DECIMAL(15, 2)");
   expect(dialectFor("mysql").columnSql(col)).toContain("DECIMAL(15, 2)");
-  expect(dialectFor("sqlite").columnSql(col)).toContain("TEXT");
+  // numeric affinity, so SQLite compares and sorts the column by value
+  expect(dialectFor("sqlite").columnSql(col)).toContain("NUMERIC");
+  expect(dialectFor("sqlite").columnSql(col)).not.toContain("TEXT");
+});
+
+test("float and double are REAL on sqlite", () => {
+  expect(dialectFor("sqlite").columnSql({ name: "ratio", kind: "float" as const })).toContain("REAL");
+  expect(dialectFor("sqlite").columnSql({ name: "ratio", kind: "double" as const })).toContain("REAL");
 });
 
 test("smallInteger is SMALLINT on postgres and INTEGER on sqlite", () => {

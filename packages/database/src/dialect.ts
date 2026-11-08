@@ -191,12 +191,18 @@ const sqliteDialect: Dialect = {
       case "time":
       case "uuid":
       case "json":
-      case "decimal":
-      case "float":
-      case "double":
       case "enum":
       case "binary":
         type = "TEXT";
+        break;
+      // Numeric affinity, so comparisons, ordering and aggregates work by value: a TEXT column
+      // would compare "10.00" before "9.00" and find nothing for `amount > 9`.
+      case "decimal":
+        type = "NUMERIC";
+        break;
+      case "float":
+      case "double":
+        type = "REAL";
         break;
     }
     let sql = `${this.quoteIdentifier(column.name)} ${type}`;
