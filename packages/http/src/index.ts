@@ -161,9 +161,6 @@ export {
 export { throttle, type ThrottleOptions } from "./throttle.ts";
 export {
   handleCors,
-  applyCors,
-  corsPreflight,
-  isOriginAllowed,
   setCorsConfig,
   getCorsConfig,
   type CorsConfig,
