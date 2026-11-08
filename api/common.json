@@ -26,6 +26,7 @@
   "flushDeferred",
   "flushOnce",
   "getPaginatorRequest",
+  "hashEquals",
   "installGlobals",
   "now",
   "once",

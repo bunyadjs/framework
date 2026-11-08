@@ -35,6 +35,7 @@
   "addQueuedCookies",
   "aliasMiddleware",
   "bindRemoteAddress",
+  "cacheHeaders",
   "collectResourceItems",
   "controllerMiddlewareOf",
   "declaredRoutesOf",
