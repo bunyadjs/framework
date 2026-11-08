@@ -14,13 +14,7 @@ export {
   type UserProvider,
 } from "./guard.ts";
 export { Hash, bcrypt, type HashOptions, type HashInfo } from "./hash.ts";
-export {
-  Jwt,
-  type JwtAlgorithm,
-  type JwtKeys,
-  type JwtSignOptions,
-  type JwtVerifyOptions,
-} from "./jwt.ts";
+export { Jwt, type JwtAlgorithm } from "./jwt.ts";
 export {
   TokenGuard,
   setTokenGuard,
