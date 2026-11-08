@@ -8,7 +8,6 @@ import {
   migrateCompiled,
   takePreloadedMigrations,
 } from "@bunyad/database";
-import { setMaxPerPage } from "@bunyad/common";
 import { Model } from "@bunyad/orm";
 import { setPresenceVerifier, presenceVerifierFor } from "@bunyad/validation";
 import { resolveDatabaseConfig } from "./database-config.ts";
@@ -38,9 +37,6 @@ export class DatabaseServiceProvider extends ServiceProvider {
     Model.setConnection(connection);
     this.app.instance("db", connection);
     setPresenceVerifier(presenceVerifierFor(connection));
-
-    const configured = config.pagination?.max_per_page ?? Number(process.env.MAX_PER_PAGE);
-    if (Number.isInteger(configured) && configured >= 1) setMaxPerPage(configured);
   }
 
   async boot(): Promise<void> {

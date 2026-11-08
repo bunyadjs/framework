@@ -19,13 +19,6 @@ export type DatabaseConnectionsConfig = {
   migrate?: string[];
   /** Redis clients used by cache / queue / broadcasting / sessions. */
   redis?: Record<string, RedisConnectionConfig>;
-  pagination?: {
-    /**
-     * Largest page `paginate`, `simplePaginate` and `cursorPaginate` give (default 100).
-     * The `MAX_PER_PAGE` environment variable is used when this is unset.
-     */
-    max_per_page?: number;
-  };
 };
 
 function envUrl(): string | undefined {

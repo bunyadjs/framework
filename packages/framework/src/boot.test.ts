@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_MAX_PER_PAGE, getMaxPerPage, setMaxPerPage } from "@bunyad/common";
 import { Application } from "@bunyad/core";
 import { Dispatcher, getEventDispatcher } from "@bunyad/events";
 import { Feature } from "@bunyad/features";
@@ -23,7 +22,6 @@ import {
   registerFrameworkProviders,
   type FrameworkProviderName,
 } from "./providers/index.ts";
-import { DatabaseServiceProvider } from "./providers/DatabaseServiceProvider.ts";
 import { EventServiceProvider } from "./providers/EventServiceProvider.ts";
 import { FeatureServiceProvider } from "./providers/FeatureServiceProvider.ts";
 import { FilesystemServiceProvider } from "./providers/FilesystemServiceProvider.ts";
@@ -227,38 +225,6 @@ describe("FilesystemServiceProvider", () => {
     await Storage.put("notes/a.txt", "hi");
     expect(await Bun.file(join(dir, "storage", "app", "notes", "a.txt")).text()).toBe("hi");
     expect(getStorage()).toBeInstanceOf(StorageManager);
-  });
-});
-
-describe("DatabaseServiceProvider page limit", () => {
-  afterEach(() => {
-    setMaxPerPage(DEFAULT_MAX_PER_PAGE);
-    delete process.env.MAX_PER_PAGE;
-  });
-
-  const database = (extra: Record<string, unknown> = {}) => ({
-    database: { default: "sqlite", connections: { sqlite: { driver: "sqlite", path: ":memory:" } }, migrate: [], ...extra },
-  });
-
-  test("max_per_page comes from config/database, then from MAX_PER_PAGE, else stays 100", () => {
-    makeApp(database()).register(DatabaseServiceProvider);
-    expect(getMaxPerPage()).toBe(100);
-
-    process.env.MAX_PER_PAGE = "60";
-    makeApp(database()).register(DatabaseServiceProvider);
-    expect(getMaxPerPage()).toBe(60);
-
-    makeApp(database({ pagination: { max_per_page: 25 } })).register(DatabaseServiceProvider);
-    expect(getMaxPerPage()).toBe(25);
-  });
-
-  test("a value that is not a whole number of at least 1 is ignored", () => {
-    process.env.MAX_PER_PAGE = "0";
-    makeApp(database()).register(DatabaseServiceProvider);
-    expect(getMaxPerPage()).toBe(100);
-    process.env.MAX_PER_PAGE = "abc";
-    makeApp(database()).register(DatabaseServiceProvider);
-    expect(getMaxPerPage()).toBe(100);
   });
 });
 

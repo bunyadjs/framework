@@ -128,13 +128,11 @@ describe.each(drivers.map((d) => [d.name, d] as const))("100k-row table (%s)", (
   });
 
   test("cursor pagination walks the whole table by key", async () => {
-    // Pages of 1,000 are asked for on purpose, so the default limit of 100 is lifted.
-    const big = { unbounded: true };
-    let page = await ScRow.query().orderBy("id").cursorPaginate(1_000, null, big);
+    let page = await ScRow.query().orderBy("id").cursorPaginate(1_000);
     let pages = 1;
     let rows = page.items.length;
     while (page.options.nextCursor && pages < 200) {
-      page = await ScRow.query().orderBy("id").cursorPaginate(1_000, page.options.nextCursor, big);
+      page = await ScRow.query().orderBy("id").cursorPaginate(1_000, page.options.nextCursor);
       pages += 1;
       rows += page.items.length;
     }

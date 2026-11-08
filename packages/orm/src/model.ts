@@ -614,11 +614,6 @@ export class Model {
   /** When false, `save()` skips `created_at` / `updated_at`. */
   static timestamps = true;
   /**
-   * Largest page `paginate`, `simplePaginate` and `cursorPaginate` give for this model. Unset: the
-   * application-wide limit (`setMaxPerPage`, 100 by default).
-   */
-  static maxPerPage?: number;
-  /**
    * `$casts` property — prefer `static casts()` when adding enums / Attribute.
    * May be a plain object or a method returning the map.
    */
