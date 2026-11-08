@@ -3,6 +3,12 @@ import { Arr, Collection, Fluent, collect } from "@bunyad/common";
 import { validate, ValidationException, type Rules } from "@bunyad/validation";
 import { UploadedFile } from "./uploaded-file.ts";
 import { decryptCookieValue } from "./cookie-encryption.ts";
+import {
+  clientFromForwardedFor,
+  compileTrustedProxies,
+  parseIp,
+  type TrustedProxies,
+} from "./trusted-proxies.ts";
 
 /** Optional signature checker registered by `@bunyad/router`. */
 let signatureChecker:
@@ -95,14 +101,25 @@ export type SessionBag = {
 
 /**
  * Trusted proxy configuration.
- * Default: trust none — `X-Forwarded-For` / `X-Real-IP` are ignored unless
+ * Default: trust none — `X-Forwarded-For` is ignored unless
  * the connection remote address is in this list (or `*` trusts all).
  */
 let trustedProxies: string[] | "*" = [];
+let trusted: TrustedProxies = compileTrustedProxies([]);
+/** Bumped whenever the list changes, so a request's remembered address is not reused. */
+let trustedVersion = 0;
 
-/** Configure which proxies may set forwarded client IP headers. Default: none. */
+/**
+ * Configure which proxies may set forwarded client IP headers. Default: none.
+ * Entries are exact addresses, `10.0.0.` prefixes, or CIDR ranges, IPv4 or IPv6.
+ * The list is compiled here, once, not on every request.
+ *
+ * `X-Real-IP` is never believed: some proxies and tunnels pass a client-supplied copy straight through.
+ */
 export function setTrustedProxies(proxies: string[] | "*"): void {
   trustedProxies = proxies;
+  trusted = compileTrustedProxies(proxies);
+  trustedVersion += 1;
 }
 
 export function getTrustedProxies(): string[] | "*" {
@@ -134,29 +151,8 @@ export function getBoundRemoteAddress(
   return remoteAddressByRaw.get(raw);
 }
 
-function ipMatches(ip: string, pattern: string): boolean {
-  if (pattern === "*" || pattern === ip) return true;
-  // Simple CIDR / prefix: "10.0.0." matches 10.0.0.x; "10.0.0.0/8" → prefix 10.
-  if (pattern.endsWith(".")) return ip.startsWith(pattern);
-  const cidr = /^(\d+\.\d+\.\d+\.\d+)\/(\d+)$/.exec(pattern);
-  if (cidr) {
-    const [a, b, c, d] = cidr[1]!.split(".").map(Number);
-    const [e, f, g, h] = ip.split(".").map(Number);
-    if ([a, b, c, d, e, f, g, h].some((n) => n === undefined || Number.isNaN(n))) {
-      return false;
-    }
-    const mask = Number(cidr[2]);
-    const base = ((a! << 24) | (b! << 16) | (c! << 8) | d!) >>> 0;
-    const addr = ((e! << 24) | (f! << 16) | (g! << 8) | h!) >>> 0;
-    const maskBits = mask === 0 ? 0 : (~0 << (32 - mask)) >>> 0;
-    return (base & maskBits) === (addr & maskBits);
-  }
-  return false;
-}
-
 function isTrustedProxy(remoteAddress: string): boolean {
-  if (trustedProxies === "*") return true;
-  return trustedProxies.some((p) => ipMatches(remoteAddress, p));
+  return trusted.matches(remoteAddress);
 }
 
 export class Request implements RequestContract {
@@ -177,6 +173,8 @@ export class Request implements RequestContract {
   #jsonLoaded = false;
   /** TCP peer address set by the server (not spoofable headers). */
   #remoteAddress: string | undefined;
+  #ipMemo: string | undefined;
+  #ipMemoVersion = -1;
   #cachedAcceptHeader: string | null | undefined = undefined;
   #acceptableContentTypes: string[] | undefined;
 
@@ -1093,6 +1091,7 @@ export class Request implements RequestContract {
    */
   setRemoteAddress(address: string | undefined): this {
     this.#remoteAddress = address;
+    this.#ipMemo = undefined;
     return this;
   }
 
@@ -1103,24 +1102,28 @@ export class Request implements RequestContract {
 
   /**
    * Client IP.
-   * Default trusts no proxies — spoofed `X-Forwarded-For` / `X-Real-IP` are ignored.
+   * Default trusts no proxies — a spoofed `X-Forwarded-For` is ignored.
    * Call `setTrustedProxies([...])` (or `"*"`) so only connections from those
-   * addresses may supply forwarded client IPs. Otherwise returns the connection
+   * addresses may supply forwarded client IPs; the address is then the right-most
+   * `X-Forwarded-For` entry that is not itself a trusted proxy. Otherwise returns the connection
    * remote address (or `127.0.0.1` when unknown).
    */
   ip(): string {
+    if (this.#ipMemo !== undefined && this.#ipMemoVersion === trustedVersion) {
+      return this.#ipMemo;
+    }
     const remote = this.#remoteAddress ?? "127.0.0.1";
-    if (!isTrustedProxy(remote)) {
-      return remote;
+    let result = remote;
+    if (isTrustedProxy(remote)) {
+      const forwarded = this.header("x-forwarded-for");
+      if (forwarded) {
+        // Right to left, skipping trusted proxies: the left side is whatever the client wrote.
+        result = clientFromForwardedFor(forwarded, trusted) ?? remote;
+      }
     }
-    const forwarded = this.header("x-forwarded-for");
-    if (forwarded) {
-      const first = forwarded.split(",")[0]?.trim();
-      if (first) return first;
-    }
-    const realIp = this.header("x-real-ip");
-    if (realIp) return realIp.trim();
-    return remote;
+    this.#ipMemo = result;
+    this.#ipMemoVersion = trustedVersion;
+    return result;
   }
 
   bearerToken(): string | undefined {

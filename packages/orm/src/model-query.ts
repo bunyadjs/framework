@@ -348,7 +348,7 @@ export class ModelQuery<
   }> = MQ_EMPTY as any;
   #orders: Array<
     | { column: string; direction: "asc" | "desc" }
-    | { raw: string }
+    | { raw: string; bindings?: unknown[] }
   > = MQ_EMPTY as any;
   #selectColumns: string[] | null = null;
   #addSelectColumns: string[] = MQ_EMPTY as any;
@@ -1225,7 +1225,7 @@ export class ModelQuery<
 
   /** `groupByRaw($sql, $bindings)`. */
   groupByRaw(sql: string, bindings: unknown[] = []): this {
-    return this.#extra((q) => void (q as unknown as { groupByRaw(s: string, b: unknown[]): unknown }).groupByRaw(sql, bindings));
+    return this.#extra((q) => void q.groupByRaw(sql, bindings));
   }
 
   /** `join` (hydrated models still from the base table). */
@@ -1646,15 +1646,18 @@ export class ModelQuery<
     return this.orderBy(column, "desc");
   }
 
-  orderByRaw(sql: string): this {
+  /** `orderByRaw($sql, $bindings)`. */
+  orderByRaw(sql: string, bindings: unknown[] = []): this {
     this.#simple = false;
-    (this.#orders = mqMut(this.#orders)).push({ raw: sql });
+    (this.#orders = mqMut(this.#orders)).push(
+      bindings.length > 0 ? { raw: sql, bindings } : { raw: sql },
+    );
     return this;
   }
 
   /** Alias for `orderByRaw`. */
-  orderBySql(sql: string): this {
-    return this.orderByRaw(sql);
+  orderBySql(sql: string, bindings: unknown[] = []): this {
+    return this.orderByRaw(sql, bindings);
   }
 
   reorder(column?: string, direction: "asc" | "desc" = "asc"): this {
@@ -2171,6 +2174,11 @@ export class ModelQuery<
    */
   #canHasExistsSelect(): boolean {
     if (this.#hasConstraints.length === 0) return false;
+    // This path compiles its own statement and has no place for values bound in an ORDER BY.
+    for (const o of this.#orders) {
+      if ("raw" in o && o.raw === "__inRandomOrder__") continue;
+      if ("bindings" in o && o.bindings !== undefined && o.bindings.length > 0) return false;
+    }
     for (const c of this.#hasConstraints) {
       if (c.existsSql === undefined) return false;
     }
@@ -2331,7 +2339,7 @@ export class ModelQuery<
         q =
           o.raw === "__inRandomOrder__"
             ? q.inRandomOrder()
-            : q.orderByRaw(o.raw);
+            : q.orderByRaw(o.raw, o.bindings ?? []);
       } else q = q.orderBy(o.column, o.direction);
     }
 

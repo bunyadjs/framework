@@ -2335,18 +2335,18 @@ export class Model {
 
   static orderByRaw<T extends typeof Model>(
     this: T,
-    sql: string,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orderByRaw"]>
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().orderByRaw(sql);
+    return this.newQuery().orderByRaw(...args);
   }
 
   /** Alias for `orderByRaw`. */
   static orderBySql<T extends typeof Model>(
     this: T,
-    sql: string,
+    ...args: Parameters<ModelQuery<InstanceType<T>>["orderByRaw"]>
   ): ModelQuery<InstanceType<T>> {
-    return this.orderByRaw(sql);
+    return this.orderByRaw(...args);
   }
 
   static latest<T extends typeof Model>(

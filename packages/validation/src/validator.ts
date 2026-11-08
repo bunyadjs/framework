@@ -446,6 +446,45 @@ function coerceValidated(
   return value;
 }
 
+/** Extensions of types that have no signature in their bytes, so only the name can tell them. */
+const TEXT_EXTENSIONS = new Set(["txt", "csv", "tsv", "json", "md", "log"]);
+
+/**
+ * Extensions a detected type can stand for. A container format is one kind of bytes with many names:
+ * every office file is a ZIP, every old office file is an OLE store, and MP4-family files share a
+ * brand layout. The file's own name decides among them, but only among the ones listed here.
+ */
+const SAME_BYTES: Record<string, readonly string[]> = {
+  zip: ["zip", "docx", "xlsx", "pptx", "odt", "ods", "odp", "epub", "jar", "apk"],
+  doc: ["doc", "xls", "ppt", "msg"],
+  mp4: ["mp4", "m4v"],
+  mov: ["mov", "mp4", "m4v"],
+  m4a: ["m4a", "mp4"],
+};
+
+/** `jpeg` and `jpg` are one type; so are `htm` and `html`. */
+function canonicalExtension(ext: string): string {
+  return ext === "jpeg" ? "jpg" : ext === "htm" ? "html" : ext;
+}
+
+/** Byte detection on an upload that offers it (`UploadedFile` does); `null` for other objects. */
+function detection(value: object): {
+  mime(): Promise<string | null>;
+  extension(): Promise<string | null>;
+} | null {
+  const file = value as {
+    getMimeType?: () => Promise<string | null>;
+    guessExtension?: () => Promise<string | null>;
+  };
+  if (typeof file.getMimeType !== "function" || typeof file.guessExtension !== "function") {
+    return null;
+  }
+  return {
+    mime: () => file.getMimeType!(),
+    extension: () => file.guessExtension!(),
+  };
+}
+
 function isUploadedFile(value: unknown): value is {
   size: number;
   mimeType?: string;
@@ -1303,22 +1342,65 @@ const rules: Record<string, RuleFn> = {
     if (!isUploadedFile(value)) return "file";
     if (value.isValid && !value.isValid()) return "file";
   },
-  /** Image MIME upload. */
-  image(value) {
+  /**
+   * An uploaded picture, judged by its bytes and not by the type the sender declared: PNG, JPEG,
+   * GIF, WebP, BMP, ICO or AVIF. SVG is refused unless `image:allow_svg` is given. A value without byte detection (not an
+   * `UploadedFile`) falls back to its declared type.
+   */
+  async image(value, params) {
     if (isEmpty(value)) return;
     if (!isUploadedFile(value)) return "image";
-    const mime = value.mimeType ?? "";
-    if (!mime.startsWith("image/")) return "image";
+    const detect = detection(value);
+    if (!detect) {
+      if (!(value.mimeType ?? "").startsWith("image/")) return "image";
+      return;
+    }
+    const mime = await detect.mime();
+    if (mime === "image/svg+xml") {
+      if (!params.includes("allow_svg")) return "image";
+      return;
+    }
+    if (mime == null || !mime.startsWith("image/")) return "image";
   },
-  /** `mimes:jpg,png`. */
-  mimes(value, params) {
+  /**
+   * `mimes:jpg,png`: the extension for the type found in the file's bytes. A type with no signature
+   * (plain text, CSV, JSON) can only be told by its name, so it passes when its name is a listed text
+   * type (`txt`, `csv`, `tsv`, `json`, `md`, `log`); anything with a signature must match it.
+   */
+  async mimes(value, params) {
     if (isEmpty(value)) return;
     if (!isUploadedFile(value)) return "mimes";
-    const ext = (
-      value.clientOriginalExtension?.() ??
-      ""
-    ).toLowerCase();
-    if (!params.map((p) => p.toLowerCase()).includes(ext)) return "mimes";
+    const wanted = params.map((p) => canonicalExtension(p.toLowerCase()));
+    const detect = detection(value);
+    if (!detect) {
+      const ext = canonicalExtension((value.clientOriginalExtension?.() ?? "").toLowerCase());
+      if (!wanted.includes(ext)) return "mimes";
+      return;
+    }
+    const found = await detect.extension();
+    if (found != null) {
+      const canonical = canonicalExtension(found);
+      const named = canonicalExtension((value.clientOriginalExtension?.() ?? "").toLowerCase());
+      const family = SAME_BYTES[canonical];
+      const accepted = family?.includes(named)
+        ? // a container: its own name picks among the names it may carry
+          wanted.includes(named)
+        : wanted.includes(canonical);
+      if (!accepted) return "mimes";
+      return;
+    }
+    const named = canonicalExtension((value.clientOriginalExtension?.() ?? "").toLowerCase());
+    // No signature to read: the name decides, but only a text type's name is believed.
+    if (!wanted.includes(named) || !TEXT_EXTENSIONS.has(named)) return "mimes";
+  },
+  /** `mimetypes:image/png,application/pdf`: the MIME type found in the file's bytes. */
+  async mimetypes(value, params) {
+    if (isEmpty(value)) return;
+    if (!isUploadedFile(value)) return "mimetypes";
+    const wanted = params.map((p) => p.trim().toLowerCase());
+    const detect = detection(value);
+    const found = detect ? await detect.mime() : (value.mimeType ?? "").toLowerCase();
+    if (found == null || !wanted.includes(found.toLowerCase())) return "mimetypes";
   },
   /**
    * `dimensions:min_width=100,min_height=100,max_width=…,ratio=3/2`.
@@ -1929,14 +2011,18 @@ export const Rule = {
   file(): string {
     return "file";
   },
-  image(): string {
-    return "image";
+  /** An uploaded picture by its bytes. `image({ allowSvg: true })` also allows a script-free SVG. */
+  image(options: { allowSvg?: boolean } = {}): string {
+    return options.allowSvg ? "image:allow_svg" : "image";
   },
   imageFile(): string {
     return "image";
   },
   mimes(...exts: string[]): string {
     return `mimes:${exts.join(",")}`;
+  },
+  mimetypes(...types: string[]): string {
+    return `mimetypes:${types.join(",")}`;
   },
   min(value: number): string {
     return `min:${value}`;

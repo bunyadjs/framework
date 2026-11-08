@@ -58,8 +58,18 @@ function applyCallerStack(
 
 export class QueryException extends Error {
   readonly sql: string;
-  readonly bindings: unknown[];
+  /**
+   * The values bound to the statement. Not enumerable, so `console.error(error)`, `util.inspect`
+   * and `JSON.stringify` leave them out (they can hold passwords, tokens and personal data);
+   * read `error.bindings` where they are wanted, such as a development error page.
+   */
+  declare readonly bindings: unknown[];
   readonly sqlState: string | null;
+
+  /** The values bound to the statement (also `error.bindings`). */
+  getBindings(): unknown[] {
+    return this.bindings;
+  }
 
   constructor(message: string, options: QueryExceptionOptions = {}) {
     const sqlState = options.sqlState ?? sqlStateOf(options.cause);
@@ -69,7 +79,12 @@ export class QueryException extends Error {
     });
     this.name = "QueryException";
     this.sql = sql;
-    this.bindings = options.bindings ?? [];
+    Object.defineProperty(this, "bindings", {
+      value: options.bindings ?? [],
+      enumerable: false,
+      writable: false,
+      configurable: true,
+    });
     this.sqlState = sqlState;
     applyCallerStack(this, options.callerStack);
   }

@@ -1,4 +1,8 @@
 import { basename } from "node:path";
+import { detectFileType, type DetectedFileType } from "./file-type.ts";
+
+/** How much of a file is read to tell what it is. */
+const DETECT_BYTES = 4096;
 
 /**
  * Uploaded file from multipart form data (`UploadedFile`).
@@ -7,6 +11,7 @@ export class UploadedFile {
   readonly #blob: Blob;
   readonly #clientOriginalName: string;
   readonly #error: string | null;
+  #detected: Promise<DetectedFileType | null> | undefined;
 
   constructor(blob: Blob, clientOriginalName: string, error: string | null = null) {
     this.#blob = blob;
@@ -32,16 +37,33 @@ export class UploadedFile {
     return this.getClientOriginalExtension();
   }
 
-  /** Client MIME type. */
+  /**
+   * What the file is, from its own bytes (only the first few kilobytes are read), or `null` for
+   * plain text and anything with no signature. Unlike {@link mimeType} and the file name, this is
+   * not something the sender can choose.
+   */
+  #detectedType(): Promise<DetectedFileType | null> {
+    this.#detected ??= (this.#blob as Blob & { slice(start: number, end: number): Blob })
+      .slice(0, DETECT_BYTES)
+      .arrayBuffer()
+      .then((buffer: ArrayBuffer) => detectFileType(new Uint8Array(buffer)));
+    return this.#detected;
+  }
+
+  /**
+   * The MIME type found in the file's bytes (`image/png`), or `null` when it has no signature.
+   * Async because the bytes are read. {@link getClientMimeType} is what the sender said.
+   */
+  async getMimeType(): Promise<string | null> {
+    return (await this.#detectedType())?.mime ?? null;
+  }
+
+  /** The MIME type the client declared. Not trustworthy: see {@link getMimeType}. */
   get mimeType(): string {
     return this.#blob.type || "application/octet-stream";
   }
 
   getClientMimeType(): string {
-    return this.mimeType;
-  }
-
-  getMimeType(): string {
     return this.mimeType;
   }
 
@@ -54,17 +76,21 @@ export class UploadedFile {
     return this.size;
   }
 
-  /** Extension of the client filename. */
-  extension(): string {
-    return this.getClientOriginalExtension();
+  /** The extension for the type found in the bytes (`png`), or `null`. Same as {@link guessExtension}. */
+  async extension(): Promise<string | null> {
+    return this.guessExtension();
   }
 
   clientExtension(): string {
     return this.getClientOriginalExtension();
   }
 
-  guessExtension(): string {
-    return this.getClientOriginalExtension();
+  /**
+   * The extension for the type found in the file's bytes (`png`), or `null` when it has none. Use it
+   * to name a stored file by what it really is; {@link getClientOriginalExtension} is the sender's.
+   */
+  async guessExtension(): Promise<string | null> {
+    return (await this.#detectedType())?.extension ?? null;
   }
 
   getFilename(): string {

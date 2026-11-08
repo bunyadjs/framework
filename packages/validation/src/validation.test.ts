@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
   validate,
   ValidationException,
@@ -1142,4 +1142,118 @@ test("ValidationException.withMessages wraps strings into arrays", () => {
     name: ["Too short.", "Reserved."],
   });
   expect(error.message).toBe("The given data was invalid.");
+});
+
+// --- file rules judge the content, not the claim ---------------------------------------------
+
+/** A small stand-in for an upload's byte detection: just the signatures these tests use. */
+function sniff(bytes: Uint8Array): { mime: string; extension: string } | null {
+  const head = new TextDecoder().decode(bytes.subarray(0, 64)).trimStart();
+  const startsWith = (...values: number[]) => values.every((value, index) => bytes[index] === value);
+  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return { mime: "image/png", extension: "png" };
+  if (startsWith(0xff, 0xd8, 0xff)) return { mime: "image/jpeg", extension: "jpg" };
+  if (head.startsWith("GIF8")) return { mime: "image/gif", extension: "gif" };
+  if (head.startsWith("%PDF")) return { mime: "application/pdf", extension: "pdf" };
+  if (/^<svg[\s>]/i.test(head)) return { mime: "image/svg+xml", extension: "svg" };
+  if (/^<(!doctype html|html|script)/i.test(head)) return { mime: "text/html", extension: "html" };
+  return null;
+}
+
+describe("image, mimes and mimetypes read the bytes", () => {
+  const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4];
+  const upload = (name: string, content: string | number[], claimedType: string) => {
+    const blob = new Blob([typeof content === "string" ? content : new Uint8Array(content)], { type: claimedType });
+    const ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1) : "";
+    const detect = async () => sniff(new Uint8Array(await blob.arrayBuffer()));
+    return {
+      size: blob.size,
+      mimeType: claimedType,
+      getClientOriginalName: () => name,
+      clientOriginalExtension: () => ext,
+      isValid: () => true,
+      getMimeType: async () => (await detect())?.mime ?? null,
+      guessExtension: async () => (await detect())?.extension ?? null,
+    };
+  };
+  const passes = async (file: unknown, rule: string) => {
+    try {
+      await validate({ f: file }, { f: rule });
+      return true;
+    } catch (error) {
+      if (error instanceof ValidationException) return false;
+      throw error;
+    }
+  };
+
+  test("a web page that says it is a PNG is not an image", async () => {
+    const fake = upload("photo.png", "<script>alert(1)</script>", "image/png");
+    expect(await passes(fake, "image")).toBe(false);
+    expect(await passes(fake, "mimes:png")).toBe(false);
+    expect(await passes(fake, "mimetypes:image/png")).toBe(false);
+  });
+
+  test("a real picture passes whatever it claims", async () => {
+    const real = upload("photo.dat", PNG, "application/octet-stream");
+    expect(await passes(real, "image")).toBe(true);
+    expect(await passes(real, "mimes:png,jpg")).toBe(true);
+    expect(await passes(real, "mimetypes:image/png")).toBe(true);
+  });
+
+  test("a JPEG matches mimes:jpg and mimes:jpeg", async () => {
+    const jpeg = upload("a.jpeg", [0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a], "image/jpeg");
+    expect(await passes(jpeg, "mimes:jpg")).toBe(true);
+    expect(await passes(jpeg, "mimes:jpeg")).toBe(true);
+    expect(await passes(jpeg, "mimes:png")).toBe(false);
+  });
+
+  test("an SVG is not an image unless allow_svg is given", async () => {
+    const svg = upload("a.svg", '<svg xmlns="x"><rect/></svg>', "image/svg+xml");
+    expect(await passes(svg, "image")).toBe(false);
+    expect(await passes(svg, "image:allow_svg")).toBe(true);
+  });
+
+  test("a PDF is not an image", async () => {
+    expect(await passes(upload("a.pdf", "%PDF-1.7\n", "application/pdf"), "image")).toBe(false);
+    expect(await passes(upload("a.pdf", "%PDF-1.7\n", "application/pdf"), "mimes:pdf")).toBe(true);
+  });
+
+  test("plain-text types can be listed: their content has no signature, so the name is used", async () => {
+    expect(await passes(upload("data.csv", "a,b\n1,2", "text/csv"), "mimes:csv,txt")).toBe(true);
+    expect(await passes(upload("data.csv", "a,b\n1,2", "text/csv"), "mimes:png")).toBe(false);
+    // ...but not for a binary type: text called photo.png is not a PNG
+    expect(await passes(upload("photo.png", "just words", "image/png"), "mimes:png")).toBe(false);
+    // ...and a page named like a text file is still a page
+    expect(await passes(upload("data.csv", "<html></html>", "text/csv"), "mimes:csv")).toBe(false);
+  });
+
+  test("a list that mixes binary and text types still accepts a real text file", async () => {
+    expect(await passes(upload("report.csv", "a,b\n1,2", "text/csv"), "mimes:pdf,csv")).toBe(true);
+    expect(await passes(upload("report.pdf", "%PDF-1.7\n", "application/pdf"), "mimes:pdf,csv")).toBe(true);
+    // a text file may not take a binary name, even when that name is listed
+    expect(await passes(upload("report.pdf", "just words", "application/pdf"), "mimes:pdf,csv")).toBe(false);
+  });
+
+  test("an empty value is left to `required`", async () => {
+    expect(await passes(undefined, "nullable|image")).toBe(true);
+  });
+
+  test("an object without detection methods keeps the old, claim-based check", async () => {
+    const legacy = {
+      size: 128,
+      mimeType: "image/png",
+      getClientOriginalName: () => "a.png",
+      clientOriginalExtension: () => "png",
+      isValid: () => true,
+    };
+    expect(await passes(legacy, "image")).toBe(true);
+    expect(await passes(legacy, "mimes:png")).toBe(true);
+    expect(await passes(legacy, "mimes:pdf")).toBe(false);
+  });
+
+  test("the fluent rule builders", async () => {
+    const { Rule } = await import("../src/index.ts");
+    expect(Rule.mimetypes("image/png", "image/jpeg")).toBe("mimetypes:image/png,image/jpeg");
+    expect(Rule.image({ allowSvg: true })).toBe("image:allow_svg");
+    expect(Rule.image()).toBe("image");
+  });
 });

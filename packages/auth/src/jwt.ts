@@ -28,6 +28,15 @@ function equal(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
+function claim(payload: Record<string, unknown>, name: string): number | undefined {
+  const value = payload[name];
+  if (value === undefined) return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`Invalid JWT ${name} claim.`);
+  }
+  return value;
+}
+
 /**
  * HS256 JWT encode / decode.
  */
@@ -77,9 +86,15 @@ export const Jwt = {
     } catch {
       throw new Error("Invalid JWT payload.");
     }
-    const exp = payload.exp;
-    if (typeof exp === "number" && exp <= Math.floor(Date.now() / 1000)) {
+    const now = Math.floor(Date.now() / 1000);
+    // A claim that is present but not a number would otherwise be skipped, and the token never expire.
+    const exp = claim(payload, "exp");
+    if (exp !== undefined && exp <= now) {
       throw new Error("Expired JWT.");
+    }
+    const nbf = claim(payload, "nbf");
+    if (nbf !== undefined && nbf > now) {
+      throw new Error("JWT is not valid yet.");
     }
     return payload as T;
   },

@@ -84,7 +84,11 @@ limiter.hit(key, 60);
 // Send the message…
 ```
 
-`hit(key, decaySeconds?)` increments and returns the new attempt count (default decay 60 seconds). `increment(key, decaySeconds?, amount?)` calls `hit` repeatedly. `decrement` lowers the count. `attempts` / `remaining` / `retriesLeft` read the current window. `availableAt` returns a Unix timestamp (seconds). `availableIn` returns seconds until the window resets.
+`hit(key, decaySeconds?)` increments and returns the new attempt count (default decay 60 seconds). `increment(key, decaySeconds?, amount?)` adds `amount` in one step. `decrement` lowers the count. `attempts` / `remaining` / `retriesLeft` read the current window. `availableAt` returns a Unix timestamp (seconds). `availableIn` returns seconds until the window resets.
+
+`attempt(key, max, decaySeconds?)` counts the hit first and lets the count it receives decide, so requests that arrive together cannot all pass a check made before any of them was counted. A blocked attempt is counted too; it does not move the end of the window.
+
+The counters live in the process by default. To share them between workers or servers, call `getRateLimiter().use(cache)` with a cache whose `add` and `increment` are atomic (the Redis and database stores are; the file store is for one process only); the framework does this at boot when a cache is bound. Without a shared cache each server counts on its own.
 
 ```ts
 if (limiter.remaining(key, perMinute) > 0) {

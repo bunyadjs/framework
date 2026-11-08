@@ -13,6 +13,7 @@ const CONFIG_NAMES = [
   "features",
   "logging",
   "cors",
+  "http",
   "auth",
 ] as const;
 

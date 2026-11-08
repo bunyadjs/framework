@@ -17,6 +17,10 @@ type RedisLike = {
   /** SET key value NX — returns 1 when set, 0 when key exists. */
   setnx?(key: string, value: string): Promise<number>;
   expire(key: string, seconds: number): Promise<unknown>;
+  /** Atomic integer add (`INCRBY`); throws when the stored value is not a whole number. */
+  incrby?(key: string, amount: number): Promise<number>;
+  /** Any command, as `send("SET", [key, value, "EX", "60", "NX"])`. */
+  send?(command: string, args: string[]): Promise<unknown>;
   del(...keys: string[]): Promise<number>;
   exists(...keys: string[]): Promise<number>;
   keys(pattern: string): Promise<string[]>;
@@ -66,10 +70,16 @@ export class RedisCacheStore implements CacheStore {
     await this.put(key, value);
   }
 
-  /** SET-if-absent via Redis SETNX (+ EXPIRE). */
+  /** SET-if-absent, with the expiry set in the same command (`SET key value EX seconds NX`). */
   async add(key: string, value: unknown, seconds?: number): Promise<boolean> {
     const k = this.#key(key);
     const payload = JSON.stringify(value);
+    if (this.#client.send) {
+      const args = [k, payload];
+      if (seconds !== undefined) args.push("EX", String(Math.max(1, Math.ceil(seconds))));
+      args.push("NX");
+      return (await this.#client.send("SET", args)) === "OK";
+    }
     if (this.#client.setnx) {
       const ok = await this.#client.setnx(k, payload);
       if (!ok) return false;
@@ -94,8 +104,19 @@ export class RedisCacheStore implements CacheStore {
     return (await this.#client.exists(this.#key(key))) > 0;
   }
 
+  /**
+   * Add to a counter in one command (`INCRBY`), so servers sharing a Redis never lose an increment,
+   * and the key keeps its expiry. A value that is not a whole number falls back to read, add, write.
+   */
   async increment(key: string, value = 1): Promise<number> {
     const k = this.#key(key);
+    if (this.#client.incrby && Number.isInteger(value)) {
+      try {
+        return Number(await this.#client.incrby(k, value));
+      } catch {
+        // the stored value is not a whole number (a decimal, an object): add to it the slow way
+      }
+    }
     const raw = await this.#client.get(k);
     let current: unknown;
     if (raw != null) {

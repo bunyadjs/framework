@@ -158,6 +158,7 @@ export {
   type NamedLimiter,
 } from "./rate-limiter.ts";
 export { throttle, type ThrottleOptions } from "./throttle.ts";
+export { cacheHeaders, type CacheHeaderOptions } from "./cache-headers.ts";
 export {
   handleCors,
   setCorsConfig,

@@ -1,5 +1,5 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { Crypt } from "@bunyad/common";
+import { createHash, createHmac, randomBytes } from "node:crypto";
+import { Crypt, hashEquals } from "@bunyad/common";
 import { renderSVG } from "uqr";
 
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -22,12 +22,23 @@ export type TwoFactorAuthenticatableMethods = {
   hasEnabledTwoFactorAuthentication(): boolean;
   twoFactorSecret(): string;
   recoveryCodes(): string[];
-  replaceRecoveryCode(code: string): Promise<void>;
+  /** Swap `code` for a new one; false when another request already used it. */
+  replaceRecoveryCode(code: string): Promise<boolean | void>;
   twoFactorQrCodeUrl(): string;
   twoFactorQrCodeSvg(): string;
 };
 
 type TwoFactorUser = TwoFactorColumns & TwoFactorAuthenticatableMethods;
+
+/** The part of an ORM model class the compare-and-swap uses (any model with `where(...).update(...)`). */
+type ModelWithWhere = {
+  where?: (
+    column: string,
+    value: unknown,
+  ) => {
+    where(column: string, value: unknown): { update(values: Record<string, unknown>): Promise<number> };
+  };
+};
 
 let issuer = process.env.APP_NAME ?? "Bunyad";
 
@@ -60,7 +71,7 @@ export function verifyTotp(
   const key = base32Decode(secret);
   const current = Math.floor(timestamp / 1000 / STEP_SECONDS);
   for (let step = current - window; step <= current + window; step += 1) {
-    if (safeEqual(hotp(key, step), code)) return step;
+    if (hashEquals(hotp(key, step), code)) return step;
   }
   return false;
 }
@@ -121,9 +132,9 @@ export const TwoFactor = {
   /** Accept a recovery code and swap it for a new one. */
   async useRecoveryCode(user: TwoFactorUser, code: string): Promise<boolean> {
     const given = code.trim();
-    if (!user.recoveryCodes().some((stored) => safeEqual(stored, given))) return false;
-    await user.replaceRecoveryCode(given);
-    return true;
+    if (!user.recoveryCodes().some((stored) => hashEquals(stored, given))) return false;
+    // false means a request that arrived at the same time got the code first
+    return (await user.replaceRecoveryCode(given)) !== false;
   },
 };
 
@@ -159,11 +170,29 @@ const twoFactorMethods: TwoFactorAuthenticatableMethods & ThisType<TwoFactorUser
   },
 
   async replaceRecoveryCode(code: string) {
+    const before = this.two_factor_recovery_codes;
     const codes = this.recoveryCodes().map((stored) =>
       stored === code ? generateRecoveryCode() : stored,
     );
-    this.two_factor_recovery_codes = encryptCodes(codes);
+    const after = encryptCodes(codes);
+
+    // Write the new list only where the stored list is still the one this copy read: of several
+    // requests that present the same code, the database lets exactly one make the swap.
+    const model = this.constructor as ModelWithWhere;
+    if (typeof model.where === "function" && before != null) {
+      const changed = await model
+        .where("id", this.id)
+        .where("two_factor_recovery_codes", before)
+        .update({ two_factor_recovery_codes: after });
+      if (!(Number(changed) > 0)) return false;
+      this.two_factor_recovery_codes = after;
+      return true;
+    }
+
+    // A model without `where`/`update` cannot do the swap in one step: replace and save.
+    this.two_factor_recovery_codes = after;
     await this.save();
+    return true;
   },
 
   twoFactorQrCodeUrl() {
@@ -198,12 +227,6 @@ function hotp(key: Buffer, counter: number): string {
   const offset = digest[digest.length - 1]! & 0x0f;
   const binary = digest.readUInt32BE(offset) & 0x7fffffff;
   return String(binary % 10 ** DIGITS).padStart(DIGITS, "0");
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  return left.length === right.length && timingSafeEqual(left, right);
 }
 
 function base32Encode(bytes: Uint8Array): string {

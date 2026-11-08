@@ -71,6 +71,17 @@ function hashTokensEqual(stored: string, plain: string): boolean {
   }
 }
 
+/**
+ * Internal: remove a token and say whether this caller was the one that removed it. The broker uses
+ * it so that of several requests carrying one reset link exactly one proceeds. Not exported, so it
+ * is not part of the store contract; a custom store without it keeps the check-then-delete order.
+ */
+const CLAIM = Symbol("claimPasswordToken");
+
+type ClaimingStore = PasswordTokenRepository & {
+  [CLAIM]?: (email: string, token: string) => Promise<boolean>;
+};
+
 function newPlainToken(): string {
   return randomBytes(32).toString("hex");
 }
@@ -90,10 +101,15 @@ export class MemoryPasswordTokenRepository implements PasswordTokenRepository {
 
   async create(email: string): Promise<string> {
     const plain = newPlainToken();
+    const now = Math.floor(Date.now() / 1000);
+    // links nobody used do not pile up: forget the expired ones whenever a new one is made
+    for (const [key, row] of this.#rows) {
+      if (now - row.created_at > this.#expireSeconds) this.#rows.delete(key);
+    }
     this.#rows.set(email.toLowerCase(), {
       email: email.toLowerCase(),
       token: hashToken(plain),
-      created_at: Math.floor(Date.now() / 1000),
+      created_at: now,
     });
     return plain;
   }
@@ -110,6 +126,20 @@ export class MemoryPasswordTokenRepository implements PasswordTokenRepository {
 
   async delete(email: string): Promise<void> {
     this.#rows.delete(email.toLowerCase());
+  }
+
+  /** Check and remove with no await in between, so only one caller can win. */
+  async [CLAIM](email: string, token: string): Promise<boolean> {
+    const key = email.toLowerCase();
+    const row = this.#rows.get(key);
+    if (!row) return false;
+    if (Math.floor(Date.now() / 1000) - row.created_at > this.#expireSeconds) {
+      this.#rows.delete(key);
+      return false;
+    }
+    if (!hashTokensEqual(row.token, token)) return false;
+    this.#rows.delete(key);
+    return true;
   }
 
   async recentlyCreatedToken(email: string): Promise<boolean> {
@@ -167,7 +197,11 @@ export class DatabasePasswordTokenRepository implements PasswordTokenRepository 
     const plain = newPlainToken();
     const key = email.toLowerCase();
     const now = Math.floor(Date.now() / 1000);
-    await this.#db.run(`DELETE FROM ${this.#table} WHERE email = ?`, [key]);
+    // links nobody used do not pile up: remove the expired ones whenever a new one is made
+    await this.#db.run(`DELETE FROM ${this.#table} WHERE email = ? OR created_at < ?`, [
+      key,
+      now - this.#expireSeconds,
+    ]);
     await this.#db.run(
       `INSERT INTO ${this.#table} (email, token, created_at) VALUES (?, ?, ?)`,
       [key, hashToken(plain), now],
@@ -192,6 +226,17 @@ export class DatabasePasswordTokenRepository implements PasswordTokenRepository 
     await this.#db.run(`DELETE FROM ${this.#table} WHERE email = ?`, [
       email.toLowerCase(),
     ]);
+  }
+
+  /** One `DELETE … RETURNING`: the database lets exactly one of several callers remove the row. */
+  async [CLAIM](email: string, token: string): Promise<boolean> {
+    const key = email.toLowerCase();
+    const cutoff = Math.floor(Date.now() / 1000) - this.#expireSeconds;
+    const removed = await this.#db.get<{ email: string }>(
+      `DELETE FROM ${this.#table} WHERE email = ? AND token = ? AND created_at >= ? RETURNING email`,
+      [key, hashToken(token), cutoff],
+    );
+    return removed != null;
   }
 
   async recentlyCreatedToken(email: string): Promise<boolean> {
@@ -249,9 +294,17 @@ export class PasswordBroker {
     const status = await this.validateReset(credentials);
     if (status !== PASSWORD_RESET) return status;
 
-    const { email, password } = credentials;
+    const { email, password, token } = credentials;
     const user = await this.#retrieveByCredentials(email);
     if (!user) return INVALID_USER;
+
+    // Take the link before using it: requests that arrive together with one link cannot all pass.
+    const claim = (this.#tokens as ClaimingStore)[CLAIM];
+    if (claim) {
+      if (!(await claim.call(this.#tokens, email, token))) return INVALID_TOKEN;
+      await callback(user, password);
+      return PASSWORD_RESET;
+    }
 
     await callback(user, password);
     await this.#tokens.delete(email);

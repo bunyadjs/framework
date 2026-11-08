@@ -11,6 +11,9 @@ type Entry = { value: unknown; expiresAt?: number };
 
 /**
  * File cache driver — one JSON file per key.
+ *
+ * For one process only: `add` and `increment` read, then write, so servers (or workers) that share
+ * a directory can lose counts. Use the Redis or database store for counters that must agree.
  */
 export class FileCacheStore implements CacheStore {
   readonly #path: string;

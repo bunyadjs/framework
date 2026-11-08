@@ -84,6 +84,8 @@ type Order = {
   column?: string;
   direction?: "asc" | "desc";
   raw?: string;
+  /** Values for the placeholders in `raw`. */
+  rawBindings?: unknown[];
 };
 
 type Having =
@@ -143,6 +145,7 @@ export class QueryBuilder {
   #joins: Join[] = [];
   #orders: Order[] = [];
   #groups: string[] = [];
+  #groupBindings: unknown[] = [];
   #havings: Having[] = [];
   #limitValue?: number;
   #offsetValue?: number;
@@ -1191,8 +1194,9 @@ export class QueryBuilder {
     return this.orderBy(column, "desc");
   }
 
-  orderByRaw(sql: string): this {
-    this.#orders.push({ raw: sql });
+  /** `orderByRaw($sql, $bindings)`. */
+  orderByRaw(sql: string, bindings: unknown[] = []): this {
+    this.#orders.push({ raw: sql, rawBindings: bindings });
     return this;
   }
 
@@ -1233,8 +1237,10 @@ export class QueryBuilder {
     return this;
   }
 
-  groupByRaw(sql: string): this {
+  /** `groupByRaw($sql, $bindings)`. */
+  groupByRaw(sql: string, bindings: unknown[] = []): this {
     this.#groups.push(sql);
+    this.#groupBindings.push(...bindings);
     return this;
   }
 
@@ -1391,8 +1397,12 @@ export class QueryBuilder {
       ...j,
       bindings: j.bindings ? [...j.bindings] : undefined,
     }));
-    copy.#orders = this.#orders.map((o) => ({ ...o }));
+    copy.#orders = this.#orders.map((o) => ({
+      ...o,
+      rawBindings: o.rawBindings ? [...o.rawBindings] : undefined,
+    }));
     copy.#groups = [...this.#groups];
+    copy.#groupBindings = [...this.#groupBindings];
     copy.#havings = this.#havings.map((h) => {
       if (h.type === "raw") {
         return {
@@ -1636,6 +1646,7 @@ export class QueryBuilder {
     q.#limitValue = undefined;
     q.#offsetValue = undefined;
     q.#groups = [];
+    q.#groupBindings = [];
     q.#havings = [];
     const distinct = q.#distinct && functionName === "count" && column !== "*";
     q.#distinct = false;
@@ -2361,6 +2372,9 @@ export class QueryBuilder {
                 : `${this.#wrap(o.column!)} ${(o.direction ?? "asc").toUpperCase()}`,
             )
             .join(", ")}`;
+          for (const o of this.#orders) {
+            if (o.rawBindings?.length) params.push(...o.rawBindings);
+          }
         }
         if (this.#connection.driver === "sqlsrv") {
           if (
@@ -2411,6 +2425,8 @@ export class QueryBuilder {
     let sql = `SELECT ${distinct}${cols} FROM ${this.#table}${joinSql}${clause}`;
     if (this.#groups.length > 0) {
       sql += ` GROUP BY ${this.#groups.join(", ")}`;
+      // Bound values follow the statement text: select, join, where, group, having, order.
+      if (this.#groupBindings.length > 0) allParams.push(...this.#groupBindings);
     }
     if (this.#havings.length > 0) {
       const havingParts: string[] = [];
@@ -2444,6 +2460,9 @@ export class QueryBuilder {
             : `${this.#wrap(o.column!)} ${(o.direction ?? "asc").toUpperCase()}`,
         )
         .join(", ")}`;
+      for (const o of this.#orders) {
+        if (o.rawBindings?.length) allParams.push(...o.rawBindings);
+      }
     }
     if (options.withLimit) {
       if (this.#connection.driver === "sqlsrv") {
