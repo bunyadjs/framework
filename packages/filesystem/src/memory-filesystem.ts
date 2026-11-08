@@ -1,6 +1,18 @@
 import type { Filesystem } from "@bunyad/contracts";
-import { mimeTypeForPath } from "./mime.ts";
+import { extname } from "node:path";
 import { Disk } from "./disk.ts";
+
+const MIME_BY_EXT: Record<string, string> = {
+  ".txt": "text/plain",
+  ".html": "text/html",
+  ".json": "application/json",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".pdf": "application/pdf",
+};
 
 /**
  * In-memory filesystem — used by `Storage.fake()`.
@@ -162,7 +174,7 @@ export class MemoryFilesystem extends Disk implements Filesystem {
   }
 
   async mimeType(path: string): Promise<string> {
-    return mimeTypeForPath(path);
+    return MIME_BY_EXT[extname(path).toLowerCase()] ?? "application/octet-stream";
   }
 
   url(path: string): string {

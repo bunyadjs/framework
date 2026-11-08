@@ -550,11 +550,6 @@ export {
   setStorage,
   Storage,
   StorageFake,
-  fileHeaders,
-  isInlineSafe,
-  mimeTypeForPath,
-  type FileHeaders,
-  type SafeServeOptions,
 } from "@bunyad/filesystem";
 
 export { Image, PendingImage } from "@bunyad/image";

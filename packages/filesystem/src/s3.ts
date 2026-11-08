@@ -1,6 +1,6 @@
 import { S3Client } from "bun";
-import { mimeTypeForPath } from "./mime.ts";
 import type { Filesystem } from "@bunyad/contracts";
+import { extname } from "node:path";
 import { Disk } from "./disk.ts";
 
 export type S3FilesystemOptions = {
@@ -39,6 +39,15 @@ type S3Like = {
   list?(
     options?: string | { prefix?: string },
   ): Promise<S3ListResult | Array<{ key?: string; Key?: string }>>;
+};
+
+const MIME_BY_EXT: Record<string, string> = {
+  ".txt": "text/plain",
+  ".json": "application/json",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".pdf": "application/pdf",
 };
 
 /**
@@ -247,7 +256,7 @@ export class S3Filesystem extends Disk implements Filesystem {
   async mimeType(path: string): Promise<string> {
     const type = this.#client.file(path).type;
     if (type && type !== "application/octet-stream") return type;
-    return mimeTypeForPath(path);
+    return MIME_BY_EXT[extname(path).toLowerCase()] ?? "application/octet-stream";
   }
 
   url(path: string): string {
