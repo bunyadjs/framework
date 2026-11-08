@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { QueryBuilder, connectPostgres, connectSqlite, schemaFor, sql, type Connection } from "./index.ts";
+import { QueryBuilder, connectPostgres, connectSqlite, schemaFor, type Connection } from "./index.ts";
 
 const connections: Array<[string, Connection]> = [["sqlite", connectSqlite()]];
 const pg = Bun.env.BUNYAD_TEST_POSTGRES_URL;
@@ -56,11 +56,6 @@ describe.each(connections)("query builder raw bindings (%s)", (_name, c) => {
     // the grouped query itself still runs with its bindings
     const grouped = table("qbr_a").selectRaw("COUNT(*) AS n").whereRaw("n >= ?", [2]).groupByRaw("(n > ?)", [4]);
     expect((await grouped.get()).all()).toHaveLength(2);
-  });
-
-  test("a fragment and bindings together are refused, and a non-fragment object is too", () => {
-    expect(() => table("qbr_a").whereRaw(sql`n > ${1}`, [2])).toThrow(/inside the sql/);
-    expect(() => table("qbr_a").whereRaw({ nope: true } as never)).toThrow(/string or a sql/);
   });
 
   test("an empty list of bindings is the same as none", async () => {

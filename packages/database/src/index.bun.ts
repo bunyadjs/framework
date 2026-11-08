@@ -27,7 +27,6 @@ export {
   type ReadWriteConnectionOptions,
 } from "./read-write-connection.ts";
 export { afterCommit } from "./after-commit.ts";
-export { sql, isSqlFragment, rawParts, type SqlFragment } from "./sql.ts";
 export {
   createTransactionApi,
   isRetryableTransactionError,
@@ -72,7 +71,6 @@ export {
 export {
   DatabaseManager,
   QueryBuilder,
-  type LikeOptions,
   JoinClause,
   RecordNotFoundException,
   type QueryCastType,

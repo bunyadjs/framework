@@ -1,5 +1,4 @@
-import { Collection, LazyCollection, collect, escapeLike } from "@bunyad/common";
-import { rawParts, type SqlFragment } from "./sql.ts";
+import { Collection, LazyCollection, collect } from "@bunyad/common";
 import type { Connection } from "./connection.ts";
 import type { DriverName } from "./dialect.ts";
 import { isMysqlFamily, wrapSqlName } from "./dialect.ts";
@@ -124,12 +123,6 @@ export type QueryCastType =
   | "datetime"
   | "array";
 
-/** Options for `whereContains`, `whereStartsWith` and `whereEndsWith`. */
-export type LikeOptions = {
-  /** Match case exactly. Honoured on Postgres, MySQL and SQL Server; SQLite `LIKE` ignores case. */
-  caseSensitive?: boolean;
-};
-
 /** Thrown when `firstOrFail` / `sole` find no matching row. */
 export class RecordNotFoundException extends Error {
   constructor(message = "No query results for model.") {
@@ -225,8 +218,8 @@ export class QueryBuilder {
   }
 
   /** `selectRaw($expression, $bindings)`, or a `sql` fragment. */
-  selectRaw(expression: string | SqlFragment, bindings: unknown[] = []): this {
-    const raw = rawParts(expression, bindings);
+  selectRaw(expression: string, bindings: unknown[] = []): this {
+    const raw = { sql: expression, bindings };
     this.#columns = this.#columns ?? [];
     this.#columns.push(raw.sql);
     this.#selectBindings.push(...raw.bindings);
@@ -550,8 +543,8 @@ export class QueryBuilder {
     return this.#addExists(query, true, "or");
   }
 
-  whereRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
-    const raw = rawParts(sql, bindings);
+  whereRaw(sql: string, bindings: unknown[] = []): this {
+    const raw = { sql, bindings };
     this.#wheres.push({
       boolean: "and",
       type: "raw",
@@ -561,8 +554,8 @@ export class QueryBuilder {
     return this;
   }
 
-  orWhereRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
-    const raw = rawParts(sql, bindings);
+  orWhereRaw(sql: string, bindings: unknown[] = []): this {
+    const raw = { sql, bindings };
     this.#wheres.push({
       boolean: "or",
       type: "raw",
@@ -609,75 +602,20 @@ export class QueryBuilder {
     return this;
   }
 
-  /**
-   * `LIKE` with a pattern you write yourself: `%` and `_` in `value` are wildcards. To match
-   * user text literally use `whereContains`, `whereStartsWith` or `whereEndsWith`.
-   */
-  whereLike(column: string, value: string, caseSensitive = false, escaped = false): this {
-    return this.#addLike(column, value, false, "and", caseSensitive, escaped);
+  whereLike(column: string, value: string, caseSensitive = false): this {
+    return this.#addLike(column, value, false, "and", caseSensitive);
   }
 
-  /** The column contains `term`, taken literally (`%`, `_` and `\` in it are ordinary characters). */
-  whereContains(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `%${escapeLike(term)}%`, false, "and", options.caseSensitive === true, true);
+  orWhereLike(column: string, value: string, caseSensitive = false): this {
+    return this.#addLike(column, value, false, "or", caseSensitive);
   }
 
-  orWhereContains(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `%${escapeLike(term)}%`, false, "or", options.caseSensitive === true, true);
+  whereNotLike(column: string, value: string, caseSensitive = false): this {
+    return this.#addLike(column, value, true, "and", caseSensitive);
   }
 
-  whereNotContains(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `%${escapeLike(term)}%`, true, "and", options.caseSensitive === true, true);
-  }
-
-  orWhereNotContains(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `%${escapeLike(term)}%`, true, "or", options.caseSensitive === true, true);
-  }
-
-  /** The column starts with `term`, taken literally. Can use an index on a plain column. */
-  whereStartsWith(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `${escapeLike(term)}%`, false, "and", options.caseSensitive === true, true);
-  }
-
-  orWhereStartsWith(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `${escapeLike(term)}%`, false, "or", options.caseSensitive === true, true);
-  }
-
-  whereNotStartsWith(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `${escapeLike(term)}%`, true, "and", options.caseSensitive === true, true);
-  }
-
-  orWhereNotStartsWith(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `${escapeLike(term)}%`, true, "or", options.caseSensitive === true, true);
-  }
-
-  /** The column ends with `term`, taken literally. */
-  whereEndsWith(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `%${escapeLike(term)}`, false, "and", options.caseSensitive === true, true);
-  }
-
-  orWhereEndsWith(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `%${escapeLike(term)}`, false, "or", options.caseSensitive === true, true);
-  }
-
-  whereNotEndsWith(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `%${escapeLike(term)}`, true, "and", options.caseSensitive === true, true);
-  }
-
-  orWhereNotEndsWith(column: string, term: string, options: LikeOptions = {}): this {
-    return this.#addLike(column, `%${escapeLike(term)}`, true, "or", options.caseSensitive === true, true);
-  }
-
-  orWhereLike(column: string, value: string, caseSensitive = false, escaped = false): this {
-    return this.#addLike(column, value, false, "or", caseSensitive, escaped);
-  }
-
-  whereNotLike(column: string, value: string, caseSensitive = false, escaped = false): this {
-    return this.#addLike(column, value, true, "and", caseSensitive, escaped);
-  }
-
-  orWhereNotLike(column: string, value: string, caseSensitive = false, escaped = false): this {
-    return this.#addLike(column, value, true, "or", caseSensitive, escaped);
+  orWhereNotLike(column: string, value: string, caseSensitive = false): this {
+    return this.#addLike(column, value, true, "or", caseSensitive);
   }
 
   #addLike(
@@ -686,7 +624,6 @@ export class QueryBuilder {
     not: boolean,
     boolean: "and" | "or",
     caseSensitive: boolean,
-    escaped = false,
   ): this {
     const driver = this.#connection.driver;
     let sql: string;
@@ -703,9 +640,6 @@ export class QueryBuilder {
     } else {
       sql = `${column} ${not ? "NOT LIKE" : "LIKE"} ?`;
     }
-    // A pattern built with `escapeLike` names its escape character, so `\%` means a literal `%`.
-    // MySQL and MariaDB already use backslash, and read `'\'` in a string as an escaped quote.
-    if (escaped && !isMysqlFamily(driver)) sql += " ESCAPE '\\'";
     this.#wheres.push({ boolean, type: "raw", sql, params: [value] });
     return this;
   }
@@ -1264,8 +1198,8 @@ export class QueryBuilder {
   }
 
   /** `orderByRaw($sql, $bindings)`, or a `sql` fragment. */
-  orderByRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
-    const raw = rawParts(sql, bindings);
+  orderByRaw(sql: string, bindings: unknown[] = []): this {
+    const raw = { sql, bindings };
     this.#orders.push({ raw: raw.sql, rawBindings: raw.bindings });
     return this;
   }
@@ -1308,8 +1242,8 @@ export class QueryBuilder {
   }
 
   /** `groupByRaw($sql, $bindings)`, or a `sql` fragment. */
-  groupByRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
-    const raw = rawParts(sql, bindings);
+  groupByRaw(sql: string, bindings: unknown[] = []): this {
+    const raw = { sql, bindings };
     this.#groups.push(raw.sql);
     this.#groupBindings.push(...raw.bindings);
     return this;
@@ -1333,14 +1267,14 @@ export class QueryBuilder {
     return this;
   }
 
-  havingRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
-    const raw = rawParts(sql, bindings);
+  havingRaw(sql: string, bindings: unknown[] = []): this {
+    const raw = { sql, bindings };
     this.#havings.push({ type: "raw", boolean: "and", sql: raw.sql, params: raw.bindings });
     return this;
   }
 
-  orHavingRaw(sql: string | SqlFragment, bindings: unknown[] = []): this {
-    const raw = rawParts(sql, bindings);
+  orHavingRaw(sql: string, bindings: unknown[] = []): this {
+    const raw = { sql, bindings };
     this.#havings.push({ type: "raw", boolean: "or", sql: raw.sql, params: raw.bindings });
     return this;
   }

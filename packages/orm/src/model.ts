@@ -1595,54 +1595,6 @@ export class Model {
     return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereLike"]!(...(args as unknown[]));
   }
 
-  static whereContains<T extends typeof Model>(
-    this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["whereContains"]>
-  ): ModelQuery<InstanceType<T>> {
-    this.bootIfNotBooted();
-    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereContains"]!(...(args as unknown[]));
-  }
-
-  static whereNotContains<T extends typeof Model>(
-    this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["whereNotContains"]>
-  ): ModelQuery<InstanceType<T>> {
-    this.bootIfNotBooted();
-    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereNotContains"]!(...(args as unknown[]));
-  }
-
-  static whereStartsWith<T extends typeof Model>(
-    this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["whereStartsWith"]>
-  ): ModelQuery<InstanceType<T>> {
-    this.bootIfNotBooted();
-    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereStartsWith"]!(...(args as unknown[]));
-  }
-
-  static whereNotStartsWith<T extends typeof Model>(
-    this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["whereNotStartsWith"]>
-  ): ModelQuery<InstanceType<T>> {
-    this.bootIfNotBooted();
-    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereNotStartsWith"]!(...(args as unknown[]));
-  }
-
-  static whereEndsWith<T extends typeof Model>(
-    this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["whereEndsWith"]>
-  ): ModelQuery<InstanceType<T>> {
-    this.bootIfNotBooted();
-    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereEndsWith"]!(...(args as unknown[]));
-  }
-
-  static whereNotEndsWith<T extends typeof Model>(
-    this: T,
-    ...args: Parameters<ModelQuery<InstanceType<T>>["whereNotEndsWith"]>
-  ): ModelQuery<InstanceType<T>> {
-    this.bootIfNotBooted();
-    return (this.newQuery() as unknown as Record<string, (...a: unknown[]) => ModelQuery<InstanceType<T>>>)["whereNotEndsWith"]!(...(args as unknown[]));
-  }
-
   static whereNotLike<T extends typeof Model>(
     this: T,
     ...args: Parameters<ModelQuery<InstanceType<T>>["whereNotLike"]>
