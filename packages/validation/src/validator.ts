@@ -449,6 +449,19 @@ function coerceValidated(
 /** Extensions of types that have no signature in their bytes, so only the name can tell them. */
 const TEXT_EXTENSIONS = new Set(["txt", "csv", "tsv", "json", "md", "log"]);
 
+/**
+ * Extensions a detected type can stand for. A container format is one kind of bytes with many names:
+ * every office file is a ZIP, every old office file is an OLE store, and MP4-family files share a
+ * brand layout. The file's own name decides among them, but only among the ones listed here.
+ */
+const SAME_BYTES: Record<string, readonly string[]> = {
+  zip: ["zip", "docx", "xlsx", "pptx", "odt", "ods", "odp", "epub", "jar", "apk"],
+  doc: ["doc", "xls", "ppt", "msg"],
+  mp4: ["mp4", "m4v"],
+  mov: ["mov", "mp4", "m4v"],
+  m4a: ["m4a", "mp4"],
+};
+
 /** `jpeg` and `jpg` are one type; so are `htm` and `html`. */
 function canonicalExtension(ext: string): string {
   return ext === "jpeg" ? "jpg" : ext === "htm" ? "html" : ext;
@@ -460,15 +473,15 @@ function detection(value: object): {
   extension(): Promise<string | null>;
 } | null {
   const file = value as {
-    detectedMimeType?: () => Promise<string | null>;
-    detectedExtension?: () => Promise<string | null>;
+    getMimeType?: () => Promise<string | null>;
+    guessExtension?: () => Promise<string | null>;
   };
-  if (typeof file.detectedMimeType !== "function" || typeof file.detectedExtension !== "function") {
+  if (typeof file.getMimeType !== "function" || typeof file.guessExtension !== "function") {
     return null;
   }
   return {
-    mime: () => file.detectedMimeType!(),
-    extension: () => file.detectedExtension!(),
+    mime: () => file.getMimeType!(),
+    extension: () => file.guessExtension!(),
   };
 }
 
@@ -1366,7 +1379,14 @@ const rules: Record<string, RuleFn> = {
     }
     const found = await detect.extension();
     if (found != null) {
-      if (!wanted.includes(canonicalExtension(found))) return "mimes";
+      const canonical = canonicalExtension(found);
+      const named = canonicalExtension((value.clientOriginalExtension?.() ?? "").toLowerCase());
+      const family = SAME_BYTES[canonical];
+      const accepted = family?.includes(named)
+        ? // a container: its own name picks among the names it may carry
+          wanted.includes(named)
+        : wanted.includes(canonical);
+      if (!accepted) return "mimes";
       return;
     }
     const named = canonicalExtension((value.clientOriginalExtension?.() ?? "").toLowerCase());

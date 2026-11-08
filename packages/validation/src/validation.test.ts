@@ -1171,8 +1171,8 @@ describe("image, mimes and mimetypes read the bytes", () => {
       getClientOriginalName: () => name,
       clientOriginalExtension: () => ext,
       isValid: () => true,
-      detectedMimeType: async () => (await detect())?.mime ?? null,
-      detectedExtension: async () => (await detect())?.extension ?? null,
+      getMimeType: async () => (await detect())?.mime ?? null,
+      guessExtension: async () => (await detect())?.extension ?? null,
     };
   };
   const passes = async (file: unknown, rule: string) => {

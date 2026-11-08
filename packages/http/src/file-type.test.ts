@@ -13,7 +13,8 @@ describe("detectFileType reads the bytes, whatever the file is called", () => {
     ["gif 89a", bytes("GIF89a", [1, 0, 1, 0]), "image/gif", "gif"],
     ["gif 87a", bytes("GIF87a", [1, 0, 1, 0]), "image/gif", "gif"],
     ["webp", bytes("RIFF", [0, 0, 0, 0], "WEBPVP8 "), "image/webp", "webp"],
-    ["bmp", bytes("BM", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), "image/bmp", "bmp"],
+    // file header (size, four reserved zero bytes, pixel offset) then a 40-byte info header
+    ["bmp", bytes("BM", [0x46, 0, 0, 0, 0, 0, 0, 0, 0x36, 0, 0, 0, 40, 0, 0, 0]), "image/bmp", "bmp"],
     ["ico", bytes([0, 0, 1, 0, 1, 0], "icon data"), "image/x-icon", "ico"],
     ["avif", bytes([0, 0, 0, 0x1c], "ftypavif", [0, 0, 0, 0]), "image/avif", "avif"],
     ["pdf", bytes("%PDF-1.7\n"), "application/pdf", "pdf"],

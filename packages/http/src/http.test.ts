@@ -854,8 +854,11 @@ test("RateLimiter attempts remaining hit decrement", () => {
 test("UploadedFile.fake and JsonResource additional", async () => {
   const file = UploadedFile.fake().create("doc.txt", "hello", "text/plain");
   expect(file.getClientOriginalName()).toBe("doc.txt");
-  expect(file.extension()).toBe("txt");
-  expect(file.getMimeType()).toContain("text/plain");
+  expect(file.getClientOriginalExtension()).toBe("txt");
+  expect(file.getClientMimeType()).toContain("text/plain");
+  // plain text has no signature, so its bytes name no type
+  expect(await file.extension()).toBeNull();
+  expect(await file.getMimeType()).toBeNull();
   expect(file.hashName()).toContain(".txt");
 
   class UserResource extends JsonResource<{ id: number }> {

@@ -50,26 +50,20 @@ export class UploadedFile {
     return this.#detected;
   }
 
-  /** The MIME type found in the bytes (`image/png`), or `null`. See {@link detectedMimeType}. */
-  async detectedMimeType(): Promise<string | null> {
+  /**
+   * The MIME type found in the file's bytes (`image/png`), or `null` when it has no signature.
+   * Async because the bytes are read. {@link getClientMimeType} is what the sender said.
+   */
+  async getMimeType(): Promise<string | null> {
     return (await this.#detectedType())?.mime ?? null;
   }
 
-  /** The extension for the type found in the bytes (`png`), or `null`. Use it to name a stored file. */
-  async detectedExtension(): Promise<string | null> {
-    return (await this.#detectedType())?.extension ?? null;
-  }
-
-  /** The MIME type the client declared. Not trustworthy: see {@link detectedMimeType}. */
+  /** The MIME type the client declared. Not trustworthy: see {@link getMimeType}. */
   get mimeType(): string {
     return this.#blob.type || "application/octet-stream";
   }
 
   getClientMimeType(): string {
-    return this.mimeType;
-  }
-
-  getMimeType(): string {
     return this.mimeType;
   }
 
@@ -82,9 +76,9 @@ export class UploadedFile {
     return this.size;
   }
 
-  /** Extension of the client filename. The sender chose it: see {@link detectedExtension}. */
-  extension(): string {
-    return this.getClientOriginalExtension();
+  /** The extension for the type found in the bytes (`png`), or `null`. Same as {@link guessExtension}. */
+  async extension(): Promise<string | null> {
+    return this.guessExtension();
   }
 
   clientExtension(): string {
@@ -92,11 +86,11 @@ export class UploadedFile {
   }
 
   /**
-   * The extension of the client filename (not a guess from the content, despite the name).
-   * Use {@link detectedExtension} to name a stored file by what it really is.
+   * The extension for the type found in the file's bytes (`png`), or `null` when it has none. Use it
+   * to name a stored file by what it really is; {@link getClientOriginalExtension} is the sender's.
    */
-  guessExtension(): string {
-    return this.getClientOriginalExtension();
+  async guessExtension(): Promise<string | null> {
+    return (await this.#detectedType())?.extension ?? null;
   }
 
   getFilename(): string {

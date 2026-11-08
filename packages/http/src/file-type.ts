@@ -34,6 +34,30 @@ const FTYP = text("ftyp");
 const AVIF_BRANDS = [text("avif"), text("avis")];
 const EBML = [0x1a, 0x45, 0xdf, 0xa3];
 const ID3 = text("ID3");
+const OLE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+const QUICKTIME = text("qt  ");
+const M4A_BRANDS = [text("M4A "), text("M4B ")];
+const HEIC_BRANDS = [text("heic"), text("heix"), text("hevc"), text("mif1"), text("msf1")];
+/** Sizes of the DIB header that follows a BMP file header. */
+const BMP_HEADER_SIZES = new Set([12, 40, 52, 56, 64, 108, 124]);
+
+/** `BM`, a size, four reserved zero bytes, then a known header size: a CSV that starts `BM` is not a BMP. */
+function isBmp(bytes: Uint8Array): boolean {
+  if (bytes.length < 18 || !at(bytes, 0, BMP)) return false;
+  if (bytes[6] !== 0 || bytes[7] !== 0 || bytes[8] !== 0 || bytes[9] !== 0) return false;
+  const size = bytes[14]! | (bytes[15]! << 8) | (bytes[16]! << 16) | (bytes[17]! << 24);
+  return BMP_HEADER_SIZES.has(size);
+}
+
+/** MPEG audio frame header: 11 sync bits, a valid version and layer, a valid bitrate and sample rate. */
+function isMpegAudioFrame(bytes: Uint8Array): boolean {
+  if (bytes.length < 4 || bytes[0] !== 0xff || (bytes[1]! & 0xe0) !== 0xe0) return false;
+  const version = (bytes[1]! >> 3) & 0x03;
+  const layer = (bytes[1]! >> 1) & 0x03;
+  const bitrate = (bytes[2]! >> 4) & 0x0f;
+  const sampleRate = (bytes[2]! >> 2) & 0x03;
+  return version !== 1 && layer !== 0 && bitrate !== 0 && bitrate !== 15 && sampleRate !== 3;
+}
 
 /** The text at the start of a file: byte order mark and leading space removed. */
 function leadingText(bytes: Uint8Array): string {
@@ -67,14 +91,18 @@ export function detectFileType(bytes: Uint8Array): DetectedFileType | null {
   if (at(bytes, 0, ZIP)) return { mime: "application/zip", extension: "zip" };
   if (at(bytes, 0, GZIP)) return { mime: "application/gzip", extension: "gz" };
   if (at(bytes, 4, FTYP)) {
-    return AVIF_BRANDS.some((brand) => at(bytes, 8, brand))
-      ? { mime: "image/avif", extension: "avif" }
-      : { mime: "video/mp4", extension: "mp4" };
+    if (AVIF_BRANDS.some((brand) => at(bytes, 8, brand))) return { mime: "image/avif", extension: "avif" };
+    if (HEIC_BRANDS.some((brand) => at(bytes, 8, brand))) return { mime: "image/heic", extension: "heic" };
+    if (at(bytes, 8, QUICKTIME)) return { mime: "video/quicktime", extension: "mov" };
+    if (M4A_BRANDS.some((brand) => at(bytes, 8, brand))) return { mime: "audio/mp4", extension: "m4a" };
+    return { mime: "video/mp4", extension: "mp4" };
   }
+  if (at(bytes, 0, OLE)) return { mime: "application/x-ole-storage", extension: "doc" };
+  if (isMpegAudioFrame(bytes)) return { mime: "audio/mpeg", extension: "mp3" };
   if (at(bytes, 0, EBML)) return { mime: "video/webm", extension: "webm" };
   if (at(bytes, 0, ID3)) return { mime: "audio/mpeg", extension: "mp3" };
   if (bytes.length > 6 && at(bytes, 0, ICO)) return { mime: "image/x-icon", extension: "ico" };
-  if (bytes.length > 10 && at(bytes, 0, BMP)) return { mime: "image/bmp", extension: "bmp" };
+  if (isBmp(bytes)) return { mime: "image/bmp", extension: "bmp" };
 
   const head = leadingText(bytes);
   if (SVG_START.test(head)) return { mime: "image/svg+xml", extension: "svg" };
