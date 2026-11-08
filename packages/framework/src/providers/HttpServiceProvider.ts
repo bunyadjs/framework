@@ -31,8 +31,6 @@ export type HttpConfig = {
    * The `TRUSTED_PROXIES` environment variable (comma separated, or `*`) is used when this is unset.
    */
   trusted_proxies?: string[] | "*";
-  /** Believe `X-Real-IP` when there is no `X-Forwarded-For`, for a proxy known to set it. Default: false. */
-  trust_real_ip?: boolean;
 };
 
 /** `"10.0.0.0/8, ::1"` or `"*"` from an environment variable. */
@@ -55,7 +53,7 @@ export class HttpServiceProvider extends ServiceProvider {
 
     const http = this.app.config.get<HttpConfig>("http");
     const proxies = http?.trusted_proxies ?? proxiesFromEnv(process.env.TRUSTED_PROXIES);
-    if (proxies !== undefined) setTrustedProxies(proxies, { realIp: http?.trust_real_ip === true });
+    if (proxies !== undefined) setTrustedProxies(proxies);
   }
 
   boot(): void {

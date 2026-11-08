@@ -13,7 +13,7 @@ export type ParsedIp = {
   v4: number;
   /** IPv6 as a 128-bit number (unused for IPv4). */
   v6: bigint;
-  /** The address without brackets, port or zone. */
+  /** The address in one canonical spelling, without brackets, port or zone. */
   text: string;
 };
 
@@ -76,6 +76,35 @@ function parseV6(text: string): bigint | null {
   return value;
 }
 
+/** Dotted form of an IPv4 number (`203.0.113.5`): no leading zeros, no port. */
+function formatV4(value: number): string {
+  return [(value >>> 24) & 255, (value >>> 16) & 255, (value >>> 8) & 255, value & 255].join(".");
+}
+
+/** Lower-case IPv6 with the longest run of zero groups written as `::` (`2001:db8::1`). */
+function formatV6(value: bigint): string {
+  const groups: number[] = [];
+  for (let i = 7; i >= 0; i -= 1) groups.push(Number((value >> BigInt(i * 16)) & 0xffffn));
+  let bestStart = -1;
+  let bestLength = 0;
+  for (let i = 0; i < 8; ) {
+    if (groups[i] !== 0) {
+      i += 1;
+      continue;
+    }
+    let j = i;
+    while (j < 8 && groups[j] === 0) j += 1;
+    if (j - i > bestLength) {
+      bestStart = i;
+      bestLength = j - i;
+    }
+    i = j;
+  }
+  const hex = groups.map((group) => group.toString(16));
+  if (bestLength < 2) return hex.join(":");
+  return `${hex.slice(0, bestStart).join(":")}::${hex.slice(bestStart + bestLength).join(":")}`;
+}
+
 /**
  * Parse an address as it appears in a connection or an `X-Forwarded-For` entry.
  * Accepts IPv4, IPv6, `[v6]:port`, `v4:port` and a `%zone` suffix. Returns `null` for anything else.
@@ -95,13 +124,14 @@ export function parseIp(input: string): ParsedIp | null {
   if (zone !== -1) text = text.slice(0, zone);
 
   const v4 = parseV4(text);
-  if (v4 !== null) return { family: 4, v4, v6: 0n, text };
+  if (v4 !== null) return { family: 4, v4, v6: 0n, text: formatV4(v4) };
   const v6 = parseV6(text);
   if (v6 === null) return null;
   if (v6 >> 32n === 0xffffn) {
-    return { family: 4, v4: Number(v6 & 0xffffffffn) >>> 0, v6: 0n, text };
+    const mapped = Number(v6 & 0xffffffffn) >>> 0;
+    return { family: 4, v4: mapped, v6: 0n, text: formatV4(mapped) };
   }
-  return { family: 6, v4: 0, v6, text };
+  return { family: 6, v4: 0, v6, text: formatV6(v6) };
 }
 
 export type TrustedProxies = {

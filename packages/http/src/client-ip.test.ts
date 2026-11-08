@@ -78,16 +78,30 @@ test("a malformed or oversized header cannot be used to pick an address", () => 
   expect(long.ip()).toBe("203.0.113.5");
 });
 
-test("X-Real-IP is ignored unless it is switched on, and then only without X-Forwarded-For", () => {
+test("X-Real-IP is never believed", () => {
   setTrustedProxies(["10.0.0.1"]);
   expect(through("10.0.0.1", { "x-real-ip": "203.0.113.5" }).ip()).toBe("10.0.0.1");
-
-  setTrustedProxies(["10.0.0.1"], { realIp: true });
-  expect(through("10.0.0.1", { "x-real-ip": "203.0.113.5" }).ip()).toBe("203.0.113.5");
   expect(
     through("10.0.0.1", { "x-forwarded-for": "203.0.113.6", "x-real-ip": "1.1.1.1" }).ip(),
   ).toBe("203.0.113.6");
-  expect(through("10.0.0.1", { "x-real-ip": "not an address" }).ip()).toBe("10.0.0.1");
+});
+
+test("one client is one address, however the proxy wrote it", () => {
+  setTrustedProxies(["10.0.0.1"]);
+  const ip = (forwarded: string) => through("10.0.0.1", { "x-forwarded-for": forwarded }).ip();
+  // IPv4 written as IPv6, with a port, with leading zeros
+  expect(ip("::ffff:203.0.113.5")).toBe("203.0.113.5");
+  expect(ip("203.0.113.5:4433")).toBe("203.0.113.5");
+  expect(ip("203.000.113.005")).toBe("203.0.113.5");
+  // IPv6: case, leading zeros, compression, brackets with a port, zone
+  const canonical = "2001:db8::1";
+  expect(ip("2001:DB8::1")).toBe(canonical);
+  expect(ip("2001:0db8:0:0:0:0:0:1")).toBe(canonical);
+  expect(ip("2001:db8:0:0:0:0:0:0001")).toBe(canonical);
+  expect(ip("[2001:db8::1]:8443")).toBe(canonical);
+  expect(ip("2001:db8::1%eth0")).toBe(canonical);
+  expect(ip("::1")).toBe("::1");
+  expect(ip("2001:db8:0:1:0:0:0:1")).toBe("2001:db8:0:1::1");
 });
 
 test("ip() follows a change of trusted proxies and of the remote address", () => {

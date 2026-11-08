@@ -101,12 +101,11 @@ export type SessionBag = {
 
 /**
  * Trusted proxy configuration.
- * Default: trust none — `X-Forwarded-For` / `X-Real-IP` are ignored unless
+ * Default: trust none — `X-Forwarded-For` is ignored unless
  * the connection remote address is in this list (or `*` trusts all).
  */
 let trustedProxies: string[] | "*" = [];
 let trusted: TrustedProxies = compileTrustedProxies([]);
-let trustRealIp = false;
 /** Bumped whenever the list changes, so a request's remembered address is not reused. */
 let trustedVersion = 0;
 
@@ -115,16 +114,11 @@ let trustedVersion = 0;
  * Entries are exact addresses, `10.0.0.` prefixes, or CIDR ranges, IPv4 or IPv6.
  * The list is compiled here, once, not on every request.
  *
- * `X-Real-IP` is ignored unless `{ realIp: true }` is given. Some proxies and tunnels pass a
- * client-supplied copy straight through, so it is only believed when the proxy is known to set it.
+ * `X-Real-IP` is never believed: some proxies and tunnels pass a client-supplied copy straight through.
  */
-export function setTrustedProxies(
-  proxies: string[] | "*",
-  options: { realIp?: boolean } = {},
-): void {
+export function setTrustedProxies(proxies: string[] | "*"): void {
   trustedProxies = proxies;
   trusted = compileTrustedProxies(proxies);
-  trustRealIp = options.realIp === true;
   trustedVersion += 1;
 }
 
@@ -1108,7 +1102,7 @@ export class Request implements RequestContract {
 
   /**
    * Client IP.
-   * Default trusts no proxies — spoofed `X-Forwarded-For` / `X-Real-IP` are ignored.
+   * Default trusts no proxies — a spoofed `X-Forwarded-For` is ignored.
    * Call `setTrustedProxies([...])` (or `"*"`) so only connections from those
    * addresses may supply forwarded client IPs; the address is then the right-most
    * `X-Forwarded-For` entry that is not itself a trusted proxy. Otherwise returns the connection
@@ -1125,10 +1119,6 @@ export class Request implements RequestContract {
       if (forwarded) {
         // Right to left, skipping trusted proxies: the left side is whatever the client wrote.
         result = clientFromForwardedFor(forwarded, trusted) ?? remote;
-      } else if (trustRealIp) {
-        const realIp = this.header("x-real-ip")?.trim();
-        const parsed = realIp ? parseIp(realIp) : null;
-        if (parsed) result = parsed.text;
       }
     }
     this.#ipMemo = result;
