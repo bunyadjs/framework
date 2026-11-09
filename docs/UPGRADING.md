@@ -8,6 +8,16 @@ Every breaking change in a beta (or later) release is listed here with what to c
 2. Upgrade all `@bunyad/*` packages together, because they share one version: `bun add @bunyad/framework@beta` (or the individual packages you use).
 3. Run `bun run typecheck` and your tests. Removed or renamed exports show up as type errors.
 
+## From 0.2.0-beta.3 to 0.2.0-beta.4
+
+Most apps change nothing. Check these:
+
+- **Client address behind a proxy.** `request.ip()` now takes the right-most `X-Forwarded-For` entry that is not a trusted proxy, and ignores `X-Real-IP`. List your proxies (exact addresses, prefixes like `10.0.0.`, or CIDR ranges) in `trusted_proxies` in `config/http.ts`, or in `TRUSTED_PROXIES`. With none listed, the address is the connection's own, so behind a proxy every visitor looks like one client and shares one rate limit.
+- **Rate limits are fixed windows**, so a client can make up to twice the limit across a window boundary; stack a short and a long limit on routes that matter. With more than one server, bind a cache whose `add` and `increment` are atomic (Redis, or the database store); with the file store, or none, each server counts alone.
+- **Uploads.** `UploadedFile.getMimeType()` and `extension()` are async and read the bytes; use `getClientMimeType()` and `getClientOriginalExtension()` for what the sender said. `image`, `mimes` and `mimetypes` read the bytes too, so a file whose content does not match its name or declared type is refused, and a test fixture of arbitrary bytes called `photo.png` no longer passes `image`.
+- **`Jwt.decode`** throws for a non-numeric `exp` or `nbf`.
+- **SQLite money columns.** New tables get `NUMERIC` / `REAL` columns; existing tables keep `TEXT` until you rebuild them. A raw read of a numeric column returns `10`, not `"10.00"`.
+
 ## From 0.2.0-beta.2 to 0.2.0-beta.3
 
 Nothing has to move: an app with `routes/web.ts`, `routes/api.ts` and `app/Http/Controllers` still boots (see the next section). New apps can use route folders, where the app is `routes/` + `app/` + `server.ts`; the rest of this section is for moving to them. `bunyad route:list`, `compile`, `optimize` and `view:cache` read the route folders, or the classic route files when there are no folders.
