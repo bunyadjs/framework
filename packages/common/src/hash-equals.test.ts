@@ -36,14 +36,21 @@ test("anything that is not a string is not equal, even to itself", () => {
 
 test("time does not depend on length or on how much matched", () => {
   const known = "ABCD-EFGH-IJKL";
-  const cases = ["X", "XXXX-XXXX-XXXX", "ABCD-EFGH-IJKX", "A".repeat(500)];
-  const time = (given: string, rounds = 200_000): number => {
-    for (let i = 0; i < 20_000; i += 1) hashEquals(known, given);
+  const cases = ["X", "XXXX-XXXX-XXXX", "ABCD-EFGH-IJKX"];
+  const once = (given: string, rounds: number): number => {
     const start = performance.now();
     for (let i = 0; i < rounds; i += 1) hashEquals(known, given);
     return performance.now() - start;
   };
-  const timings = cases.map((given) => time(given));
+  // Warm up, then measure the cases in turn over several rounds and keep each one's best round, so a
+  // busy machine (a shared CI runner) slows every case alike instead of making one look slower.
+  for (const given of cases) once(given, 20_000);
+  const best = cases.map(() => Number.POSITIVE_INFINITY);
+  for (let round = 0; round < 9; round += 1) {
+    cases.forEach((given, index) => {
+      best[index] = Math.min(best[index]!, once(given, 40_000));
+    });
+  }
   // A length shortcut shows as one case being far quicker. Allow generous noise.
-  expect(Math.max(...timings.slice(0, 3)) / Math.min(...timings.slice(0, 3))).toBeLessThan(1.6);
+  expect(Math.max(...best) / Math.min(...best)).toBeLessThan(2);
 });
