@@ -2,6 +2,12 @@
 
 All `@bunyad/*` packages and `create-bunyad` share one version number and are released together. See [docs/STABILITY.md](docs/STABILITY.md) for what each stage promises and [docs/UPGRADING.md](docs/UPGRADING.md) for how to move between releases.
 
+## Unreleased
+
+### Added
+
+- **`DB.usingConnection(nameOrConnection, callback)` makes a connection the default for one stretch of async work.** Models, `DB.table()`, `DB.connection()` without a name and transactions started inside the callback use it; requests running at the same time keep the process default, and a connection named explicitly still wins. `scopedConnection()` returns the active one. Use it to send a single request to a different database, such as a test copy of the data or one customer's own database.
+
 ## 0.2.0-beta.4
 
 Published under the `beta` npm tag. A security and correctness release for the HTTP, auth, cache, validation and database packages. Several behaviours changed; the steps are in [docs/UPGRADING.md](docs/UPGRADING.md).
