@@ -1,4 +1,5 @@
 import type { Connection } from "./connection.ts";
+import { scopedConnection } from "./connection-scope.ts";
 import { QueryBuilder } from "./query-builder.ts";
 
 /**
@@ -41,9 +42,13 @@ export class ConnectionManager {
   }
 
   /**
-   * Resolve a connection by name (default when omitted).
+   * Resolve a connection by name (the scoped connection, then the default, when omitted).
    */
   connection(name?: string): Connection {
+    if (name === undefined) {
+      const scoped = scopedConnection();
+      if (scoped) return scoped;
+    }
     const key = name ?? this.#default;
     const existing = this.#connections.get(key);
     if (existing) return existing;

@@ -8,6 +8,7 @@ import {
   DatabaseManager as Db,
   setDefaultConnection,
   connections,
+  scopedConnection,
   LengthAwarePaginator,
   CursorPaginator,
   Paginator,
@@ -187,7 +188,7 @@ export function resolveConnection(
   connection?: string | Connection | null,
 ): Connection {
   if (connection == null) {
-    return defaultConnection ?? connections.connection();
+    return scopedConnection() ?? defaultConnection ?? connections.connection();
   }
   if (typeof connection === "string") {
     return connections.connection(connection);
@@ -1226,7 +1227,7 @@ export class Model {
     const driver =
       (this.connection != null
         ? resolveConnection(this.connection)
-        : defaultConnection
+        : (scopedConnection() ?? defaultConnection)
       )?.driver;
     let out = { ...attributes };
     for (const [key, definition] of Object.entries(casts)) {

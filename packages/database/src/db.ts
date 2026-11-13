@@ -5,6 +5,7 @@ import {
   withTable,
   type ConnectionWithQuery,
 } from "./database-manager.ts";
+import { usingConnection as scopeConnection } from "./connection-scope.ts";
 import { listen as listenQueries, type QueryExecutedListener } from "./query-listen.ts";
 
 /**
@@ -23,6 +24,22 @@ export function getDefaultConnection(): Connection {
 }
 
 /**
+ * Run `callback` with a connection as the default for this async stack only (models,
+ * `DB.table()`, transactions); concurrent work keeps the process default. Pass a registered
+ * connection name or a connection handle. Returns the callback's result.
+ */
+export function usingConnection<T>(
+  connection: string | Connection,
+  callback: () => T,
+): T {
+  const resolved =
+    typeof connection === "string"
+      ? connections.connection(connection)
+      : connection;
+  return scopeConnection(resolved, callback);
+}
+
+/**
  * `DB` facade — query builder and connection helpers.
  */
 export const DB = {
@@ -33,6 +50,9 @@ export const DB = {
   connection(name?: string): ConnectionWithQuery {
     return withTable(connections.connection(name));
   },
+
+  /** `DB.usingConnection('name', fn)` or with a connection handle; see `usingConnection`. */
+  usingConnection,
 
   /** Register a named connection. */
   addConnection(name: string, connection: Connection): void {

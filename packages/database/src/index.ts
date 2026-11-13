@@ -26,6 +26,7 @@ export {
   clearReadWriteStickyForTests,
   type ReadWriteConnectionOptions,
 } from "./read-write-connection.ts";
+export { scopedConnection } from "./connection-scope.ts";
 export { afterCommit } from "./after-commit.ts";
 export {
   createTransactionApi,
@@ -85,7 +86,12 @@ export {
   resolvePaginatorPage,
 } from "./paginator.ts";
 export { Collection, collect } from "@bunyad/common";
-export { DB, setDefaultConnection, getDefaultConnection } from "./db.ts";
+export {
+  DB,
+  setDefaultConnection,
+  getDefaultConnection,
+  usingConnection,
+} from "./db.ts";
 export {
   ConnectionManager,
   connections,

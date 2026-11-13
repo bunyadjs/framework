@@ -298,6 +298,25 @@ DB.getPdo(); // native Bun SQLite / Bun SQL / mssql handle
 
 `DB.disconnect("analytics")` closes and forgets an open connection (resolvers remain, so the next use opens again). `DB.purge("analytics")` drops the cached handle without closing. Omit the name to apply the operation to every open connection.
 
+## Using a connection for one stretch of work
+
+`DB.usingConnection` makes a connection the default for a callback and everything it starts, then puts the previous default back. Pass a registered name or a connection:
+
+```ts
+const total = await DB.usingConnection("analytics", async () => {
+  await Event.create({ name: "click" }); // models use "analytics"
+  return DB.table("events").count(); // so does the query builder
+});
+```
+
+The scope follows the async call chain, not the process, so requests running at the same time each keep their own connection. That makes it suitable for sending one request to a different database (a test copy of the data, or one customer's database) without changing the default for everyone else. Inside the callback:
+
+- Models, `DB.table()`, `DB.connection()` with no name, and transactions use the scoped connection.
+- A connection named explicitly (`DB.connection("other")`, `Model.on("other")`) still wins.
+- Work that starts outside the callback, such as a queue worker or a timer created earlier, is not affected. Pass what it needs through the job instead.
+
+Anything you cache in memory under a key that the database decides (generated ids, per-customer settings) needs the scope in its key, or one connection's answer will be served to the other.
+
 ## Listening for query events
 
 `DB.listen` registers a callback that runs after each timed connection call (`run`, `get`, `all`, `exec`, and SQLite sync variants). It returns an unsubscribe function:
