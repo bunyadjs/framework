@@ -95,7 +95,7 @@ export class HeadManager {
   resolve(requestUrl?: string): ResolvedHead {
     const state = this.#state();
     const url = requestUrl ?? state.url;
-    const layers = [];
+    const layers: ReturnType<HeadBuilder["layer"]>[] = [];
 
     for (const cb of this.#defaults) {
       const b = new HeadBuilder();
@@ -137,7 +137,7 @@ export class HeadManager {
 
   #globalElements(): HeadElement[] {
     if (this.#inertiaGlobals.length === 0) return [];
-    const layers = [];
+    const layers: ReturnType<HeadBuilder["layer"]>[] = [];
     for (const cb of this.#inertiaGlobals) {
       const b = new HeadBuilder();
       cb(b);
