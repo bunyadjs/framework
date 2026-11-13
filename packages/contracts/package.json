@@ -1,6 +1,6 @@
 {
   "name": "@bunyad/contracts",
-  "version": "0.2.0-beta.4",
+  "version": "0.2.0-beta.5",
   "description": "Shared TypeScript interfaces for Bunyad packages.",
   "license": "MIT",
   "author": "Shah Khalid",
