@@ -2,7 +2,9 @@
 
 All `@bunyad/*` packages and `create-bunyad` share one version number and are released together. See [docs/STABILITY.md](docs/STABILITY.md) for what each stage promises and [docs/UPGRADING.md](docs/UPGRADING.md) for how to move between releases.
 
-## Unreleased
+## 0.2.0-beta.5
+
+Published under the `beta` npm tag. Adds one database feature; nothing changes for existing code.
 
 ### Added
 
