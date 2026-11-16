@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,6 +17,20 @@ function req(url: string, init: RequestInit & { inertia?: boolean } = {}): Reque
   if (init.inertia) headers.set("X-Inertia", "true");
   return new Request(new globalThis.Request(url, { ...init, headers }));
 }
+
+// The root HTML reads the global `config('app.name')`. Provide it here instead of relying on an
+// earlier test file having set a config repository, and put the original back afterwards.
+type GlobalConfig = { config?: (key: string) => unknown };
+let originalConfig: GlobalConfig["config"];
+
+beforeAll(() => {
+  originalConfig = (globalThis as GlobalConfig).config;
+  (globalThis as GlobalConfig).config = () => undefined;
+});
+
+afterAll(() => {
+  (globalThis as GlobalConfig).config = originalConfig;
+});
 
 afterEach(() => {
   resetInertiaState();
