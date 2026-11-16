@@ -20,6 +20,8 @@ type HotServeState = {
   reload?: ReturnType<typeof createDevReloadHandler>;
   port: number;
   hostname: string;
+  /** Listeners opened through `ServeOptions.extraPorts`. */
+  extras: Server<undefined>[];
 };
 
 type GlobalWithHotServe = typeof globalThis & {
@@ -41,6 +43,13 @@ function stopHotServe(prev: HotServeState): void {
     prev.reload?.stop();
   } catch {
     // ignore
+  }
+  for (const extra of prev.extras) {
+    try {
+      extra.stop(true);
+    } catch {
+      // ignore — already stopped
+    }
   }
   try {
     prev.server.stop(true);
@@ -89,6 +98,14 @@ export type ServeOptions = {
   maxRequestBodySize?: number;
   /** Wrap public-file + kernel fetch (CORS, SPA fallback, etc.). */
   fetch?: ServeFetch;
+  /**
+   * Further ports to listen on with the same handler and hostname, for example 80 next to an
+   * app port. Best effort: a port that cannot be bound (in use, or not permitted) is skipped
+   * without failing the main listener. Use `onExtraPort` to learn which ones are open.
+   */
+  extraPorts?: number[];
+  /** Called once for each extra port that was bound. */
+  onExtraPort?: (port: number) => void;
 };
 
 function resolveDevelopment(
@@ -305,6 +322,7 @@ export function serve(
     }
     prev.reload = reload;
     prev.server.reload(serveOptions);
+    for (const extra of prev.extras) extra.reload(serveOptions);
     return prev.server;
   }
 
@@ -317,7 +335,25 @@ export function serve(
     ...(reusePort ? { reusePort: true } : {}),
   });
 
-  setHotState({ server, reload, port, hostname });
+  const extras: Server<undefined>[] = [];
+  for (const extraPort of new Set(options.extraPorts ?? [])) {
+    if (extraPort === (server.port ?? port)) continue;
+    try {
+      extras.push(
+        Bun.serve({
+          port: extraPort,
+          hostname,
+          ...serveOptions,
+          ...(reusePort ? { reusePort: true } : {}),
+        }),
+      );
+      options.onExtraPort?.(extraPort);
+    } catch {
+      // Port taken or not permitted; the main listener keeps working.
+    }
+  }
+
+  setHotState({ server, reload, port, hostname, extras });
 
   const originalStop = server.stop.bind(server);
   server.stop = ((closeActive?: boolean) => {
@@ -330,10 +366,24 @@ export function serve(
       }
       setHotState(undefined);
     }
+    for (const extra of extras) {
+      try {
+        extra.stop(closeActive);
+      } catch {
+        // already stopped
+      }
+    }
     return originalStop(closeActive);
   }) as typeof server.stop;
 
   onShutdown(() => {
+    for (const extra of extras) {
+      try {
+        extra.stop(true);
+      } catch {
+        // already stopped
+      }
+    }
     try {
       server.stop(true);
     } catch {
