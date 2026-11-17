@@ -1,4 +1,4 @@
-import type { Middleware } from "./pipeline.ts";
+import type { Middleware as MiddlewareHandler } from "./pipeline.ts";
 import {
   middlewareAliasOf,
   parseMiddlewareName,
@@ -11,9 +11,9 @@ const METHOD_MIDDLEWARE = Symbol.for("bunyad.controller.methodMiddleware");
 const METHOD_WITHOUT = Symbol.for("bunyad.controller.methodWithoutMiddleware");
 
 type Ctor = Function & {
-  [CLASS_MIDDLEWARE]?: Middleware[];
+  [CLASS_MIDDLEWARE]?: MiddlewareHandler[];
   [CLASS_WITHOUT]?: string[];
-  [METHOD_MIDDLEWARE]?: Map<string | symbol, Middleware[]>;
+  [METHOD_MIDDLEWARE]?: Map<string | symbol, MiddlewareHandler[]>;
   [METHOD_WITHOUT]?: Map<string | symbol, string[]>;
 };
 
@@ -25,7 +25,7 @@ function pushClassList(
   if (key === CLASS_MIDDLEWARE) {
     target[CLASS_MIDDLEWARE] = [
       ...(target[CLASS_MIDDLEWARE] ?? []),
-      ...(values as Middleware[]),
+      ...(values as MiddlewareHandler[]),
     ];
     return;
   }
@@ -42,9 +42,9 @@ function pushMethodList(
   values: unknown[],
 ): void {
   if (mapKey === METHOD_MIDDLEWARE) {
-    const map = ctor[METHOD_MIDDLEWARE] ?? new Map<string | symbol, Middleware[]>();
+    const map = ctor[METHOD_MIDDLEWARE] ?? new Map<string | symbol, MiddlewareHandler[]>();
     const existing = map.get(propertyKey) ?? [];
-    map.set(propertyKey, [...existing, ...(values as Middleware[])]);
+    map.set(propertyKey, [...existing, ...(values as MiddlewareHandler[])]);
     ctor[METHOD_MIDDLEWARE] = map;
     return;
   }
@@ -59,7 +59,7 @@ function pushMethodList(
  * Merged by the HTTP kernel after route middleware.
  */
 export function Middleware(
-  ...middleware: Middleware[]
+  ...middleware: MiddlewareHandler[]
 ): ClassDecorator & MethodDecorator {
   return ((target: object, propertyKey?: string | symbol) => {
     // Stage 3: (value, context) with context.kind / context.name
@@ -151,7 +151,7 @@ export function WithoutMiddleware(
 export function controllerMiddlewareOf(
   Controller: Function,
   method: string,
-): Middleware[] {
+): MiddlewareHandler[] {
   const ctor = Controller as Ctor;
   const classMw = ctor[CLASS_MIDDLEWARE] ?? [];
   const methodMw = ctor[METHOD_MIDDLEWARE]?.get(method) ?? [];
@@ -169,7 +169,7 @@ export function withoutMiddlewareOf(
   return [...classWithout, ...methodWithout];
 }
 
-function aliasMatches(entry: Middleware, without: string): boolean {
+function aliasMatches(entry: MiddlewareHandler, without: string): boolean {
   const alias = middlewareAliasOf(entry);
   if (!alias) return false;
   if (alias === without) return true;
@@ -180,9 +180,9 @@ function aliasMatches(entry: Middleware, without: string): boolean {
 
 /** Drop middleware whose alias is listed in `without`. */
 export function excludeMiddleware(
-  stack: Middleware[],
+  stack: MiddlewareHandler[],
   without: string[],
-): Middleware[] {
+): MiddlewareHandler[] {
   if (without.length === 0) return stack;
   return stack.filter(
     (entry) => !without.some((name) => aliasMatches(entry, name)),
@@ -194,10 +194,10 @@ export function excludeMiddleware(
  * route middleware + controller/method middleware, minus WithoutMiddleware.
  */
 export function mergeControllerMiddleware(
-  routeMiddleware: Middleware[],
+  routeMiddleware: MiddlewareHandler[],
   Controller: Function,
   method: string,
-): Middleware[] {
+): MiddlewareHandler[] {
   const combined = [
     ...routeMiddleware,
     ...controllerMiddlewareOf(Controller, method),
@@ -272,7 +272,7 @@ const ROUTE_SPECS = Symbol.for("bunyad.controller.routeSpecs");
 export type DeclaredRoute = { method: string; path: string; name?: string; access?: string; where?: Record<string, string> };
 
 /** Options of `@Get("/x", { … })`: the route's name and its extra middleware. */
-export type DeclaredRouteOptions = { name?: string; middleware?: Middleware[]; /** Who may open it: `guest` or `auth`. Replaces the access its area sets. */ access?: string; /** Patterns for parameters, such as `{ key: ".+" }` for a path with slashes. */ where?: Record<string, string> };
+export type DeclaredRouteOptions = { name?: string; middleware?: MiddlewareHandler[]; /** Who may open it: `guest` or `auth`. Replaces the access its area sets. */ access?: string; /** Patterns for parameters, such as `{ key: ".+" }` for a path with slashes. */ where?: Record<string, string> };
 
 type SpecMeta = Function & { [ROUTE_SPECS]?: Map<string, DeclaredRoute[]> };
 
