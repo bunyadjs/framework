@@ -3210,7 +3210,7 @@ export class ModelQuery<
         );
       }
 
-      // or / not / nested where: IN (SELECT ownerKey ...) — reuse call-time relatedQuery when present.
+      // or / not / nested where — reuse call-time relatedQuery when present.
       let relatedQuery = constraint.relatedQuery;
       if (!relatedQuery) {
         relatedQuery = meta.related.newQuery() as ModelQuery;
@@ -3218,15 +3218,36 @@ export class ModelQuery<
           constraint.callback(relatedQuery);
         }
       }
+      if (constraint.not) {
+        // NOT EXISTS, not `fk NOT IN (…)`: a NULL foreign key makes NOT IN
+        // unknown and drops the row, and Postgres cannot run NOT IN as an
+        // anti-join, so a LIMITed page has to hash the whole related set first.
+        const rq = relatedQuery;
+        const alias =
+          relatedTable === parentTable ? `${relatedTable}_bt` : relatedTable;
+        const apply = (sub: QueryBuilder) => {
+          sub.from(alias === relatedTable ? relatedTable : `${relatedTable} as ${alias}`);
+          sub.whereColumn(
+            `${alias}.${meta.ownerKey}`,
+            `${parentTable}.${meta.foreignKey}`,
+          );
+          if (usesSoftDeletes(meta.related)) {
+            const delCol = `${alias}.${deletedAtColumn(meta.related)}`;
+            if (rq.#onlyTrashed) sub.whereNotNull(delCol);
+            else if (!rq.#withTrashed) sub.whereNull(delCol);
+          }
+          this.#applyRelatedConstraints(sub, rq, meta.related, alias);
+        };
+        return constraint.or ? q.orWhereNotExists(apply) : q.whereNotExists(apply);
+      }
+      // whereHas / orWhereHas: `fk IN (SELECT ownerKey …)` (measured faster than
+      // a correlated EXISTS on SQLite, equal on Postgres).
       // Select owner key for the IN subquery (clone-safe: mutate a dedicated select).
       const sub = relatedQuery.clone();
       sub.select(meta.ownerKey);
       const subSql = sub.toSql();
       const bindings = sub.getBindings();
-      const col = `${parentTable}.${meta.foreignKey}`;
-      const sql = constraint.not
-        ? `${col} not in (${subSql})`
-        : `${col} in (${subSql})`;
+      const sql = `${parentTable}.${meta.foreignKey} in (${subSql})`;
       return constraint.or
         ? q.orWhereRaw(sql, bindings)
         : q.whereRaw(sql, bindings);

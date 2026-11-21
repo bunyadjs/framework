@@ -16,8 +16,12 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
     class Customer extends Model {
       static table = "wg_customers";
       static timestamps = false;
-      static fillable = ["name", "vip"];
+      static fillable = ["name", "vip", "referrer_id"];
       declare id: number;
+      declare name: string;
+      referrer() {
+        return this.belongsTo(Customer, "referrer_id");
+      }
     }
     class Stock extends Model {
       static table = "wg_stocks";
@@ -63,6 +67,7 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
         b.id();
         b.string("name");
         b.integer("vip");
+        b.integer("referrer_id").nullable();
       });
       await schema.create("wg_stocks", (b) => {
         b.id();
@@ -71,7 +76,7 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
       await schema.create("wg_orders", (b) => {
         b.id();
         b.string("number");
-        b.integer("customer_id");
+        b.integer("customer_id").nullable();
       });
       await schema.create("wg_lines", (b) => {
         b.id();
@@ -82,10 +87,12 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
       });
 
       const ann = await Customer.create({ name: "Ann", vip: 0 });
-      const bob = await Customer.create({ name: "Bob", vip: 0 });
+      const bob = await Customer.create({ name: "Bob", vip: 0, referrer_id: ann.id });
       const phone = await Stock.create({ serial: "IMEI-1" });
       const a = await Order.create({ number: "A", customer_id: ann.id });
       const b = await Order.create({ number: "B", customer_id: bob.id });
+      // No customer at all: a NULL foreign key.
+      await Order.create({ number: "C", customer_id: null });
       await Line.create({ order_id: a.id, stock_id: phone.id, name: "Phone", active: 1 });
       await Line.create({ order_id: b.id, stock_id: null, name: "Cable", active: 1 });
       // Inactive line of B: hidden by the global scope below.
@@ -131,6 +138,24 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
           cq.where("name", "Nobody").orWhere("name", "Ann");
         });
       expect(await numbers(q)).toEqual([]);
+    });
+
+    test("belongsTo whereDoesntHave keeps rows with a NULL foreign key", async () => {
+      expect(await numbers(Order.query().whereDoesntHave("customer"))).toEqual(["C"]);
+    });
+
+    test("belongsTo whereDoesntHave with an or callback", async () => {
+      const q = Order.query().whereDoesntHave("customer", (cq: any) => {
+        cq.where("name", "Nobody").orWhere("name", "Ann");
+      });
+      expect(await numbers(q)).toEqual(["B", "C"]);
+    });
+
+    test("self-referencing belongsTo whereDoesntHave", async () => {
+      const names = (await Customer.query().whereDoesntHave("referrer").get())
+        .all()
+        .map((row: Customer) => row.name);
+      expect(names).toEqual(["Ann"]);
     });
 
     test("plain and callbacks keep their ungrouped SQL", async () => {
