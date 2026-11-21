@@ -2547,10 +2547,18 @@ export class ModelQuery<
           ? `${meta.related.table}_has`
           : meta.related.table;
       if (callback || scoped) {
-        const rq = meta.related.newQuery() as ModelQuery;
+        const rq = meta.related.newQuery({ nestedWhereGroup: true }) as ModelQuery;
         callback?.(rq);
+        // `or` in the callback must stay inside its own group, after the
+        // relation key condition: `fk = pk AND (a OR b) AND <scopes>`.
+        const grouped = this.#relatedConstraintsHaveOr(rq);
         if (this.#relatedConstraintsAreMergeable(rq)) {
-          const flat = this.#bindFlatRelatedApply(rq);
+          const bound = this.#bindFlatRelatedApply(rq);
+          const flat: (sub: QueryBuilder) => void = grouped
+            ? (sub) => {
+                sub.whereNested(bound);
+              }
+            : bound;
           applyRelated = scoped
             ? (sub) => {
                 flat(sub);
@@ -2560,7 +2568,13 @@ export class ModelQuery<
         } else {
           relatedQuery = rq;
           applyRelated = (sub) => {
-            rq.applyConstraintsTo(sub);
+            if (grouped) {
+              sub.whereNested((inner) => {
+                rq.applyConstraintsTo(inner);
+              });
+            } else {
+              rq.applyConstraintsTo(sub);
+            }
             rq.applyGlobalScopesToSubquery(sub, relatedRef);
           };
         }
@@ -2816,7 +2830,15 @@ export class ModelQuery<
       });
       callback(relatedQuery as ModelQuery);
       relatedQuery.qualifyColumns(relatedAlias);
-      if (this.#relatedConstraintsAreMergeable(relatedQuery as ModelQuery)) {
+      if (this.#relatedConstraintsHaveOr(relatedQuery as ModelQuery)) {
+        // Merging `a OR b` into the parent wheres would turn
+        // `parent AND a OR b` loose; keep the callback in its own group.
+        (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => {
+          q.whereNested((inner) => {
+            relatedQuery.applyConstraintsTo(inner);
+          });
+        });
+      } else if (this.#relatedConstraintsAreMergeable(relatedQuery as ModelQuery)) {
         this.#mergeRelatedConstraints(relatedQuery as ModelQuery);
       } else {
         // Nested has / groups must keep related model identity → apply on QB each build.
@@ -2879,6 +2901,31 @@ export class ModelQuery<
       from.#builderExtras.length === 0 &&
       from.#withCounts.length === 0 &&
       from.#withAggregates.length === 0
+    );
+  }
+
+  /**
+   * True when a relation callback added an `or` condition at its top level.
+   * Such constraints must be wrapped in `( … )` before they are joined to the
+   * relation key condition and scopes, otherwise `fk = pk AND a OR b` drops the
+   * correlation for `b`. Grouping only when an `or` is present keeps the SQL for
+   * plain AND callbacks unchanged.
+   */
+  #relatedConstraintsHaveOr(from: ModelQuery): boolean {
+    from = unwrapModelQuery(from);
+    const isOr = (w: { boolean?: string }) => w.boolean === "or";
+    return (
+      from.#wheres.some(isOr) ||
+      from.#whereIns.some(isOr) ||
+      from.#whereNulls.some(isOr) ||
+      from.#whereBetweens.some(isOr) ||
+      from.#whereColumns.some(isOr) ||
+      from.#whereRaws.some(isOr) ||
+      from.#whereLikes.some(isOr) ||
+      (from.#dateWheres as ReadonlyArray<{ boolean?: string }>).some(isOr) ||
+      from.#hasConstraints.some((c) => c.or) ||
+      from.#morphHasConstraints.some((c) => c.or) ||
+      from.#nestedGroups.some(isOr)
     );
   }
 
@@ -2990,16 +3037,23 @@ export class ModelQuery<
           const delCol = deletedAtColumn(meta.related);
           q = q.whereNull(`${relatedAlias}.${delCol}`);
         }
-        if (constraint.relatedQuery) {
-          constraint.relatedQuery.qualifyColumns(relatedAlias);
-          constraint.relatedQuery.applyConstraintsTo(q);
-        } else if (constraint.callback) {
-          const relatedQuery = meta.related.newQuery({
+        let relatedQuery = constraint.relatedQuery;
+        if (!relatedQuery && constraint.callback) {
+          relatedQuery = meta.related.newQuery({
             withoutGlobalScopes: true,
-          });
-          constraint.callback(relatedQuery as ModelQuery);
-          relatedQuery.qualifyColumns(relatedAlias);
-          relatedQuery.applyConstraintsTo(q);
+          }) as ModelQuery;
+          constraint.callback(relatedQuery);
+        }
+        if (relatedQuery) {
+          const rq = relatedQuery;
+          rq.qualifyColumns(relatedAlias);
+          if (this.#relatedConstraintsHaveOr(rq)) {
+            q = q.whereNested((inner) => {
+              rq.applyConstraintsTo(inner);
+            });
+          } else {
+            q = rq.applyConstraintsTo(q);
+          }
         }
         return q;
       }
