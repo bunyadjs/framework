@@ -1578,8 +1578,22 @@ export class QueryBuilder {
     return collect(rows);
   }
 
+  /**
+   * Whether any row matches. Stops at the first one and, when nothing else depends on the select
+   * list, reads `1` instead of the whole row.
+   */
   async exists(): Promise<boolean> {
-    return (await this.clone().first()) != null;
+    const probe = this.clone();
+    if (
+      this.#columns === null &&
+      !this.#distinct &&
+      this.#groups.length === 0 &&
+      this.#havings.length === 0 &&
+      this.#unions.length === 0
+    ) {
+      probe.selectRaw("1");
+    }
+    return (await probe.first()) != null;
   }
 
   async existsOr<T>(callback: () => T | Promise<T>): Promise<true | T> {

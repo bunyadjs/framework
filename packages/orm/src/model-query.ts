@@ -4160,7 +4160,7 @@ export class ModelQuery<
   }
 
   async exists(): Promise<boolean> {
-    return (await this.#countQuery().first()) != null;
+    return this.#countQuery().exists();
   }
 
   async doesntExist(): Promise<boolean> {
