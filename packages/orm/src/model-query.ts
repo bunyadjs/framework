@@ -138,8 +138,14 @@ type WhereLists = {
  * wrote them, so `whereIn(...).orWhereNull(...)` stays `IN … OR NULL`. Conditions
  * without a sequence number keep the old per-kind order.
  */
-function applyWhereLists(q: QueryBuilder, lists: WhereLists): QueryBuilder {
-  const steps: Array<{ seq: number; run: (q: QueryBuilder) => QueryBuilder }> = [];
+type WhereStep = { seq: number; run: (q: QueryBuilder) => QueryBuilder };
+
+function applyWhereLists(
+  q: QueryBuilder,
+  lists: WhereLists,
+  extra?: ReadonlyArray<WhereStep>,
+): QueryBuilder {
+  const steps: WhereStep[] = extra ? extra.slice() : [];
   for (const w of lists.wheres ?? []) {
     steps.push({
       seq: w.seq ?? 0,
@@ -361,6 +367,8 @@ export class ModelQuery<
   #havingRaws: Array<{ sql: string; bindings: unknown[] }> = MQ_EMPTY as any;
   #lock: false | "update" | "share" = false;
   #hasConstraints: Array<{
+    /** Written order among all where conditions. */
+    seq?: number;
     relation: string;
     not: boolean;
     or: boolean;
@@ -393,6 +401,7 @@ export class ModelQuery<
     constraint?: (query: ModelQuery) => void;
   }> = MQ_EMPTY as any;
   #morphHasConstraints: Array<{
+    seq?: number;
     typeColumn: string;
     idColumn: string;
     types: ModelClass[];
@@ -401,7 +410,17 @@ export class ModelQuery<
     callback?: (query: ModelQuery) => void;
   }> = MQ_EMPTY as any;
   #builderExtras: Array<(q: QueryBuilder) => void> = MQ_EMPTY as any;
+  /**
+   * Where conditions only the query builder can emit (whereAny, whereExists,
+   * grouped relation joins, …), applied in written order with the other wheres.
+   */
+  #orderedWheres: Array<{
+    seq: number;
+    boolean: "and" | "or";
+    apply: (q: QueryBuilder) => void;
+  }> = MQ_EMPTY as any;
   #nestedGroups: Array<{
+    seq?: number;
     boolean: "and" | "or";
     not: boolean;
     /** Polymorphic nesting — concrete `T` is erased when applying constraints. */
@@ -889,6 +908,7 @@ export class ModelQuery<
     }
     this.#simple = false;
     (this.#morphHasConstraints = mqMut(this.#morphHasConstraints)).push({
+      seq: nextWhereSeq(),
       typeColumn: rel.getTypeColumn(),
       idColumn: rel.getIdColumn(),
       types: list,
@@ -913,39 +933,27 @@ export class ModelQuery<
 
   /** `whereAny` (forwarded to query builder). */
   whereAny(columns: string[], opOrValue: unknown, value?: unknown): this {
-    this.#simple = false;
-    (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => q.whereAny(columns, opOrValue, value));
-    return this;
+    return this.#pushOrderedWhere("and", (q) => void q.whereAny(columns, opOrValue, value));
   }
 
   orWhereAny(columns: string[], opOrValue: unknown, value?: unknown): this {
-    this.#simple = false;
-    (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => q.orWhereAny(columns, opOrValue, value));
-    return this;
+    return this.#pushOrderedWhere("or", (q) => void q.orWhereAny(columns, opOrValue, value));
   }
 
   whereAll(columns: string[], opOrValue: unknown, value?: unknown): this {
-    this.#simple = false;
-    (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => q.whereAll(columns, opOrValue, value));
-    return this;
+    return this.#pushOrderedWhere("and", (q) => void q.whereAll(columns, opOrValue, value));
   }
 
   orWhereAll(columns: string[], opOrValue: unknown, value?: unknown): this {
-    this.#simple = false;
-    (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => q.orWhereAll(columns, opOrValue, value));
-    return this;
+    return this.#pushOrderedWhere("or", (q) => void q.orWhereAll(columns, opOrValue, value));
   }
 
   whereNone(columns: string[], opOrValue: unknown, value?: unknown): this {
-    this.#simple = false;
-    (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => q.whereNone(columns, opOrValue, value));
-    return this;
+    return this.#pushOrderedWhere("and", (q) => void q.whereNone(columns, opOrValue, value));
   }
 
   orWhereNone(columns: string[], opOrValue: unknown, value?: unknown): this {
-    this.#simple = false;
-    (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => q.orWhereNone(columns, opOrValue, value));
-    return this;
+    return this.#pushOrderedWhere("or", (q) => void q.orWhereNone(columns, opOrValue, value));
   }
 
   /** `whereKey($id)` / `whereKey([$ids])`. */
@@ -983,6 +991,7 @@ export class ModelQuery<
   ): this {
     this.#simple = false;
     (this.#nestedGroups = mqMut(this.#nestedGroups)).push({
+      seq: nextWhereSeq(),
       boolean: "and",
       not: true,
       callback: notGroupCallback(callbackOrColumn, opOrValue, value),
@@ -1000,6 +1009,7 @@ export class ModelQuery<
   ): this {
     this.#simple = false;
     (this.#nestedGroups = mqMut(this.#nestedGroups)).push({
+      seq: nextWhereSeq(),
       boolean: "or",
       not: true,
       callback: notGroupCallback(callbackOrColumn, opOrValue, value),
@@ -1168,6 +1178,20 @@ export class ModelQuery<
     return query instanceof ModelQuery ? query.toBase() : query;
   }
 
+  /** Builder-only where condition, kept in written order (see #orderedWheres). */
+  #pushOrderedWhere(
+    boolean: "and" | "or",
+    apply: (q: QueryBuilder) => void,
+  ): this {
+    this.#simple = false;
+    (this.#orderedWheres = mqMut(this.#orderedWheres)).push({
+      seq: nextWhereSeq(),
+      boolean,
+      apply,
+    });
+    return this;
+  }
+
   #extra(apply: (q: QueryBuilder) => void): this {
     this.#simple = false;
     (this.#builderExtras = mqMut(this.#builderExtras)).push(apply);
@@ -1181,19 +1205,19 @@ export class ModelQuery<
 
   /** `whereExists($query)` and its `or` / `not` variants. */
   whereExists(query: SubQuery): this {
-    return this.#extra((q) => void q.whereExists(this.#sub(query)));
+    return this.#pushOrderedWhere("and", (q) => void q.whereExists(this.#sub(query)));
   }
 
   orWhereExists(query: SubQuery): this {
-    return this.#extra((q) => void q.orWhereExists(this.#sub(query)));
+    return this.#pushOrderedWhere("or", (q) => void q.orWhereExists(this.#sub(query)));
   }
 
   whereNotExists(query: SubQuery): this {
-    return this.#extra((q) => void q.whereNotExists(this.#sub(query)));
+    return this.#pushOrderedWhere("and", (q) => void q.whereNotExists(this.#sub(query)));
   }
 
   orWhereNotExists(query: SubQuery): this {
-    return this.#extra((q) => void q.orWhereNotExists(this.#sub(query)));
+    return this.#pushOrderedWhere("or", (q) => void q.orWhereNotExists(this.#sub(query)));
   }
 
   /** `union` / `unionAll` — the other query must select the same columns. */
@@ -1260,6 +1284,7 @@ export class ModelQuery<
     if (typeof columnOrCallback === "function") {
       this.#simple = false;
       (this.#nestedGroups = mqMut(this.#nestedGroups)).push({
+        seq: nextWhereSeq(),
         boolean: "and",
         not: false,
         callback: columnOrCallback,
@@ -1311,6 +1336,7 @@ export class ModelQuery<
     if (typeof columnOrCallback === "function") {
       this.#simple = false;
       (this.#nestedGroups = mqMut(this.#nestedGroups)).push({
+        seq: nextWhereSeq(),
         boolean: "or",
         not: false,
         callback: columnOrCallback,
@@ -1849,6 +1875,7 @@ export class ModelQuery<
       types: [...m.types],
     }));
     copy.#builderExtras = [...this.#builderExtras];
+    copy.#orderedWheres = this.#orderedWheres.map((w) => ({ ...w }));
     copy.#nestedGroups = this.#nestedGroups.map((g) => ({ ...g }));
     copy.#joins = this.#joins.map((j) => ({ ...j }));
     copy.#nestedWhereGroup = this.#nestedWhereGroup;
@@ -1907,6 +1934,34 @@ export class ModelQuery<
   }
 
   /**
+   * True when global scopes or soft deletes add conditions next to this
+   * query's own wheres. Own wheres with an `or` must then be grouped, or
+   * `tenant_id = ? AND a OR b` lets `b` match rows of every tenant.
+   */
+  #scopesAddWheres(): boolean {
+    if (
+      usesSoftDeletes(this.model) &&
+      (this.#onlyTrashed || !this.#withTrashed)
+    ) {
+      return true;
+    }
+    return this.#withoutGlobalScopes !== true && hasGlobalScopes(this.model);
+  }
+
+  /** Apply own wheres after scope wheres, grouped when they contain an `or`. */
+  #applyOwnConstraintsTo(q: QueryBuilder): QueryBuilder {
+    if (
+      this.#scopesAddWheres() &&
+      this.#constraintsHaveOr(this as unknown as ModelQuery)
+    ) {
+      return q.whereNested((inner) => {
+        this.applyConstraintsTo(inner);
+      });
+    }
+    return this.applyConstraintsTo(q);
+  }
+
+  /**
    * True when this query can compile without a full QueryBuilder
    * (basic wheres + order + limit/offset, optional plain column list).
    * Global scopes that only add basic wheres stay on this path.
@@ -1943,6 +1998,7 @@ export class ModelQuery<
       this.#morphHasConstraints.length > 0 ||
       this.#nestedGroups.length > 0 ||
       this.#builderExtras.length > 0 ||
+      this.#orderedWheres.length > 0 ||
       this.#withCounts.length > 0 ||
       this.#withAggregates.length > 0 ||
       this.#addSelectColumns.length > 0 ||
@@ -2077,7 +2133,15 @@ export class ModelQuery<
 
     // Scope predicates first, then the query's own wheres (matches builder order).
     for (const w of plan.scopeWheres) appendWhere(w);
-    for (const w of this.#wheres) appendWhere(w);
+    if (whereParts.length > 0 && this.#wheres.some((w) => w.boolean === "or")) {
+      // Keep `scope AND (a OR b)`: an ungrouped `or` would skip the scope.
+      const scopeParts = whereParts.splice(0);
+      for (const w of this.#wheres) appendWhere(w);
+      const own = whereParts.splice(0).join("");
+      whereParts.push(...scopeParts, ` AND (${own})`);
+    } else {
+      for (const w of this.#wheres) appendWhere(w);
+    }
 
     sql = `SELECT ${plan.columns} FROM ${this.model.table}`;
     if (whereParts.length > 0) {
@@ -2189,6 +2253,7 @@ export class ModelQuery<
     if (this.#morphHasConstraints.length > 0) return false;
     if (this.#nestedGroups.length > 0) return false;
     if (this.#builderExtras.length > 0) return false;
+    if (this.#orderedWheres.length > 0) return false;
     if (this.#withCounts.length > 0 || this.#withAggregates.length > 0) return false;
     if (this.#selectColumns || this.#addSelectColumns.length > 0) return false;
     if (this.#selectRaws.length > 0 || this.#distinct) return false;
@@ -2212,13 +2277,27 @@ export class ModelQuery<
     // The compiled SQL is dialect specific (identifier quoting), so the driver is part of the key.
     let key = this.#withTrashed ? "T" : this.#onlyTrashed ? "O" : "N";
     key += `\u001e${conn.driver}\u001e${this.model.table}`;
-    for (const w of this.#wheres) {
-      key += `\u001e${w.boolean}\u001e${w.column}\u001e${w.op}`;
-      if (w.op !== "__null__" && w.op !== "__notnull__") params.push(w.value);
-    }
-    for (const c of this.#hasConstraints) {
-      key += `\u001eH\u001e${c.not ? "1" : "0"}\u001e${c.or ? "1" : "0"}\u001e${c.inColumn ?? ""}\u001e${c.existsSql}`;
-      if (c.existsBindings?.length) params.push(...c.existsBindings);
+    // Plain wheres and whereHas constraints in the order they were written.
+    const last = Number.MAX_SAFE_INTEGER;
+    const plainWheres = this.#wheres;
+    const hasConstraints = this.#hasConstraints;
+    const parts: Array<
+      | { seq: number; where: (typeof plainWheres)[number] }
+      | { seq: number; has: (typeof hasConstraints)[number] }
+    > = [];
+    for (const where of plainWheres) parts.push({ seq: where.seq ?? 0, where });
+    for (const has of hasConstraints) parts.push({ seq: has.seq ?? last, has });
+    parts.sort((a, b) => a.seq - b.seq);
+    for (const part of parts) {
+      if ("where" in part) {
+        const w = part.where;
+        key += `\u001e${w.boolean}\u001e${w.column}\u001e${w.op}`;
+        if (w.op !== "__null__" && w.op !== "__notnull__") params.push(w.value);
+      } else {
+        const c = part.has;
+        key += `\u001eH\u001e${c.not ? "1" : "0"}\u001e${c.or ? "1" : "0"}\u001e${c.inColumn ?? ""}\u001e${c.existsSql}`;
+        if (c.existsBindings?.length) params.push(...c.existsBindings);
+      }
     }
     for (const o of this.#orders) {
       if ("raw" in o) key += `\u001eR\u001e${o.raw}`;
@@ -2252,21 +2331,25 @@ export class ModelQuery<
       }
     }
 
-    for (const w of this.#wheres) {
-      const bool = pushBool(w.boolean);
-      const col = wrap(w.column);
-      if (w.op === "__null__") {
-        whereParts.push(`${bool}${col} IS NULL`);
+    // Soft-delete predicate first; own wheres that use `or` are grouped after it.
+    const scopeParts = whereParts.splice(0);
+    for (const part of parts) {
+      if ("where" in part) {
+        const w = part.where;
+        const bool = pushBool(w.boolean);
+        const col = wrap(w.column);
+        if (w.op === "__null__") {
+          whereParts.push(`${bool}${col} IS NULL`);
+          continue;
+        }
+        if (w.op === "__notnull__") {
+          whereParts.push(`${bool}${col} IS NOT NULL`);
+          continue;
+        }
+        whereParts.push(`${bool}${col} ${w.op} ?`);
         continue;
       }
-      if (w.op === "__notnull__") {
-        whereParts.push(`${bool}${col} IS NOT NULL`);
-        continue;
-      }
-      whereParts.push(`${bool}${col} ${w.op} ?`);
-    }
-
-    for (const c of this.#hasConstraints) {
+      const c = part.has;
       const bool = pushBool(c.or ? "or" : "and");
       if (c.inColumn) {
         whereParts.push(
@@ -2277,6 +2360,15 @@ export class ModelQuery<
           `${bool}${c.not ? "NOT EXISTS" : "EXISTS"} (${c.existsSql})`,
         );
       }
+    }
+    if (scopeParts.length > 0 && whereParts.length > 0) {
+      const own = whereParts.splice(0).join("");
+      const grouped = parts.some((part) =>
+        "where" in part ? part.where.boolean === "or" : part.has.or,
+      );
+      whereParts.push(...scopeParts, grouped ? ` AND (${own})` : ` AND ${own}`);
+    } else {
+      whereParts.push(...scopeParts);
     }
 
     sql = `SELECT * FROM ${this.model.table}`;
@@ -2306,7 +2398,7 @@ export class ModelQuery<
     q = this.#applySoftDeletes(q);
     q = this.#applyGlobalScopesTo(q);
     this.#qualifyParentConstraintsForJoins();
-    q = this.applyConstraintsTo(q);
+    q = this.#applyOwnConstraintsTo(q);
 
     if (this.#joins.length > 0) {
       if (!this.#selectColumns && this.#addSelectColumns.length === 0) {
@@ -2470,25 +2562,23 @@ export class ModelQuery<
 
   /** Apply this query's wheres onto a QueryBuilder (exists subqueries). */
   applyConstraintsTo(q: QueryBuilder): QueryBuilder {
-    q = applyWhereLists(q, {
-      wheres: this.#wheres,
-      whereIns: this.#whereIns,
-      whereNulls: this.#whereNulls,
-      whereBetweens: this.#whereBetweens,
-      whereColumns: this.#whereColumns,
-      whereRaws: this.#whereRaws,
-      whereLikes: this.#whereLikes,
-      dateWheres: this.#dateWheres,
-    });
-
+    // Relation, nested and builder-only conditions are sorted with the plain
+    // wheres so `where(a).orWhereHas(x).where(b)` stays `a OR EXISTS x AND b`.
+    // Entries without a sequence number keep the old place, after the plain wheres.
+    const last = Number.MAX_SAFE_INTEGER;
+    const extra: WhereStep[] = [];
     for (const constraint of this.#hasConstraints) {
-      q = this.#applyHasConstraint(q, constraint);
+      extra.push({
+        seq: constraint.seq ?? last,
+        run: (q) => this.#applyHasConstraint(q, constraint),
+      });
     }
-
     for (const morph of this.#morphHasConstraints) {
-      q = this.#applyMorphHasConstraint(q, morph);
+      extra.push({
+        seq: morph.seq ?? last,
+        run: (q) => this.#applyMorphHasConstraint(q, morph),
+      });
     }
-
     for (const group of this.#nestedGroups) {
       const run = (subQ: QueryBuilder) => {
         const nested = this.model.newQuery({
@@ -2500,15 +2590,42 @@ export class ModelQuery<
         group.callback(nested as ModelQuery);
         nested.applyConstraintsTo(subQ);
       };
-      if (group.not) {
-        q = group.boolean === "or" ? q.orWhereNot(run) : q.whereNot(run);
-      } else {
-        q =
-          group.boolean === "or" ? q.orWhereNested(run) : q.whereNested(run);
-      }
+      extra.push({
+        seq: group.seq ?? last,
+        run: (q) =>
+          group.not
+            ? group.boolean === "or"
+              ? q.orWhereNot(run)
+              : q.whereNot(run)
+            : group.boolean === "or"
+              ? q.orWhereNested(run)
+              : q.whereNested(run),
+      });
+    }
+    for (const ordered of this.#orderedWheres) {
+      extra.push({
+        seq: ordered.seq,
+        run: (q) => {
+          ordered.apply(q);
+          return q;
+        },
+      });
     }
 
-    return q;
+    return applyWhereLists(
+      q,
+      {
+        wheres: this.#wheres,
+        whereIns: this.#whereIns,
+        whereNulls: this.#whereNulls,
+        whereBetweens: this.#whereBetweens,
+        whereColumns: this.#whereColumns,
+        whereRaws: this.#whereRaws,
+        whereLikes: this.#whereLikes,
+        dateWheres: this.#dateWheres,
+      },
+      extra,
+    );
   }
 
   /**
@@ -2526,6 +2643,7 @@ export class ModelQuery<
     const meta = metaHint === undefined ? resolveRelation(this.model, relation) : metaHint;
     if (!meta) {
       (this.#hasConstraints = mqMut(this.#hasConstraints)).push({
+        seq: nextWhereSeq(),
         relation,
         not,
         or,
@@ -2551,7 +2669,7 @@ export class ModelQuery<
         callback?.(rq);
         // `or` in the callback must stay inside its own group, after the
         // relation key condition: `fk = pk AND (a OR b) AND <scopes>`.
-        const grouped = this.#relatedConstraintsHaveOr(rq);
+        const grouped = this.#constraintsHaveOr(rq);
         if (this.#relatedConstraintsAreMergeable(rq)) {
           const bound = this.#bindFlatRelatedApply(rq);
           const flat: (sub: QueryBuilder) => void = grouped
@@ -2595,14 +2713,14 @@ export class ModelQuery<
     }
 
     // belongsTo or/not / unsupported: cache meta (+ optional relatedQuery) for #applyHasConstraint.
+    // Global scopes stay on: the IN subquery is compiled through this query.
     let relatedQuery: ModelQuery | undefined;
     if (callback) {
-      relatedQuery = meta.related.newQuery({
-        withoutGlobalScopes: true,
-      }) as ModelQuery;
+      relatedQuery = meta.related.newQuery() as ModelQuery;
       callback(relatedQuery);
     }
     (this.#hasConstraints = mqMut(this.#hasConstraints)).push({
+      seq: nextWhereSeq(),
       relation,
       not,
       or,
@@ -2729,6 +2847,7 @@ export class ModelQuery<
     }
 
     (this.#hasConstraints = mqMut(this.#hasConstraints)).push({
+      seq: nextWhereSeq(),
       relation,
       not,
       or,
@@ -2824,26 +2943,27 @@ export class ModelQuery<
       });
     }
 
-    if (callback) {
-      const relatedQuery = meta.related.newQuery({
-        withoutGlobalScopes: true,
-      });
-      callback(relatedQuery as ModelQuery);
+    const scoped = hasGlobalScopes(meta.related);
+    if (callback || scoped) {
+      const relatedQuery = meta.related.newQuery() as ModelQuery;
+      callback?.(relatedQuery);
       relatedQuery.qualifyColumns(relatedAlias);
-      if (this.#relatedConstraintsHaveOr(relatedQuery as ModelQuery)) {
-        // Merging `a OR b` into the parent wheres would turn
-        // `parent AND a OR b` loose; keep the callback in its own group.
-        (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => {
-          q.whereNested((inner) => {
-            relatedQuery.applyConstraintsTo(inner);
+      // The JOIN itself is a top-level AND, so whatever narrows the joined row
+      // (the callback when it cannot be merged, and the related model's global
+      // scopes) is applied as a top-level AND too, after the parent's own wheres.
+      if (
+        !this.#constraintsHaveOr(relatedQuery) &&
+        this.#relatedConstraintsAreMergeable(relatedQuery)
+      ) {
+        this.#mergeRelatedConstraints(relatedQuery);
+        if (scoped) {
+          (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => {
+            relatedQuery.applyGlobalScopesToSubquery(q, relatedAlias);
           });
-        });
-      } else if (this.#relatedConstraintsAreMergeable(relatedQuery as ModelQuery)) {
-        this.#mergeRelatedConstraints(relatedQuery as ModelQuery);
+        }
       } else {
-        // Nested has / groups must keep related model identity → apply on QB each build.
         (this.#builderExtras = mqMut(this.#builderExtras)).push((q) => {
-          relatedQuery.applyConstraintsTo(q);
+          this.#applyRelatedConstraints(q, relatedQuery, meta.related, relatedAlias);
         });
       }
     }
@@ -2899,9 +3019,34 @@ export class ModelQuery<
       from.#nestedGroups.length === 0 &&
       from.#joins.length === 0 &&
       from.#builderExtras.length === 0 &&
+      from.#orderedWheres.length === 0 &&
       from.#withCounts.length === 0 &&
       from.#withAggregates.length === 0
     );
+  }
+
+  /**
+   * Apply a relation callback's constraints plus the related model's global
+   * scopes onto `q`, with `table` qualifying the scope columns. An `or` in the
+   * callback stays grouped: `… AND (a OR b) AND <scopes>`.
+   */
+  #applyRelatedConstraints(
+    q: QueryBuilder,
+    related: ModelQuery | undefined,
+    relatedModel: ModelClass,
+    table: string,
+  ): QueryBuilder {
+    if (related) {
+      if (this.#constraintsHaveOr(related)) {
+        q = q.whereNested((inner) => {
+          related.applyConstraintsTo(inner);
+        });
+      } else {
+        q = related.applyConstraintsTo(q);
+      }
+    }
+    const scopes = related ?? (relatedModel.newQuery() as ModelQuery);
+    return scopes.applyGlobalScopesToSubquery(q, table);
   }
 
   /**
@@ -2911,7 +3056,7 @@ export class ModelQuery<
    * correlation for `b`. Grouping only when an `or` is present keeps the SQL for
    * plain AND callbacks unchanged.
    */
-  #relatedConstraintsHaveOr(from: ModelQuery): boolean {
+  #constraintsHaveOr(from: ModelQuery): boolean {
     from = unwrapModelQuery(from);
     const isOr = (w: { boolean?: string }) => w.boolean === "or";
     return (
@@ -2925,7 +3070,8 @@ export class ModelQuery<
       (from.#dateWheres as ReadonlyArray<{ boolean?: string }>).some(isOr) ||
       from.#hasConstraints.some((c) => c.or) ||
       from.#morphHasConstraints.some((c) => c.or) ||
-      from.#nestedGroups.some(isOr)
+      from.#nestedGroups.some(isOr) ||
+      from.#orderedWheres.some(isOr)
     );
   }
 
@@ -3039,31 +3185,22 @@ export class ModelQuery<
         }
         let relatedQuery = constraint.relatedQuery;
         if (!relatedQuery && constraint.callback) {
-          relatedQuery = meta.related.newQuery({
-            withoutGlobalScopes: true,
-          }) as ModelQuery;
+          relatedQuery = meta.related.newQuery() as ModelQuery;
           constraint.callback(relatedQuery);
         }
-        if (relatedQuery) {
-          const rq = relatedQuery;
-          rq.qualifyColumns(relatedAlias);
-          if (this.#relatedConstraintsHaveOr(rq)) {
-            q = q.whereNested((inner) => {
-              rq.applyConstraintsTo(inner);
-            });
-          } else {
-            q = rq.applyConstraintsTo(q);
-          }
-        }
-        return q;
+        relatedQuery?.qualifyColumns(relatedAlias);
+        return this.#applyRelatedConstraints(
+          q,
+          relatedQuery,
+          meta.related,
+          relatedAlias,
+        );
       }
 
       // or / not / nested where: IN (SELECT ownerKey ...) — reuse call-time relatedQuery when present.
       let relatedQuery = constraint.relatedQuery;
       if (!relatedQuery) {
-        relatedQuery = meta.related.newQuery({
-          withoutGlobalScopes: true,
-        }) as ModelQuery;
+        relatedQuery = meta.related.newQuery() as ModelQuery;
         if (constraint.callback) {
           constraint.callback(relatedQuery);
         }
@@ -3134,15 +3271,17 @@ export class ModelQuery<
           `whereHas supports HasMany/HasOne/BelongsTo/BelongsToMany; [${constraint.relation}] is not supported.`,
         );
       }
-      if (constraint.relatedQuery) {
-        constraint.relatedQuery.applyConstraintsTo(sub);
-      } else if (constraint.callback) {
-        const relatedQuery = meta.related.newQuery({
-          withoutGlobalScopes: true,
-        });
-        constraint.callback(relatedQuery as ModelQuery);
-        relatedQuery.applyConstraintsTo(sub);
+      let relatedQuery = constraint.relatedQuery;
+      if (!relatedQuery && constraint.callback) {
+        relatedQuery = meta.related.newQuery() as ModelQuery;
+        constraint.callback(relatedQuery);
       }
+      this.#applyRelatedConstraints(
+        sub,
+        relatedQuery,
+        meta.related,
+        meta.related.table,
+      );
     };
 
     if (constraint.or) {
@@ -3181,11 +3320,12 @@ export class ModelQuery<
                 `${Related.table}.${Related.primaryKey}`,
                 `${this.model.table}.${constraint.idColumn}`,
               );
+              let rq: ModelQuery | undefined;
               if (constraint.callback) {
-                const rq = Related.newQuery({ withoutGlobalScopes: true });
-                constraint.callback(rq as ModelQuery);
-                rq.applyConstraintsTo(ex);
+                rq = Related.newQuery() as ModelQuery;
+                constraint.callback(rq);
               }
+              this.#applyRelatedConstraints(ex, rq, Related, Related.table);
             });
           };
           if (i === 0) inner.whereNested(branch);
@@ -3219,11 +3359,12 @@ export class ModelQuery<
             `${this.model.table}.${constraint.typeColumn}`,
             type,
           );
+          let rq: ModelQuery | undefined;
           if (constraint.callback) {
-            const rq = Related.newQuery({ withoutGlobalScopes: true });
-            constraint.callback(rq as ModelQuery);
-            rq.applyConstraintsTo(ex);
+            rq = Related.newQuery() as ModelQuery;
+            constraint.callback(rq);
           }
+          this.#applyRelatedConstraints(ex, rq, Related, Related.table);
         };
         if (i === 0) {
           if (constraint.types.length === 1) {
@@ -3255,11 +3396,12 @@ export class ModelQuery<
           `${this.model.table}.${constraint.typeColumn} = ?`,
           [type],
         );
+        let rq: ModelQuery | undefined;
         if (constraint.callback) {
-          const rq = Related.newQuery({ withoutGlobalScopes: true });
-          constraint.callback(rq as ModelQuery);
-          rq.applyConstraintsTo(sub);
+          rq = Related.newQuery() as ModelQuery;
+          constraint.callback(rq);
         }
+        this.#applyRelatedConstraints(sub, rq, Related, Related.table);
         return;
       }
       combined(sub);
@@ -3965,7 +4107,7 @@ export class ModelQuery<
     // Count must include those joins (and builderExtras) or Postgres fails with
     // "missing FROM-clause entry for table …".
     this.#qualifyParentConstraintsForJoins();
-    countQ = this.applyConstraintsTo(countQ);
+    countQ = this.#applyOwnConstraintsTo(countQ);
     if (this.#joins.length > 0) {
       for (const j of this.#joins) {
         if (j.type === "left") {

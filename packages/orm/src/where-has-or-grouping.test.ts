@@ -142,3 +142,145 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
     });
   },
 );
+
+/**
+ * Global scopes and soft deletes must hold when the query's own wheres use
+ * `or`: `scope AND (a OR b)`, never `scope AND a OR b`.
+ */
+describe.each(drivers.map((d) => [d.name, d] as const))(
+  "own or conditions stay behind scopes (%s)",
+  (_name, driver) => {
+    class Note extends Model {
+      static table = "wo_notes";
+      static timestamps = false;
+      static fillable = ["post_id", "body"];
+      declare id: number;
+    }
+    class Owner extends Model {
+      static table = "wo_owners";
+      static timestamps = false;
+      static fillable = ["name", "tenant_id"];
+      declare id: number;
+    }
+    class Post extends Model {
+      static table = "wo_posts";
+      static timestamps = false;
+      static fillable = ["title", "tenant_id", "owner_id"];
+      declare id: number;
+      declare title: string;
+      notes() {
+        return this.hasMany(Note, "post_id");
+      }
+      owner() {
+        return this.belongsTo(Owner, "owner_id");
+      }
+    }
+    class Draft extends Model {
+      static table = "wo_drafts";
+      static timestamps = false;
+      static softDeletes = true;
+      static fillable = ["title"];
+      declare title: string;
+    }
+    const tables = ["wo_notes", "wo_posts", "wo_owners", "wo_drafts"];
+    const titles = async (query: any) =>
+      (await query.get())
+        .all()
+        .map((row: { title: string }) => row.title)
+        .sort();
+
+    beforeAll(async () => {
+      Model.setConnection(driver.connection);
+      const schema = schemaFor(driver.connection);
+      for (const t of tables) await schema.dropIfExists(t);
+      await schema.create("wo_owners", (b) => {
+        b.id();
+        b.string("name");
+        b.integer("tenant_id");
+      });
+      await schema.create("wo_posts", (b) => {
+        b.id();
+        b.string("title");
+        b.integer("tenant_id");
+        b.integer("owner_id");
+      });
+      await schema.create("wo_notes", (b) => {
+        b.id();
+        b.integer("post_id");
+        b.string("body");
+      });
+      await schema.create("wo_drafts", (b) => {
+        b.id();
+        b.string("title");
+        b.timestamp("deleted_at").nullable();
+      });
+
+      const ownOwner = await Owner.create({ name: "Mine", tenant_id: 1 });
+      const otherOwner = await Owner.create({ name: "Theirs", tenant_id: 2 });
+      const mine = await Post.create({ title: "mine", tenant_id: 1, owner_id: ownOwner.id });
+      // Tenant 1 post pointing at another tenant's owner row.
+      await Post.create({ title: "crossed", tenant_id: 1, owner_id: otherOwner.id });
+      const theirs = await Post.create({ title: "theirs", tenant_id: 2, owner_id: otherOwner.id });
+      await Note.create({ post_id: mine.id, body: "hello" });
+      await Note.create({ post_id: theirs.id, body: "secret" });
+      Post.addGlobalScope("tenant", (q) => q.where("wo_posts.tenant_id", 1));
+      Owner.addGlobalScope("tenant", (q) => q.where("tenant_id", 1));
+
+      await Draft.create({ title: "kept" });
+      const gone = await Draft.create({ title: "gone" });
+      await gone.delete();
+    });
+
+    afterAll(async () => {
+      const schema = schemaFor(driver.connection);
+      for (const t of tables) await schema.dropIfExists(t);
+    });
+
+    test("top-level orWhere does not reach other tenants", async () => {
+      const q = Post.query().where("title", "none").orWhere("title", "theirs");
+      expect(await titles(q)).toEqual([]);
+      expect(await q.count()).toBe(0);
+    });
+
+    test("top-level orWhereHas does not reach other tenants", async () => {
+      const q = Post.query()
+        .where("title", "none")
+        .orWhereHas("notes", (nq: any) => {
+          nq.where("body", "secret");
+        });
+      expect(await titles(q)).toEqual([]);
+    });
+
+    test("top-level orWhere does not bring back soft-deleted rows", async () => {
+      expect(await titles(Draft.query().where("title", "none").orWhere("title", "gone"))).toEqual([]);
+      expect(
+        await titles(Draft.query().where("title", "kept").orWhere("title", "gone")),
+      ).toEqual(["kept"]);
+    });
+
+    test("whereHas keeps its written place among plain wheres", async () => {
+      // a OR (EXISTS notes AND b): with the EXISTS moved last it would read (a AND b) OR EXISTS.
+      const q = Post.withoutGlobalScopes()
+        .where("title", "mine")
+        .orWhereHas("notes", (nq: any) => {
+          nq.where("body", "secret");
+        })
+        .where("tenant_id", 2);
+      expect(await titles(q)).toEqual(["mine", "theirs"]);
+    });
+
+    test("belongsTo whereHas applies the related model's global scopes (join)", async () => {
+      const q = Post.query().whereHas("owner");
+      expect(await titles(q)).toEqual(["mine"]);
+    });
+
+    test("belongsTo orWhereHas applies the related model's global scopes (IN)", async () => {
+      const q = Post.query()
+        .where("title", "none")
+        .orWhereHas("owner", (oq: any) => {
+          oq.where("name", "Theirs");
+        });
+      expect(await titles(q)).toEqual([]);
+    });
+  },
+);
