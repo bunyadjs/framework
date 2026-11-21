@@ -168,6 +168,7 @@ describe.each(drivers.map((d) => [d.name, d] as const))(
       static fillable = ["title", "tenant_id", "owner_id"];
       declare id: number;
       declare title: string;
+      declare tenant_id: number;
       notes() {
         return this.hasMany(Note, "post_id");
       }

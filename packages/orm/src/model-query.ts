@@ -140,6 +140,15 @@ type WhereLists = {
  */
 type WhereStep = { seq: number; run: (q: QueryBuilder) => QueryBuilder };
 
+/** True when any entry is joined with `or` (plain loop: runs on every build). */
+function listHasOr(list: ReadonlyArray<{ boolean?: string; or?: boolean }>): boolean {
+  for (let i = 0; i < list.length; i++) {
+    const entry = list[i]!;
+    if (entry.boolean === "or" || entry.or === true) return true;
+  }
+  return false;
+}
+
 function applyWhereLists(
   q: QueryBuilder,
   lists: WhereLists,
@@ -2562,6 +2571,24 @@ export class ModelQuery<
 
   /** Apply this query's wheres onto a QueryBuilder (exists subqueries). */
   applyConstraintsTo(q: QueryBuilder): QueryBuilder {
+    const lists: WhereLists = {
+      wheres: this.#wheres,
+      whereIns: this.#whereIns,
+      whereNulls: this.#whereNulls,
+      whereBetweens: this.#whereBetweens,
+      whereColumns: this.#whereColumns,
+      whereRaws: this.#whereRaws,
+      whereLikes: this.#whereLikes,
+      dateWheres: this.#dateWheres,
+    };
+    if (
+      this.#hasConstraints.length === 0 &&
+      this.#morphHasConstraints.length === 0 &&
+      this.#nestedGroups.length === 0 &&
+      this.#orderedWheres.length === 0
+    ) {
+      return applyWhereLists(q, lists);
+    }
     // Relation, nested and builder-only conditions are sorted with the plain
     // wheres so `where(a).orWhereHas(x).where(b)` stays `a OR EXISTS x AND b`.
     // Entries without a sequence number keep the old place, after the plain wheres.
@@ -2612,20 +2639,7 @@ export class ModelQuery<
       });
     }
 
-    return applyWhereLists(
-      q,
-      {
-        wheres: this.#wheres,
-        whereIns: this.#whereIns,
-        whereNulls: this.#whereNulls,
-        whereBetweens: this.#whereBetweens,
-        whereColumns: this.#whereColumns,
-        whereRaws: this.#whereRaws,
-        whereLikes: this.#whereLikes,
-        dateWheres: this.#dateWheres,
-      },
-      extra,
-    );
+    return applyWhereLists(q, lists, extra);
   }
 
   /**
@@ -3058,20 +3072,19 @@ export class ModelQuery<
    */
   #constraintsHaveOr(from: ModelQuery): boolean {
     from = unwrapModelQuery(from);
-    const isOr = (w: { boolean?: string }) => w.boolean === "or";
     return (
-      from.#wheres.some(isOr) ||
-      from.#whereIns.some(isOr) ||
-      from.#whereNulls.some(isOr) ||
-      from.#whereBetweens.some(isOr) ||
-      from.#whereColumns.some(isOr) ||
-      from.#whereRaws.some(isOr) ||
-      from.#whereLikes.some(isOr) ||
-      (from.#dateWheres as ReadonlyArray<{ boolean?: string }>).some(isOr) ||
-      from.#hasConstraints.some((c) => c.or) ||
-      from.#morphHasConstraints.some((c) => c.or) ||
-      from.#nestedGroups.some(isOr) ||
-      from.#orderedWheres.some(isOr)
+      listHasOr(from.#wheres) ||
+      listHasOr(from.#whereLikes) ||
+      listHasOr(from.#hasConstraints) ||
+      listHasOr(from.#nestedGroups) ||
+      listHasOr(from.#whereIns) ||
+      listHasOr(from.#whereNulls) ||
+      listHasOr(from.#whereBetweens) ||
+      listHasOr(from.#whereColumns) ||
+      listHasOr(from.#whereRaws) ||
+      listHasOr(from.#dateWheres as ReadonlyArray<{ boolean?: string }>) ||
+      listHasOr(from.#morphHasConstraints) ||
+      listHasOr(from.#orderedWheres)
     );
   }
 
