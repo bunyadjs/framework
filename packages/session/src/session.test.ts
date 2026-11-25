@@ -209,6 +209,37 @@ test("FileSessionStore read write destroy", async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
+test("FileSessionStore treats an empty or truncated file as a missing session", async () => {
+  const dir = join(import.meta.dir, ".tmp-sessions-bad");
+  await rm(dir, { recursive: true, force: true });
+  await mkdir(dir, { recursive: true });
+
+  const store = new FileSessionStore({ path: dir });
+  await Bun.write(join(dir, "empty.json"), "");
+  await Bun.write(join(dir, "cut.json"), "{");
+  expect(await store.read("empty")).toBeUndefined();
+  expect(await store.read("cut")).toBeUndefined();
+  await store.write("empty", { user_id: 3 });
+  expect(await store.read("empty")).toEqual({ user_id: 3 });
+
+  await rm(dir, { recursive: true, force: true });
+});
+
+test("FileSessionStore overlapping writes stay valid JSON", async () => {
+  const dir = join(import.meta.dir, ".tmp-sessions-race");
+  await rm(dir, { recursive: true, force: true });
+  await mkdir(dir, { recursive: true });
+
+  const store = new FileSessionStore({ path: dir });
+  await Promise.all(
+    Array.from({ length: 24 }, (_, n) => store.write("same", { n })),
+  );
+  const saved = await store.read("same");
+  expect(typeof saved?.n).toBe("number");
+
+  await rm(dir, { recursive: true, force: true });
+});
+
 test("FileSessionStore respects lifetime", async () => {
   const dir = join(import.meta.dir, ".tmp-sessions-ttl");
   await rm(dir, { recursive: true, force: true });
