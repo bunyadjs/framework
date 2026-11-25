@@ -1794,18 +1794,19 @@ export class ModelQuery<
   }
 
   /**
-   * OR `LIKE %term%` across columns (a list `search`).
-   * Empty/whitespace term is a no-op.
+   * `LIKE %term%` across columns (a list `search`).
+   * `caseSensitive` defaults to false: PostgreSQL uses `ILIKE`. Pass true for a
+   * case-sensitive `LIKE` on PostgreSQL. An empty term is a no-op.
    */
-  search(columns: string[], term: string): this {
+  search(columns: string[], term: string, caseSensitive = false): this {
     const needle = String(term ?? "").trim();
     if (!needle || columns.length === 0) return this;
     const pattern = `%${needle}%`;
     return this.where((q) => {
       for (let i = 0; i < columns.length; i++) {
         const col = columns[i]!;
-        if (i === 0) (q as ModelQuery<any>).where(col, "like", pattern);
-        else (q as ModelQuery<any>).orWhere(col, "like", pattern);
+        if (i === 0) (q as ModelQuery<any>).whereLike(col, pattern, caseSensitive);
+        else (q as ModelQuery<any>).orWhereLike(col, pattern, caseSensitive);
       }
     });
   }

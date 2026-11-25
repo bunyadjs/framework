@@ -369,7 +369,7 @@ test("search orderBySql and nested where callback", async () => {
   await User.create({ name: "Ada", email: "ada@x.test" });
   await User.create({ name: "Bob", email: "bob@x.test" });
 
-  const bySearch = await User.search(["name", "email"], "ada").get();
+  const bySearch = await User.search(["name", "email"], "ADA").get();
   expect(bySearch.pluck("name").all()).toEqual(["Ada"]);
 
   const nested = await User.where((q) => {

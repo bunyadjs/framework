@@ -1534,14 +1534,17 @@ export class Model {
     return (q as ModelQuery<any>).where(columnOrCallback, String(opOrValue), value);
   }
 
-  /** Multi-column LIKE search. */
+  /**
+   * Multi-column LIKE search. Case-insensitive unless `caseSensitive` is true.
+   */
   static search<T extends typeof Model>(
     this: T,
     columns: string[],
     term: string,
+    caseSensitive = false,
   ): ModelQuery<InstanceType<T>> {
     this.bootIfNotBooted();
-    return this.newQuery().search(columns, term);
+    return this.newQuery().search(columns, term, caseSensitive);
   }
 
 
