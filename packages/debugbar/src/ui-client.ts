@@ -6,9 +6,11 @@
 export const CLIENT_CSS = String.raw`
 :host{all:initial}
 *{box-sizing:border-box}
-.bd{position:fixed;left:0;right:0;bottom:0;z-index:2147483000;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#d6dbe4;direction:ltr;text-align:left}
-.bar{display:flex;align-items:stretch;height:34px;background:#15181e;border-top:1px solid #2a2f3a;overflow-x:auto;overflow-y:hidden;white-space:nowrap}
-.brand{display:flex;align-items:center;gap:6px;padding:0 12px;font-weight:700;color:#fff;background:#0b6bcb;border:0;cursor:pointer;font:inherit;font-weight:700}
+.bd{position:fixed;left:0;right:0;bottom:0;z-index:2147483000;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#d6dbe4;direction:ltr;text-align:left;border-top:2px solid #ff2d2d;box-shadow:inset 0 1px 0 #8a0a0a}
+.bar{display:flex;align-items:stretch;height:34px;background:#15181e;overflow-x:auto;overflow-y:hidden;white-space:nowrap}
+.brand{display:flex;align-items:center;justify-content:center;flex:0 0 40px;width:40px;padding:0;color:#fff;background:linear-gradient(180deg,#2b93f5 0%,#0b6bcb 58%,#084f99 100%);border:0;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.brand:hover{filter:brightness(1.08)}
+.bug{display:block;width:18px;height:18px}
 .item{display:flex;align-items:center;gap:6px;padding:0 12px;border:0;border-right:1px solid #232834;background:none;color:inherit;font:inherit;cursor:pointer}
 .item:hover,.item.on{background:#202531;color:#fff}
 .item .k{color:#8a93a6}
@@ -49,7 +51,12 @@ pre{margin:0;white-space:pre-wrap;word-break:break-word;font:inherit}
 .tl i.m{background:#a05cd6}
 .tl span{position:absolute;left:6px;top:1px;color:#fff;text-shadow:0 0 3px #000;white-space:nowrap}
 .btn{background:#202531;color:inherit;border:1px solid #2f3646;border-radius:4px;padding:1px 8px;font:inherit;cursor:pointer}
-.min{position:fixed;right:12px;bottom:12px;z-index:2147483000;background:#0b6bcb;color:#fff;border:0;border-radius:18px;padding:7px 12px;font:700 12px ui-monospace,Menlo,monospace;cursor:pointer}
+.min{position:fixed;right:16px;bottom:16px;z-index:2147483000;width:54px;height:54px;padding:0;display:flex;align-items:center;justify-content:center;color:#fff;border:0;border-radius:50%;cursor:pointer;background:radial-gradient(circle at 32% 26%,#6eb6ff 0%,#0b6bcb 46%,#063a7a 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.6),inset 0 -3px 6px rgba(0,20,50,.4),0 10px 22px rgba(11,107,203,.45),0 2px 4px rgba(0,0,0,.28);transition:transform .15s ease,box-shadow .15s ease}
+.min:hover{transform:translateY(-2px) scale(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.65),inset 0 -3px 6px rgba(0,20,50,.35),0 14px 28px rgba(11,107,203,.52),0 3px 6px rgba(0,0,0,.3)}
+.min:active{transform:translateY(0) scale(.97)}
+.min .bug{width:26px;height:26px}
+.min::after{content:'Open debugbar';position:absolute;right:0;bottom:calc(100% + 10px);padding:6px 10px;border-radius:8px;background:#15181e;color:#fff;font:600 12px ui-sans-serif,system-ui,sans-serif;line-height:1;white-space:nowrap;opacity:0;pointer-events:none;box-shadow:0 8px 18px rgba(0,0,0,.35);transition:opacity .12s ease}
+.min:hover::after,.min:focus-visible::after{opacity:1}
 .dup{color:#ffd166}
 .chips{display:flex;gap:6px;margin-bottom:8px}
 .chip{background:#202531;color:#9aa3b5;border:1px solid #2f3646;border-radius:12px;padding:2px 10px;font:inherit;cursor:pointer}
@@ -111,6 +118,37 @@ export const CLIENT_JS = String.raw`
     if (c == null || c === false) return;
     if (Array.isArray(c)) { for (var i = 0; i < c.length; i++) add(el, c[i]); return; }
     el.appendChild(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  function bugIcon() {
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("class", "bug");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+    var d = [
+      "m8 2 1.88 1.88",
+      "M14.12 3.88 16 2",
+      "M9 7.13v-1a3.003 3.003 0 1 1 6 0v1",
+      "M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6",
+      "M12 20v-9",
+      "M6.53 9C4.6 8.8 3 7.1 3 5",
+      "M6 13H2",
+      "M3 21c0-2.1 1.7-3.9 3.8-4",
+      "M20.97 5c0 2.1-1.6 3.8-3.5 4",
+      "M22 13h-4",
+      "M17.2 17c2.1.1 3.8 1.9 3.8 4"
+    ];
+    for (var i = 0; i < d.length; i++) {
+      var path = document.createElementNS(ns, "path");
+      path.setAttribute("d", d[i]);
+      svg.appendChild(path);
+    }
+    return svg;
   }
   function ms(n) { return n < 1 ? n.toFixed(2) + "ms" : n < 1000 ? n.toFixed(1) + "ms" : (n / 1000).toFixed(2) + "s"; }
   function bytes(n) { return n < 1048576 ? (n / 1024).toFixed(0) + "KB" : (n / 1048576).toFixed(1) + "MB"; }
@@ -258,14 +296,14 @@ export const CLIENT_JS = String.raw`
     root.innerHTML = "";
     root.appendChild(h("style", null, css));
     if (state.hidden) {
-      root.appendChild(h("button", { class: "min", onclick: function () { state.hidden = false; pref("hidden", "0"); render(); } }, "Bunyad"));
+      root.appendChild(h("button", { class: "min", "aria-label": "Open debugbar", onclick: function () { state.hidden = false; pref("hidden", "0"); render(); } }, bugIcon()));
       return;
     }
     var open = all.filter(function (t) { return t.id === state.tab; })[0];
     function toggle(id) { state.tab = state.tab === id ? null : id; pref("tab", state.tab || ""); render(); }
 
     var bar = h("div", { class: "bar" },
-      h("button", { class: "brand", title: "Request history", onclick: function () { window.open(base, "_blank"); } }, "Bunyad"),
+      h("button", { class: "brand", title: "Request history", "aria-label": "Request history", onclick: function () { window.open(base, "_blank"); } }, bugIcon()),
       item(s.request.method, s.request.path + " ", { cls: badgeFor(s.request.status), onclick: function () { toggle("request"); }, on: state.tab === "request", title: s.request.url }),
       item("status", s.request.status, { cls: badgeFor(s.request.status), onclick: function () { toggle("request"); } }),
       item("route", s.request.route.name || "—", { onclick: function () { toggle("request"); } }),
