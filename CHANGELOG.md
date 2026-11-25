@@ -2,6 +2,25 @@
 
 All `@bunyad/*` packages and `create-bunyad` share one version number and are released together. See [docs/STABILITY.md](docs/STABILITY.md) for what each stage promises and [docs/UPGRADING.md](docs/UPGRADING.md) for how to move between releases.
 
+## 0.2.0-beta.6
+
+Published under the `beta` npm tag. Query and middleware fixes, plus two small additions. Existing code does not need changes.
+
+### Added
+
+- **`serve()` can listen on extra ports.** `extraPorts` opens the same handler on more ports, for example 80 next to the app port. A port that cannot be bound is skipped and does not fail the main listener. `onExtraPort` runs once for each extra port that opens.
+
+### Fixed
+
+- **`whereHas` callbacks that use `orWhere` stay grouped.** They were added to the `EXISTS` subquery without brackets, so `fk = pk AND a OR b` matched related rows of any parent and every parent came back. The callback's conditions are now `fk = pk AND (a OR b) AND <scopes>` when they contain an or. The same wrap applies to a `belongsTo` `whereHas` expanded to a join. A `belongsTo` `whereHas` inside another relation's callback compiles to an `IN` subquery instead of a join the subquery would drop.
+- **`belongsTo` `whereDoesntHave` compiles to `NOT EXISTS`.** `fk NOT IN (SELECT id …)` is unknown when the foreign key is `NULL`, so rows with no related record were dropped. It is now a correlated `NOT EXISTS` that includes the related model's soft deletes and global scopes. `whereHas` and `orWhereHas` keep the `IN` shape.
+- **`exists()` selects `1`.** It used to read every column of the first matching row. A query that selects its own columns, groups, has `having` clauses, unions, or is distinct keeps its select list, because the result can depend on it.
+- **The `Middleware` decorator no longer clashes with the `Middleware` type.** The type import is aliased, so one file can use both.
+
+### Changed
+
+- **Debugbar.** The closed bar is a bug icon with an Open debugbar tooltip, instead of a wordmark pill. The open bar uses the same icon and a red top edge.
+
 ## 0.2.0-beta.5
 
 Published under the `beta` npm tag. Adds one database feature; nothing changes for existing code.
