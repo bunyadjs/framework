@@ -29,6 +29,8 @@ select{background:#202531;color:inherit;border:1px solid #2f3646;border-radius:4
 .collapse{margin-left:auto;padding:0 14px;border:0;background:none;color:#9aa3b5;font:inherit;font-size:14px;cursor:pointer}
 .collapse:hover{color:#fff;background:#202531}
 .body{overflow:auto;padding:10px 14px;flex:1}
+.bar,.tabs,.body{scrollbar-width:none;-ms-overflow-style:none}
+.bar::-webkit-scrollbar,.tabs::-webkit-scrollbar,.body::-webkit-scrollbar{display:none;width:0;height:0}
 table,th,td,pre,button,select{font:inherit}
 table{border-collapse:collapse;width:100%}
 th{text-align:left;color:#8a93a6;font-weight:600;padding:4px 8px;border-bottom:1px solid #232834}
